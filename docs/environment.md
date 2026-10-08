@@ -4,7 +4,7 @@ Validadas em `src/server/env.ts`: a aplicação falha alto se algo estiver errad
 
 | Variável | Onde | Obrigatória | Descrição |
 |---|---|---|---|
-| `APP_URL` | todos | sim (padrão `http://localhost:3000`) | URL pública; usada em cookies, CSRF e links de e-mail |
+| `APP_URL` | todos | não | URL pública (cookies, CSRF, links de e-mail). Padrão: `http://localhost:3000`; na Vercel, o domínio de produção ou a URL do preview |
 | `DATABASE_URL` | todos | sim | dev: `pglite://.data/pglite`; Neon: login `luumu_app_login`, endpoint **pooled** |
 | `DATABASE_URL_AUTH` | Vercel | com Postgres | login `luumu_auth_login`, endpoint pooled |
 | `DATABASE_URL_MIGRATIONS` | CLI / GitHub Actions | para migrar | role dona do schema, endpoint **direto**. **Nunca na Vercel** |

@@ -60,7 +60,7 @@ Previsto: validação por *magic bytes*, limite por tipo, nome gerado no servido
 
 - Separação entre identidade, dados de RH e dados de desenvolvimento; minimização em cada endpoint.
 - O check-in de humor (Fase 2) é **identificado**, por decisão de produto, mas é dado potencialmente de saúde. Ele será visível ao próprio colaborador, agregado com k-anonimato para G&G e **nunca** individualmente para gestores. A tela vai explicar a finalidade.
-- Dados hospedados no Brasil: Vercel `gru1` + Neon `sa-east-1`.
+- Hospedagem atual: Neon `us-east-1` + Vercel `iad1` (transferência internacional, com base no art. 33 da LGPD). Recomendação: migrar para `sa-east-1` + `gru1` antes de dados reais de clientes.
 
 ## Riscos conhecidos e próximos passos
 

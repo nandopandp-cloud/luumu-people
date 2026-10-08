@@ -2,8 +2,14 @@
 
 ## Região e LGPD
 
-- Vercel: funções em **`gru1` (São Paulo)**, definido em `vercel.json`.
-- Neon: crie o projeto em **AWS `sa-east-1` (São Paulo)**.
+As funções da Vercel precisam ficar na **mesma região do banco**: cada página faz várias consultas, e cada viagem entre continentes custa cerca de 120 ms.
+
+| Banco (Neon) | `regions` em `vercel.json` |
+|---|---|
+| AWS `us-east-1` (configuração atual) | `iad1` |
+| AWS `sa-east-1` (São Paulo) — recomendado antes de dados reais de clientes brasileiros | `gru1` |
+
+Para ir para São Paulo: crie um projeto Neon em `sa-east-1`, refaça os passos abaixo e troque `regions` para `gru1`.
 
 ## 1. Neon (uma vez por branch: `main` e `preview`)
 
@@ -28,12 +34,12 @@ No projeto já criado (Settings → Environment Variables), configure **por ambi
 | `DATABASE_URL` | `postgresql://luumu_app_login:<senha>@<host>-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require` |
 | `DATABASE_URL_AUTH` | `postgresql://luumu_auth_login:<senha>@<host>-pooler…/neondb?sslmode=require` |
 | `BETTER_AUTH_SECRET` | `openssl rand -base64 48` (um por ambiente) |
-| `APP_URL` | URL do ambiente (ex.: `https://people.suaempresa.com`) |
+| `APP_URL` | opcional: sem ela, usa o domínio de produção da Vercel (`VERCEL_PROJECT_PRODUCTION_URL`) e, em previews, a URL da branch/deploy. Defina ao usar domínio próprio. |
 | `RESEND_API_KEY`, `EMAIL_FROM` | provedor de e-mail |
 
 **Não** configure `DATABASE_URL_MIGRATIONS` na Vercel.
 
-Em previews, `APP_URL` precisa bater com a URL do deploy (cookies e CSRF dependem dela). Use um domínio fixo de preview, ou a integração Neon ↔ Vercel com branch por PR e a URL estável da branch.
+Deixe ligada a opção "Automatically expose System Environment Variables" (padrão da Vercel): é dela que vêm as URLs de produção e de preview aceitas pelo login.
 
 ## 3. Migrations em cada release
 

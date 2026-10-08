@@ -9,7 +9,7 @@ import { authDb } from "@/server/db/client";
 import * as s from "@/server/db/schema";
 import { withTenant } from "@/server/db/tenant";
 import { escapeHtml, sendEmail } from "@/server/email/mailer";
-import { env } from "@/server/env";
+import { env, trustedOrigins } from "@/server/env";
 import { logger } from "@/server/observability/logger";
 import { clearFailures, isLocked, registerFailure } from "./login-throttle";
 import { hashPassword, verifyPassword } from "./password";
@@ -74,7 +74,7 @@ function buildOptions(database: BetterAuthOptions["database"]): BetterAuthOption
     baseURL: config.APP_URL,
     basePath: "/api/auth",
     secret: config.BETTER_AUTH_SECRET,
-    trustedOrigins: [config.APP_URL],
+    trustedOrigins: trustedOrigins(),
     telemetry: { enabled: false },
     database,
     user: {

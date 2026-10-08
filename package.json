@@ -13,12 +13,12 @@
     "test:e2e": "playwright test",
     "check": "pnpm lint && pnpm typecheck && pnpm test",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx scripts/db-migrate.ts",
-    "db:seed": "tsx scripts/db-seed.ts",
-    "db:provision-roles": "tsx scripts/db-provision-roles.ts",
+    "db:migrate": "tsx scripts/db-migrate.mts",
+    "db:seed": "tsx scripts/db-seed.mts",
+    "db:provision-roles": "tsx scripts/db-provision-roles.mts",
     "db:reset-local": "rm -rf .data/pglite",
     "brand:build": "node scripts/brand-split.mjs",
-    "tenant:create": "tsx scripts/create-tenant.ts"
+    "tenant:create": "tsx scripts/create-tenant.mts"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.2.2",

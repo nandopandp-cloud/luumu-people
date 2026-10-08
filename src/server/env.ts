@@ -13,9 +13,28 @@ const databaseUrl = z
     message: "Use postgres://, postgresql:// ou pglite://",
   });
 
+/**
+ * URL pública. Na Vercel, se APP_URL não for definida, usa as variáveis de
+ * sistema: domínio de produção em Production; URL da branch/deploy em Preview.
+ */
+function defaultAppUrl(): string {
+  const e = process.env;
+  if (e.VERCEL_ENV === "production" && e.VERCEL_PROJECT_PRODUCTION_URL) return `https://${e.VERCEL_PROJECT_PRODUCTION_URL}`;
+  if (e.VERCEL_BRANCH_URL) return `https://${e.VERCEL_BRANCH_URL}`;
+  if (e.VERCEL_URL) return `https://${e.VERCEL_URL}`;
+  return "http://localhost:3000";
+}
+
+/** Origens aceitas para login/CSRF: a URL pública e, na Vercel, os demais endereços do mesmo deploy. */
+export function trustedOrigins(): string[] {
+  const e = process.env;
+  const hosts = [e.VERCEL_URL, e.VERCEL_BRANCH_URL, e.VERCEL_ENV === "production" ? e.VERCEL_PROJECT_PRODUCTION_URL : undefined];
+  return [...new Set([env().APP_URL, ...hosts.filter(Boolean).map((h) => `https://${h}`)])];
+}
+
 const schema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  APP_URL: z.url().default("http://localhost:3000"),
+  APP_URL: z.url().default(defaultAppUrl),
   DATABASE_URL: databaseUrl.default("pglite://.data/pglite"),
   DATABASE_URL_AUTH: databaseUrl.optional(),
   BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET precisa de pelo menos 32 caracteres"),

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { resolveActor, type AuthenticatedActor } from "@/server/auth/session";
 import type { Permission } from "@/server/authz/permissions";
 import { hasPermissionAnywhere } from "@/server/authz/policy";
-import { env } from "@/server/env";
+import { trustedOrigins } from "@/server/env";
 import { logger } from "@/server/observability/logger";
 import { badRequest, forbidden, HttpError, problem, unauthorized } from "./errors";
 import { checkRateLimit, DEFAULT_RATE_LIMIT, type RateLimitRule } from "./rate-limit";
@@ -70,7 +70,8 @@ function isSameOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
   if (!origin) return fetchSite === "same-origin";
   try {
-    return new URL(origin).origin === new URL(env().APP_URL).origin || new URL(origin).origin === new URL(request.url).origin;
+    const normalized = new URL(origin).origin;
+    return normalized === new URL(request.url).origin || trustedOrigins().includes(normalized);
   } catch {
     return false;
   }

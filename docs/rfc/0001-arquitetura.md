@@ -439,7 +439,7 @@ Uma funcionalidade está pronta quando tem UI, backend, banco, validação, auto
 | Stack | Aprovada. **Alteração:** a API é feita de route handlers do próprio Next.js (`/api/v1`), não um serviço NestJS separado, porque o produto roda num único projeto na Vercel. O domínio continua independente do framework (`src/server/modules`) e as garantias de isolamento ficam no banco (roles, RLS, grants por coluna, `SECURITY DEFINER` no cofre). |
 | Monorepo | Simplificado para um único pacote na raiz (compatível com o projeto já criado na Vercel). Fronteiras garantidas por pastas + regras de ESLint. |
 | Banco | Neon (Postgres 17, `sa-east-1`). Desenvolvimento e testes com **PGlite**, o Postgres real em WASM, sem Docker. |
-| Hospedagem | Vercel (região `gru1`). O projeto está no plano **Hobby**, que não permite uso comercial: migrar para o Pro antes de atender clientes. |
+| Hospedagem | Vercel no plano **Hobby** por enquanto (não permite uso comercial; migrar para o Pro antes de atender clientes). Neon criado em `us-east-1`, então as funções rodam em `iad1`, na mesma região. Recomendado mover os dois para São Paulo antes de dados reais. |
 | Jobs | Sem worker contínuo na Vercel: tarefas assíncronas rodam na própria requisição (`after()`) ou por Vercel Cron. O flush do cofre de pesquisas roda no envio que completa o lote, e um cron diário cobre as campanhas encerradas. |
 | Rate limit | Auth: persistente no banco (Better Auth). API: em memória por instância (melhor esforço), com interface para um store distribuído. |
 | CSP | Estática sem nonce (nonce é incompatível com o static shell do Cache Components); nenhuma origem externa permitida. Ver `docs/security.md`. |
