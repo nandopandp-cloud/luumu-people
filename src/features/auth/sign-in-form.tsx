@@ -65,7 +65,6 @@ export function SignInForm() {
               type="email"
               autoComplete="username"
               required
-              autoFocus
               leading={<Mail />}
               placeholder="seu@email.com"
               className={field}
