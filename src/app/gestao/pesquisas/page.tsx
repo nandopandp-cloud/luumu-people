@@ -73,7 +73,7 @@ async function Surveys() {
             />
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="px-5 pb-1 sm:px-6">
             <Table>
               <THead>
                 <Tr>

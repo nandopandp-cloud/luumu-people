@@ -25,6 +25,7 @@ function professionalColumns() {
     name: s.users.name,
     email: s.users.email,
     image: s.users.image,
+    profileCover: s.users.profileCover,
     status: s.users.status,
     preferredName: s.employeeProfiles.preferredName,
     hireDate: s.employeeProfiles.hireDate,

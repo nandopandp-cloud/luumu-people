@@ -10,7 +10,8 @@ import { EmptyState } from "@/design-system/components/empty-state";
 import { CircularProgress, Progress } from "@/design-system/components/progress";
 import { cn } from "@/design-system/cn";
 import { monthLabel } from "@/features/courses/labels";
-import type { CompetencyRow, Development } from "@/server/modules/development/service";
+import { Table, Td, Th, THead, Tr } from "@/design-system/components/table";
+import type { AssessmentHistoryItem, CompetencyRow, Development } from "@/server/modules/development/service";
 import { AssessCompetencyButton } from "./forms";
 import { CATEGORY_LABEL, COMPETENCY_ICONS, formatDay, LEVEL, SOURCE_LABEL } from "./labels";
 
@@ -178,7 +179,7 @@ export function CompetencyBarsCard({ development, href }: { development: Develop
 }
 
 /** Grade de competências com atual x esperado e avaliação. */
-export function CompetencyGrid({ development, assessAs }: { development: Development; assessAs: "self" | "manager" | null }) {
+export function CompetencyGrid({ development, assessAs }: { development: Development; assessAs: "manager" | null }) {
   const userId = development.isSelf ? undefined : development.person.id;
   return (
     <ul className="grid gap-4 md:grid-cols-2">
@@ -214,7 +215,7 @@ export function CompetencyGrid({ development, assessAs }: { development: Develop
             <div className="mt-auto flex items-center justify-between gap-3 pt-3">
               <p className="text-caption text-neutral-600">{c.source ? `${SOURCE_LABEL[c.source]} · ${c.assessedAt ? new Date(c.assessedAt).toLocaleDateString("pt-BR") : ""}` : "Ainda não avaliada"}</p>
               {assessAs ? (
-                <AssessCompetencyButton userId={userId} competencyId={c.id} competencyName={c.name} current={c.score} label={assessAs === "self" ? "Autoavaliar" : "Avaliar"} />
+                <AssessCompetencyButton userId={userId} competencyId={c.id} competencyName={c.name} current={c.score} label="Avaliar" />
               ) : null}
             </div>
           </li>
@@ -234,5 +235,42 @@ export function EvolutionPanel({ points }: { points: { month: string; average: n
         <AreaChart title="Média das competências" description="Últimos 6 meses (última avaliação conhecida em cada mês)" valueSuffix="%" data={data} />
       )}
     </Card>
+  );
+}
+
+/** Histórico de avaliações de competência (quem avaliou, origem, nota e comentário). */
+export function AssessmentHistory({ items }: { items: AssessmentHistoryItem[] }) {
+  return (
+    <Panel id="historico-avaliacoes" title="Histórico de avaliações">
+      {items.length === 0 ? (
+        <EmptyState compact title="Nenhuma avaliação registrada" />
+      ) : (
+        <Table>
+          <THead>
+            <Tr>
+              <Th>Data</Th>
+              <Th>Competência</Th>
+              <Th className="text-right">Nível</Th>
+              <Th>Origem</Th>
+              <Th>Comentário</Th>
+            </Tr>
+          </THead>
+          <tbody>
+            {items.map((a) => (
+              <Tr key={a.id}>
+                <Td data-label="Data" className="whitespace-nowrap tabular-nums">{formatDay(new Date(a.assessedAt).toISOString().slice(0, 10))}</Td>
+                <Td data-label="Competência" className="font-medium text-neutral-900">{a.competency}</Td>
+                <Td data-label="Nível" className="text-right tabular-nums">{a.score}%</Td>
+                <Td data-label="Origem" className="whitespace-nowrap">
+                  {SOURCE_LABEL[a.source] ?? a.source}
+                  <span className="block text-caption text-neutral-600">{a.assessor}</span>
+                </Td>
+                <Td data-label="Comentário" className="max-w-[28ch] text-neutral-600">{a.note ?? "—"}</Td>
+              </Tr>
+            ))}
+          </tbody>
+        </Table>
+      )}
+    </Panel>
   );
 }

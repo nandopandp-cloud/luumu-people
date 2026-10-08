@@ -33,6 +33,8 @@ export const users = pgTable(
     email: text("email").notNull().unique(),
     emailVerified: boolean("email_verified").notNull().default(false),
     image: text("image"),
+    /** Capa do perfil (URL interna /api/v1/files/:id) — escolhida pela própria pessoa. */
+    profileCover: text("profile_cover"),
     /** @deprecated 2FA foi descartado do produto. Remover na próxima release (expand/contract). */
     twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
     status: text("status", { enum: USER_STATUSES }).notNull().default("invited"),

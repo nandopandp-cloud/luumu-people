@@ -14,7 +14,7 @@ import { badRequest, forbidden, HttpError, notFound } from "@/server/http/errors
 type Meta = { ip: string | null; userAgent: string | null; requestId: string };
 
 /** Quem pode ENVIAR cada tipo de arquivo. Avatar: o próprio usuário (se a empresa permitir). */
-const UPLOAD_PERMISSION: Record<Exclude<FilePurpose, "avatar">, Permission> = {
+const UPLOAD_PERMISSION: Record<Exclude<FilePurpose, "avatar" | "profile_cover">, Permission> = {
   course_cover: "content.course.edit",
   lesson_material: "content.course.edit",
   announcement_cover: "comms.announcement.create",
@@ -38,6 +38,8 @@ export function fileUrl(id: string) {
 }
 
 async function assertCanUpload(actor: AuthenticatedActor, purpose: FilePurpose) {
+  // Capa do perfil: personalização visual da própria pessoa, sempre permitida.
+  if (purpose === "profile_cover") return;
   if (purpose === "avatar") {
     const allowed = await withTenant(actor, async (tx) => {
       const [policy] = await tx
@@ -134,4 +136,24 @@ export async function setMyAvatar(actor: AuthenticatedActor, file: File, meta: M
     });
   });
   return uploaded;
+}
+
+/** Define (ou remove, com `file = null`) a capa do próprio perfil. */
+export async function setMyProfileCover(actor: AuthenticatedActor, file: File | null, meta: Meta) {
+  const uploaded = file ? await uploadFile(actor, "profile_cover", file, meta) : null;
+  await withTenant(actor, async (tx) => {
+    await tx.update(s.users).set({ profileCover: uploaded?.url ?? null }).where(eq(s.users.id, actor.userId));
+    await recordAudit(tx, {
+      tenantId: actor.tenantId,
+      actorUserId: actor.userId,
+      action: "people.profile_updated",
+      resourceType: "user",
+      resourceId: actor.userId,
+      metadata: { fields: ["profileCover"] },
+      ipAddress: meta.ip,
+      userAgent: meta.userAgent,
+      requestId: meta.requestId,
+    });
+  });
+  return { url: uploaded?.url ?? null };
 }

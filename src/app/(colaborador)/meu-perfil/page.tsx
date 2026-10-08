@@ -7,7 +7,7 @@ import { Card, CardHeader } from "@/design-system/components/card";
 import { Skeleton } from "@/design-system/components/feedback";
 import { LinkTabs } from "@/design-system/components/link-tabs";
 import { ComingSoon } from "@/features/page/coming-soon";
-import { AvatarUploadButton } from "@/features/profile/avatar-upload";
+import { AvatarUploadButton, CoverUploadButton } from "@/features/profile/avatar-upload";
 import { ChangePasswordForm } from "@/features/profile/change-password-form";
 import { EditProfileDialog } from "@/features/profile/edit-profile-dialog";
 import { CONTRACT_LABELS, formatDate, formatLocation } from "@/lib/format";
@@ -71,10 +71,22 @@ function ProfileHeader({ profile }: { profile: Profile }) {
   const location = formatLocation(profile.city, profile.state);
   return (
     <section className="relative mb-6 overflow-hidden rounded-xl bg-gradient-to-br from-purple-100 via-[#ece5fc] to-purple-200 px-6 py-7 sm:px-8">
-      <div aria-hidden className="absolute -right-8 -top-16 size-72 rounded-full bg-white/40 blur-2xl" />
+      {profile.profileCover ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element -- arquivo privado servido pela própria API */}
+          <img src={profile.profileCover} alt="" className="absolute inset-0 size-full object-cover" />
+          {/* Véu claro para manter o texto legível sobre qualquer imagem. */}
+          <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-white/90 via-white/75 to-white/20" />
+        </>
+      ) : (
+        <div aria-hidden className="absolute -right-8 -top-16 size-72 rounded-full bg-white/40 blur-2xl" />
+      )}
+      <div className="absolute right-4 top-4 z-10">
+        <CoverUploadButton hasCover={Boolean(profile.profileCover)} />
+      </div>
       <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center">
-        <div className="relative shrink-0 self-start rounded-xl bg-white p-2 shadow-md">
-          <Avatar name={profile.name} src={profile.image} size="xl" className="ring-0" />
+        <div className="relative shrink-0 self-start">
+          <Avatar name={profile.name} src={profile.image} size="xl" className="shadow-md ring-0" />
           {profile.editableFields.includes("image") ? <AvatarUploadButton /> : null}
         </div>
         <div className="min-w-0 flex-1">
@@ -102,7 +114,7 @@ function ProfileHeader({ profile }: { profile: Profile }) {
           </ul>
           {profile.headline ? <p className="mt-4 max-w-xl text-body italic text-neutral-700">“{profile.headline}”</p> : null}
         </div>
-        <div aria-hidden className="relative hidden h-40 w-56 shrink-0 lg:block">
+        <div aria-hidden className={profile.profileCover ? "hidden" : "relative hidden h-40 w-56 shrink-0 lg:block"}>
           <div className="absolute -left-4 top-0 max-w-40 rounded-lg border border-line bg-white px-4 py-3 text-body-sm font-medium leading-snug text-neutral-800 shadow-md">
             Grandes trajetórias são construídas com pequenos aprendizados! <span className="text-purple-500">💜</span>
           </div>

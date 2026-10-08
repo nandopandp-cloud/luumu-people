@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import * as fileRoute from "@/app/api/v1/files/[id]/route";
 import * as filesRoute from "@/app/api/v1/files/route";
 import * as avatarRoute from "@/app/api/v1/me/avatar/route";
+import * as coverRoute from "@/app/api/v1/me/cover/route";
 import * as announcementsRoute from "@/app/api/v1/announcements/route";
 import * as bannersRoute from "@/app/api/v1/banners/route";
 import { call } from "../support/http";
@@ -75,6 +76,19 @@ describe("arquivos", () => {
     const sergio = await signIn("horizonte", "sergio");
     expect((await download(res.json.id, sergio.cookie)).status).toBe(404);
     expect((await download(res.json.id, "")).status).toBe(401);
+  });
+
+  it("capa do perfil: a própria pessoa troca e remove; só imagens", async () => {
+    const helena = await signIn("aurora", "helena");
+    const res = await upload(coverRoute.POST as never, "/api/v1/me/cover", helena.cookie, PNG, "capa.png");
+    expect(res.status).toBe(200);
+    const { db } = await testDatabase();
+    const cover = async () => (await db.select({ c: s.users.profileCover }).from(s.users).where(eq(s.users.id, helena.userId)))[0]?.c;
+    expect(await cover()).toBe(res.json.url);
+    expect((await upload(coverRoute.POST as never, "/api/v1/me/cover", helena.cookie, new TextEncoder().encode("%PDF-1.4 x"), "capa.png")).status).toBe(400);
+    const removed = await call(coverRoute.DELETE, { path: "/api/v1/me/cover", method: "DELETE", cookie: helena.cookie });
+    expect(removed.status).toBe(204);
+    expect(await cover()).toBeNull();
   });
 
   it("empresa que bloqueia edição da foto recebe 403", async () => {

@@ -15,7 +15,7 @@ function SidebarFrame({ home, children, label, id }: { home: Route; children: Re
   return (
     <aside
       id={id}
-      className="sticky top-4 hidden h-[calc(100dvh-2rem)] w-[248px] shrink-0 flex-col rounded-xl border border-line bg-white px-4 pb-4 pt-7 shadow-sm transition-[width,padding] duration-200 ease-out-soft lg:flex sidebar-collapsed:w-[84px] sidebar-collapsed:px-3"
+      className="sticky top-4 z-30 hidden h-[calc(100dvh-2rem)] w-[248px] shrink-0 flex-col rounded-xl border border-line bg-white px-4 pb-4 pt-7 shadow-sm transition-[width,padding] duration-200 ease-out-soft lg:flex sidebar-collapsed:w-[84px] sidebar-collapsed:px-3"
     >
       <SidebarToggle controls={id} />
       <Link href={home} className="mb-7 block self-start rounded-md px-2 focus-visible:outline-2 focus-visible:outline-purple-500 sidebar-collapsed:self-center sidebar-collapsed:px-0">

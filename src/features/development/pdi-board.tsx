@@ -12,13 +12,17 @@ import { ACTION_TYPE_LABEL, formatDay } from "./labels";
 
 /** PDI completo: metas, ações, status, prazos e evidências. Controles só para quem pode alterar. */
 export function PdiBoard({ development, managedUserId }: { development: Development; managedUserId?: string }) {
-  const { pdi, canManage, competencyOptions, isSelf, person } = development;
+  const { pdi, canManage, canUpdateProgress, competencyOptions, isSelf, person } = development;
   if (!pdi) {
     return (
       <Card>
         <EmptyState
           title={isSelf ? "Você ainda não tem um PDI ativo" : `${person.name.split(" ")[0]} ainda não tem um PDI ativo`}
-          description="O Plano de Desenvolvimento Individual organiza metas e ações para evoluir na carreira."
+          description={
+            isSelf
+              ? "O Plano de Desenvolvimento Individual é construído com a sua liderança, que lança as metas e acompanha sua evolução."
+              : "O Plano de Desenvolvimento Individual organiza metas e ações para evoluir na carreira."
+          }
           action={canManage ? <CreatePdiButton userId={managedUserId} personName={isSelf ? undefined : person.name.split(" ")[0]} /> : null}
         />
       </Card>
@@ -96,7 +100,7 @@ export function PdiBoard({ development, managedUserId }: { development: Developm
                       ) : null}
                     </p>
                   </div>
-                  {canManage ? (
+                  {canUpdateProgress ? (
                     <div className="flex items-center gap-2">
                       {a.status !== "done" && a.status !== "cancelled" ? (
                         <CompleteActionDialog
@@ -109,7 +113,7 @@ export function PdiBoard({ development, managedUserId }: { development: Developm
                           }
                         />
                       ) : null}
-                      <ActionStatusSelect actionId={a.id} status={a.status} title={a.title} />
+                      <ActionStatusSelect actionId={a.id} status={a.status} title={a.title} canCancel={canManage} />
                     </div>
                   ) : (
                     <Badge tone={a.status === "done" ? "green" : a.late ? "red" : "neutral"}>{a.status === "done" ? "Concluída" : a.late ? "Atrasada" : "Em aberto"}</Badge>

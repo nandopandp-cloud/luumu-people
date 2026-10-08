@@ -15,11 +15,11 @@ const TONE: Record<string, string> = {
 };
 
 /** Seletor de status da ação. "Concluída" usa o diálogo com evidência (CompleteActionDialog). */
-export function ActionStatusSelect({ actionId, status, title }: { actionId: string; status: string; title: string }) {
+export function ActionStatusSelect({ actionId, status, title, canCancel = true }: { actionId: string; status: string; title: string; canCancel?: boolean }) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
-  const options = status === "done" ? ["done", "in_progress", "not_started"] : ["not_started", "in_progress", "cancelled"];
+  const options = status === "done" ? ["done", "in_progress", "not_started"] : status === "cancelled" || canCancel ? ["not_started", "in_progress", "cancelled"] : ["not_started", "in_progress"];
   return (
     <select
       aria-label={`Status da ação ${title}`}

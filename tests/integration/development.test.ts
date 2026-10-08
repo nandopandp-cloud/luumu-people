@@ -2,6 +2,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import * as actionRoute from "@/app/api/v1/development/actions/[actionId]/route";
 import * as assessmentsRoute from "@/app/api/v1/development/assessments/route";
 import * as competenciesRoute from "@/app/api/v1/development/competencies/route";
+import * as goalActionsRoute from "@/app/api/v1/development/goals/[goalId]/actions/route";
+import * as goalsRoute from "@/app/api/v1/development/pdis/[pdiId]/goals/route";
 import * as pdisRoute from "@/app/api/v1/development/pdis/route";
 import { resolveActor } from "@/server/auth/session";
 import { classify, getDevelopment, listTeamCompetencyGaps, listTeamDevelopment } from "@/server/modules/development/service";
@@ -30,7 +32,9 @@ describe("desenvolvimento de pessoas", () => {
     const { actor } = await actorOf("fernando");
     const dev = await getDevelopment(actor);
     expect(dev.isSelf).toBe(true);
-    expect(dev.canManage).toBe(true);
+    // Quem lança metas e avaliações é a liderança; o titular só atualiza o andamento.
+    expect(dev.canManage).toBe(false);
+    expect(dev.canUpdateProgress).toBe(true);
     expect(dev.competencies).toHaveLength(8);
     expect(dev.counts.developed + dev.counts.developing + dev.counts.toDevelop).toBe(8);
     // Andamento do seed varia por pessoa; Fernando está "começando" (2 de 8, duas atrasadas).
@@ -99,8 +103,32 @@ describe("desenvolvimento de pessoas", () => {
   it("um PDI ativo por pessoa; colaborador não cria PDI para colegas", async () => {
     const { session } = await actorOf("helena");
     const body = { title: "PDI extra", periodStart: "2026-01-01", periodEnd: "2026-12-31" };
-    expect((await call(pdisRoute.POST, { path: "/x", method: "POST", cookie: session.cookie, body })).status).toBe(409);
+    expect((await call(pdisRoute.POST, { path: "/x", method: "POST", cookie: session.cookie, body })).status).toBe(403);
     const lucas = await userOf("aurora", "lucas");
     expect((await call(pdisRoute.POST, { path: "/x", method: "POST", cookie: session.cookie, body: { ...body, userId: lucas.id } })).status).toBe(404);
+    const helena = await userOf("aurora", "helena");
+    const carla = await actorOf("carla");
+    expect((await call(pdisRoute.POST, { path: "/x", method: "POST", cookie: carla.session.cookie, body: { ...body, userId: helena.id } })).status).toBe(409);
+  });
+
+  it("colaborador não lança metas, ações nem avaliações; só atualiza o andamento", async () => {
+    const { session, actor } = await actorOf("lucas");
+    const dev = await getDevelopment(actor);
+    const goal = dev.pdi!.goals[0]!;
+    const open = dev.pdi!.goals.flatMap((g) => g.actions).find((a) => a.status !== "done")!;
+    const cookie = session.cookie;
+    expect((await call(goalsRoute.POST, { path: "/x", method: "POST", cookie, params: { pdiId: dev.pdi!.id }, body: { title: "Meta minha" } })).status).toBe(403);
+    expect((await call(goalActionsRoute.POST, { path: "/x", method: "POST", cookie, params: { goalId: goal.id }, body: { title: "Ação minha", type: "pratica" } })).status).toBe(403);
+    expect((await call(assessmentsRoute.POST, { path: "/x", method: "POST", cookie, body: { competencyId: dev.competencies[0]!.id, score: 100 } })).status).toBe(403);
+    expect((await call(actionRoute.PATCH, { path: "/x", method: "PATCH", cookie, params: { actionId: open.id }, body: { title: "Outro título" } })).status).toBe(403);
+    expect((await call(actionRoute.PATCH, { path: "/x", method: "PATCH", cookie, params: { actionId: open.id }, body: { status: "cancelled" } })).status).toBe(403);
+    expect((await call(actionRoute.PATCH, { path: "/x", method: "PATCH", cookie, params: { actionId: open.id }, body: { status: "in_progress" } })).status).toBe(200);
+  });
+
+  it("gestora não lança o próprio desenvolvimento", async () => {
+    const { session, actor } = await actorOf("carla");
+    expect((await getDevelopment(actor)).canManage).toBe(false);
+    const competency = (await getDevelopment(actor)).competencies[0]!;
+    expect((await call(assessmentsRoute.POST, { path: "/x", method: "POST", cookie: session.cookie, body: { competencyId: competency.id, score: 100 } })).status).toBe(403);
   });
 });

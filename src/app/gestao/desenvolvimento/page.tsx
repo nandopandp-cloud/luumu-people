@@ -4,7 +4,8 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { Button } from "@/design-system/components/button";
 import { Skeleton } from "@/design-system/components/feedback";
-import { CompetencyGaps, DevelopmentKpis, TeamTable } from "@/features/development/management";
+import { CompetencyGaps, DevelopmentKpis } from "@/features/development/management";
+import { TeamTable } from "@/features/development/team-table";
 import { requirePermission } from "@/server/dal";
 import { listTeamCompetencyGaps, listTeamDevelopment } from "@/server/modules/development/service";
 

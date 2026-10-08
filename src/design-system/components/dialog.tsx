@@ -15,9 +15,11 @@ type DialogProps = {
   description?: ReactNode;
   children?: ReactNode;
   footer?: ReactNode;
+  /** Largura do modal: "md" (padrão) ou "lg" para editores e conteúdo largo. */
+  size?: "md" | "lg";
 };
 
-function Shell({ variant, open, onOpenChange, trigger, title, description, children, footer }: DialogProps & { variant: "modal" | "drawer" }) {
+function Shell({ variant, open, onOpenChange, trigger, title, description, children, footer, size = "md" }: DialogProps & { variant: "modal" | "drawer" }) {
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       {trigger ? <RadixDialog.Trigger asChild>{trigger}</RadixDialog.Trigger> : null}
@@ -26,7 +28,8 @@ function Shell({ variant, open, onOpenChange, trigger, title, description, child
         <RadixDialog.Content
           className={cn(
             "fixed z-50 flex flex-col bg-white shadow-lg focus:outline-none",
-            variant === "modal" && "left-1/2 top-1/2 max-h-[90dvh] w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl",
+            variant === "modal" && "left-1/2 top-1/2 max-h-[90dvh] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-xl",
+            variant === "modal" && (size === "lg" ? "max-w-2xl" : "max-w-lg"),
             variant === "drawer" && "inset-y-0 right-0 w-full max-w-md rounded-l-xl",
           )}
         >

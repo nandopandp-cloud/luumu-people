@@ -57,7 +57,7 @@ async function Content({ searchParams }: { searchParams: SP }) {
   const pdiHref = "/desenvolvimento?aba=pdi" as Route;
 
   if (tab === "pdi") return <PdiBoard development={development} />;
-  if (tab === "competencias") return <CompetencyGrid development={development} assessAs="self" />;
+  if (tab === "competencias") return <CompetencyGrid development={development} assessAs={null} />;
   if (tab === "evolucao") return <EvolutionPanel points={await getCompetencyEvolution(actor)} />;
 
   return (

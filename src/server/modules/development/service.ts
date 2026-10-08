@@ -40,16 +40,25 @@ async function assertCanRead(tx: Tx, actor: AuthenticatedActor, userId: string) 
   if (!(await can(actor, "development.read", { kind: "user", userId }, dbScopeResolver(tx)))) throw notFound();
 }
 
+/**
+ * Quem LANÇA o desenvolvimento (PDI, metas, ações e avaliações) é a liderança:
+ * `development.pdi.manage` no escopo da pessoa — nunca a própria pessoa, nem
+ * sobre si mesma. O titular só atualiza o andamento e as evidências das ações.
+ */
 async function canManage(tx: Tx, actor: AuthenticatedActor, userId: string) {
-  return userId === actor.userId || can(actor, "development.pdi.manage", { kind: "user", userId }, dbScopeResolver(tx));
+  return userId !== actor.userId && can(actor, "development.pdi.manage", { kind: "user", userId }, dbScopeResolver(tx));
 }
 
 async function assertCanManage(tx: Tx, actor: AuthenticatedActor, userId: string) {
   if (!(await canManage(tx, actor, userId))) {
+    if (userId === actor.userId) throw forbidden("PDI, metas e avaliações são lançados pela sua liderança.");
     await assertCanRead(tx, actor, userId); // fora do escopo de leitura → 404
     throw forbidden("Você pode acompanhar, mas não alterar o desenvolvimento desta pessoa.");
   }
 }
+
+/** Campos de uma ação que o próprio titular pode alterar (andamento e evidência). */
+const SELF_ACTION_FIELDS = new Set(["status", "evidence", "evidenceUrl"]);
 
 /* -------------------------------------------------------------- leitura */
 
@@ -166,7 +175,14 @@ export type Development = Awaited<ReturnType<typeof getDevelopment>>;
 export async function getDevelopment(actor: AuthenticatedActor, userId: string = actor.userId) {
   return withTenant(actor, async (tx) => {
     await assertCanRead(tx, actor, userId);
-    const [person] = await tx.select({ id: s.users.id, name: s.users.name, image: s.users.image }).from(s.users).where(eq(s.users.id, userId));
+    const [person] = rows<{ id: string; name: string; image: string | null; position: string | null; orgUnit: string | null }>(
+      await tx.execute(sql`
+        select u.id, u.name, u.image, p.name as position, ou.name as "orgUnit" from users u
+        left join employment_assignments ea on ea.user_id = u.id and ea.valid_to is null
+        left join positions p on p.id = ea.position_id
+        left join org_units ou on ou.id = ea.org_unit_id
+        where u.id = ${userId}`),
+    );
     if (!person) throw notFound();
     const [competencyList, pdi, competencyOptions] = [await loadCompetencies(tx, userId), await loadPdi(tx, userId), await listCompetencyOptions(tx)];
     const counts = {
@@ -174,7 +190,9 @@ export async function getDevelopment(actor: AuthenticatedActor, userId: string =
       developing: competencyList.filter((c) => c.level === "developing").length,
       toDevelop: competencyList.filter((c) => c.level === "to_develop").length,
     };
-    return { person, competencies: competencyList, counts, pdi, competencyOptions, canManage: await canManage(tx, actor, userId), isSelf: userId === actor.userId };
+    const isSelf = userId === actor.userId;
+    const manage = await canManage(tx, actor, userId);
+    return { person, competencies: competencyList, counts, pdi, competencyOptions, canManage: manage, canUpdateProgress: manage || isSelf, isSelf };
   });
 }
 
@@ -199,6 +217,24 @@ export async function getCompetencyEvolution(actor: AuthenticatedActor, userId: 
                   where ca.user_id = ${userId} and ca.assessed_at < series.month + interval '1 month'
                   order by ca.competency_id, ca.assessed_at desc) x) as average
         from series order by series.month`),
+    );
+  });
+}
+
+export type AssessmentHistoryItem = { id: string; competency: string; score: number; source: string; assessor: string; note: string | null; assessedAt: Date };
+
+/** Histórico de avaliações (mais recentes primeiro). */
+export async function listAssessmentHistory(actor: AuthenticatedActor, userId: string = actor.userId, limit = 30) {
+  return withTenant(actor, async (tx) => {
+    await assertCanRead(tx, actor, userId);
+    return rows<AssessmentHistoryItem>(
+      await tx.execute(sql`
+        select ca.id, c.name as competency, ca.score::int as score, ca.source, u.name as assessor, ca.note, ca.assessed_at as "assessedAt"
+        from competency_assessments ca
+        join competencies c on c.id = ca.competency_id
+        join users u on u.id = ca.assessed_by
+        where ca.user_id = ${userId}
+        order by ca.assessed_at desc limit ${limit}`),
     );
   });
 }
@@ -389,7 +425,13 @@ export async function updateAction(actor: AuthenticatedActor, actionId: string, 
     const [action] = await tx.select({ pdiId: s.pdiActions.pdiId, status: s.pdiActions.status }).from(s.pdiActions).where(eq(s.pdiActions.id, actionId));
     if (!action) throw notFound();
     const pdi = await pdiOwner(tx, action.pdiId);
-    await assertCanManage(tx, actor, pdi.userId);
+    if (pdi.userId === actor.userId) {
+      const blocked = Object.keys(input).filter((k) => !SELF_ACTION_FIELDS.has(k));
+      if (blocked.length) throw forbidden("Você pode atualizar o andamento e as evidências; o restante da ação é definido pela sua liderança.");
+      if (input.status === "cancelled") throw forbidden("Cancelar uma ação é decisão da sua liderança.");
+    } else {
+      await assertCanManage(tx, actor, pdi.userId);
+    }
     if (pdi.status !== "active") throw badRequest("Este PDI está encerrado.");
 
     const changes: Partial<typeof s.pdiActions.$inferInsert> = {};
@@ -411,8 +453,8 @@ export async function updateAction(actor: AuthenticatedActor, actionId: string, 
 }
 
 /**
- * Avaliação de competência: autoavaliação (a própria pessoa) ou avaliação de
- * quem gere o desenvolvimento da pessoa (gestor ou G&G). Sempre append-only.
+ * Avaliação de competência lançada por quem gere o desenvolvimento da pessoa
+ * (gestor ou G&G) — nunca pela própria pessoa. Sempre append-only.
  */
 export async function assessCompetency(actor: AuthenticatedActor, input: AssessmentInput, meta: Meta) {
   const userId = input.userId ?? actor.userId;
@@ -420,9 +462,9 @@ export async function assessCompetency(actor: AuthenticatedActor, input: Assessm
     await assertCanManage(tx, actor, userId);
     const [competency] = await tx.select({ id: s.competencies.id }).from(s.competencies).where(eq(s.competencies.id, input.competencyId));
     if (!competency) throw notFound("Competência não encontrada.");
-    const source = userId === actor.userId ? "self" : hasTenantWide(actor, "development.pdi.manage") ? "people" : "manager";
+    const source = hasTenantWide(actor, "development.pdi.manage") ? "people" : "manager";
     await tx.insert(s.competencyAssessments).values({ tenantId: actor.tenantId, userId, competencyId: input.competencyId, score: input.score, source, assessedBy: actor.userId, note: input.note ?? null });
-    if (userId !== actor.userId) await audit(tx, actor, userId, "competency_assessed", meta, { source });
+    await audit(tx, actor, userId, "competency_assessed", meta, { source });
     return { source };
   });
 }
@@ -438,5 +480,44 @@ export async function createCompetency(actor: AuthenticatedActor, input: Compete
       .returning({ id: s.competencies.id });
     await recordAudit(tx, { tenantId: actor.tenantId, actorUserId: actor.userId, action: "development.updated", resourceType: "competency", resourceId: created!.id, metadata: { what: "competency_created" }, ipAddress: meta.ip, userAgent: meta.userAgent, requestId: meta.requestId });
     return created!;
+  });
+}
+
+export type MatrixCell = { score: number | null; expected: number; level: CompetencyLevel };
+export type MatrixRow = { id: string; name: string; position: string | null; orgUnit: string | null; cells: Record<string, MatrixCell> };
+
+/** Mapa de competências: última avaliação de cada pessoa no escopo, por competência. */
+export async function getCompetencyMatrix(actor: AuthenticatedActor) {
+  return withTenant(actor, async (tx) => {
+    const scope = accessibleUsersCondition(actor, "development.read", sql`u.id`);
+    const competencies = await listCompetencyOptions(tx);
+    const cells = rows<{ userId: string; name: string; position: string | null; orgUnit: string | null; competencyId: string; score: number | null; expected: number }>(
+      await tx.execute(sql`
+        with scoped as (
+          select u.id as user_id, u.name, ea.position_id, p.name as position, ou.name as org_unit from users u
+          left join employment_assignments ea on ea.user_id = u.id and ea.valid_to is null
+          left join positions p on p.id = ea.position_id
+          left join org_units ou on ou.id = ea.org_unit_id
+          where u.status = 'active' and u.id <> ${actor.userId} and ${scope}
+        ), latest as (
+          select distinct on (ca.user_id, ca.competency_id) ca.user_id, ca.competency_id, ca.score
+          from competency_assessments ca join scoped on scoped.user_id = ca.user_id
+          order by ca.user_id, ca.competency_id, ca.assessed_at desc
+        )
+        select scoped.user_id as "userId", scoped.name, scoped.position, scoped.org_unit as "orgUnit", c.id as "competencyId",
+               latest.score::int as score, coalesce(pc.expected_score, 70)::int as expected
+        from scoped cross join competencies c
+        left join latest on latest.user_id = scoped.user_id and latest.competency_id = c.id
+        left join position_competencies pc on pc.competency_id = c.id and pc.position_id = scoped.position_id
+        where c.archived_at is null
+        order by scoped.name`),
+    );
+    const byUser = new Map<string, MatrixRow>();
+    for (const c of cells) {
+      const row = byUser.get(c.userId) ?? { id: c.userId, name: c.name, position: c.position, orgUnit: c.orgUnit, cells: {} };
+      row.cells[c.competencyId] = { score: c.score, expected: c.expected, level: classify(c.score, c.expected) };
+      byUser.set(c.userId, row);
+    }
+    return { competencies, rows: [...byUser.values()] };
   });
 }

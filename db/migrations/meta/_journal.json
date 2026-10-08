@@ -134,6 +134,20 @@
       "when": 1791497330340,
       "tag": "0018_development_security",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791502982034,
+      "tag": "0019_profile_cover",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791502982467,
+      "tag": "0020_profile_cover_security",
+      "breakpoints": true
     }
   ]
 }

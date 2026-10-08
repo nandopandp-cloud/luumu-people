@@ -14,11 +14,11 @@ export function Table({ className, ...props }: ComponentProps<"table">) {
 }
 
 export function Th({ className, ...props }: ComponentProps<"th">) {
-  return <th scope="col" className={cn("border-b border-line px-3 py-3 text-caption font-semibold uppercase tracking-wide text-neutral-500 first:pl-0", className)} {...props} />;
+  return <th scope="col" className={cn("border-b border-line px-3 py-3 whitespace-nowrap text-caption font-semibold uppercase tracking-wide text-neutral-500 first:pl-0 last:pr-0", className)} {...props} />;
 }
 
 export function Td({ className, ...props }: ComponentProps<"td">) {
-  return <td className={cn("border-b border-line px-3 py-3.5 align-middle text-neutral-700 first:pl-0 max-md:block max-md:border-0 max-md:px-0 max-md:py-1 max-md:before:mr-2 max-md:before:font-medium max-md:before:text-neutral-500 max-md:before:content-[attr(data-label)]", className)} {...props} />;
+  return <td className={cn("border-b border-line px-3 py-3.5 align-middle text-neutral-700 first:pl-0 last:pr-0 max-md:block max-md:border-0 max-md:px-0 max-md:py-1 max-md:before:mr-2 max-md:before:font-medium max-md:before:text-neutral-500 max-md:before:content-[attr(data-label)]", className)} {...props} />;
 }
 
 export function Tr({ className, ...props }: ComponentProps<"tr">) {
