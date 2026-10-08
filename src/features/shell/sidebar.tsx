@@ -6,7 +6,8 @@ import { Skeleton } from "@/design-system/components/feedback";
 import { hasPermissionAnywhere } from "@/server/authz/policy";
 import { achievementsEnabled, getCurrentActor } from "@/server/dal";
 import { HelpCard } from "./help-card";
-import { EMPLOYEE_NAV, EMPLOYEE_NAV_SECONDARY, MANAGEMENT_NAV } from "./nav-config";
+import { EMPLOYEE_MOBILE_NAV, EMPLOYEE_NAV, EMPLOYEE_NAV_SECONDARY, MANAGEMENT_NAV, type NavItem } from "./nav-config";
+import { getEnabledModules, type EnabledModules } from "@/server/modules/flags/modules";
 import { MobileNavLink, MobileNavLinkView, NavLink, NavLinkView } from "./nav-link";
 import { SidebarToggle } from "./sidebar-toggle";
 
@@ -31,13 +32,16 @@ function SidebarFrame({ home, children, label, id }: { home: Route; children: Re
   );
 }
 
-function EmployeeNavItems({ live, achievements = false }: { live: boolean; achievements?: boolean }) {
+const visible = (items: NavItem[], modules: EnabledModules) => items.filter((item) => !item.module || modules[item.module]);
+const NO_MODULES: EnabledModules = { learning: false, library: false };
+
+function EmployeeNavItems({ live, modules, achievements = false }: { live: boolean; modules: EnabledModules; achievements?: boolean }) {
   const Item = live ? NavLink : NavLinkView;
   const secondary = EMPLOYEE_NAV_SECONDARY.filter((item) => achievements || item.href !== "/minhas-conquistas");
   return (
     <>
       <ul className="space-y-1">
-        {EMPLOYEE_NAV.map((item) => (
+        {visible(EMPLOYEE_NAV, modules).map((item) => (
           <li key={item.href}>
             <Item item={item} />
           </li>
@@ -55,15 +59,16 @@ function EmployeeNavItems({ live, achievements = false }: { live: boolean; achie
   );
 }
 
-/** "Minhas conquistas" só aparece com a flag `gamification` ligada. */
+/** Itens dependem dos módulos ligados (flags), da flag `gamification` e da URL: ficam atrás de <Suspense>. */
 async function LiveEmployeeNavItems() {
-  return <EmployeeNavItems live achievements={await achievementsEnabled()} />;
+  const actor = await getCurrentActor();
+  const [modules, achievements] = await Promise.all([actor ? getEnabledModules(actor) : NO_MODULES, achievementsEnabled()]);
+  return <EmployeeNavItems live modules={modules} achievements={achievements} />;
 }
 
-/** O destaque do item ativo depende da URL: fica atrás de <Suspense> (Cache Components). */
 export function EmployeeNavList() {
   return (
-    <Suspense fallback={<EmployeeNavItems live={false} />}>
+    <Suspense fallback={<EmployeeNavItems live={false} modules={NO_MODULES} />}>
       <LiveEmployeeNavItems />
     </Suspense>
   );
@@ -77,10 +82,7 @@ export function EmployeeSidebar() {
   );
 }
 
-const MOBILE_ITEMS = [EMPLOYEE_NAV[0]!, EMPLOYEE_NAV[1]!, EMPLOYEE_NAV[2]!, EMPLOYEE_NAV[5]!, EMPLOYEE_NAV_SECONDARY[0]!].map((item) => ({
-  ...item,
-  label: item.label === "Meus cursos" ? "Cursos" : item.label === "Meu perfil" ? "Perfil" : item.label,
-}));
+const MOBILE_ITEMS = EMPLOYEE_MOBILE_NAV;
 
 function BottomNavItems({ live }: { live: boolean }) {
   const Item = live ? MobileNavLink : MobileNavLinkView;
@@ -109,7 +111,9 @@ export function EmployeeBottomNav() {
 export async function ManagementNavList() {
   const actor = await getCurrentActor();
   if (!actor) return null;
-  const allowed = (anyOf: Parameters<typeof hasPermissionAnywhere>[1][]) => anyOf.some((p) => hasPermissionAnywhere(actor, p));
+  const modules = await getEnabledModules(actor);
+  const allowed = (anyOf: Parameters<typeof hasPermissionAnywhere>[1][], module?: keyof EnabledModules) =>
+    (!module || modules[module]) && anyOf.some((p) => hasPermissionAnywhere(actor, p));
   if (!hasPermissionAnywhere(actor, "management.access")) {
     return (
       <ul>
@@ -121,13 +125,13 @@ export async function ManagementNavList() {
   }
   return (
     <ul className="space-y-1">
-      {MANAGEMENT_NAV.filter((item) => allowed(item.anyOf)).map((item) => (
+      {MANAGEMENT_NAV.filter((item) => allowed(item.anyOf, item.module) && (!item.children || item.children.some((c) => allowed(c.anyOf, c.module)))).map((item) => (
         <li key={item.href}>
           <NavLink item={item} />
           {item.children ? (
             <ul className="mt-1 space-y-0.5 sidebar-collapsed:hidden">
               {item.children
-                .filter((child) => allowed(child.anyOf))
+                .filter((child) => allowed(child.anyOf, child.module))
                 .map((child) => (
                   <li key={child.href}>
                     <NavLink item={child} nested />

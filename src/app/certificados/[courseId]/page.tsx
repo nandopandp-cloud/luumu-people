@@ -7,6 +7,7 @@ import { Skeleton } from "@/design-system/components/feedback";
 import { PrintButton } from "@/features/courses/print-button";
 import { formatMinutes } from "@/features/courses/labels";
 import { requireActor } from "@/server/dal";
+import { requireModule } from "@/server/modules/flags/modules";
 import { HttpError } from "@/server/http/errors";
 import { getMyCertificate } from "@/server/modules/courses/service";
 
@@ -25,6 +26,7 @@ export default function CertificatePage({ params }: PageProps<"/certificados/[co
 
 async function Certificate({ params }: { params: PageProps<"/certificados/[courseId]">["params"] }) {
   const actor = await requireActor();
+  await requireModule(actor, "learning");
   const { courseId } = await params;
   if (!z.uuid().safeParse(courseId).success) notFound();
   let cert: Awaited<ReturnType<typeof getMyCertificate>>;

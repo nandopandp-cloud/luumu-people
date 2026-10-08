@@ -15,6 +15,7 @@ import { CourseCover } from "@/features/courses/course-cover";
 import { COURSE_KIND_LABEL, formatMinutes } from "@/features/courses/labels";
 import { StartCourseButton } from "@/features/courses/start-course-button";
 import { requireActor } from "@/server/dal";
+import { requireModule } from "@/server/modules/flags/modules";
 import { HttpError } from "@/server/http/errors";
 import { getCourse } from "@/server/modules/courses/service";
 
@@ -32,6 +33,7 @@ export default function CoursePage({ params }: PageProps<"/meus-cursos/[courseId
 
 async function Course({ params }: { params: PageProps<"/meus-cursos/[courseId]">["params"] }) {
   const actor = await requireActor();
+  await requireModule(actor, "learning");
   const { courseId } = await params;
   if (!z.uuid().safeParse(courseId).success) notFound();
   let data: Awaited<ReturnType<typeof getCourse>>;

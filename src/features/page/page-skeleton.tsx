@@ -2,7 +2,7 @@ import { Skeleton } from "@/design-system/components/feedback";
 
 export function CardsSkeleton({ count = 3 }: { count?: number }) {
   return (
-    <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3" aria-busy="true" aria-label="Carregando">
+    <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3" role="status" aria-busy="true" aria-label="Carregando">
       {Array.from({ length: count }, (_, i) => (
         <div key={i} className="card space-y-4 p-6">
           <Skeleton className="h-5 w-1/2" />

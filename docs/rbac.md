@@ -32,6 +32,8 @@ Os alvos possíveis são `tenant`, `user`, `orgUnit` e `ownTeam`. O resolvedor c
 | `survey.*` | criar, lançar, ler resultados **agregados** | não existe leitura individual de pesquisa anônima |
 | `reports.*`, `access.*`, `tenant.*`, `audit.read` | relatórios, papéis, configurações | |
 
+No desenvolvimento: **Gestor** lê e gerencia PDIs e avalia competências da própria equipe (`development.read` + `development.pdi.manage` em TEAM_TREE); **G&G** e **Administrador** fazem o mesmo para a empresa e mantêm o catálogo de competências. O **Editor** não tem acesso a desenvolvimento — é um papel de conteúdo, sem dados de pessoas.
+
 Capacidades sobre os **próprios** dados (perfil, cursos, responder pesquisas) não são permissões atribuíveis: derivam de ser o titular dos dados.
 
 ## Papéis de sistema

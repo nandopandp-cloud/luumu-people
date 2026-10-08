@@ -4,15 +4,19 @@ import { Skeleton } from "@/design-system/components/feedback";
 import {
   AchievementsCard,
   AnnouncementsSection,
+  DevelopmentGoalsSection,
+  DevelopmentProgressCard,
   FeaturedContentSection,
   HomeHero,
   MoodCard,
   MyProgressCard,
   NextActivitiesCard,
+  NextPdiActionsCard,
   RecommendedPathsSection,
 } from "@/features/home/sections";
 import type { AuthenticatedActor } from "@/server/auth/session";
 import { requireActor } from "@/server/dal";
+import { getEnabledModules, type EnabledModules } from "@/server/modules/flags/modules";
 
 export const metadata: Metadata = { title: "Início" };
 
@@ -26,12 +30,13 @@ export default function HomePage() {
       <div className="min-w-0 space-y-7">
         <Block fallback={<Skeleton className="h-[318px] rounded-[28px]" />}>{(actor) => <HomeHero actor={actor} />}</Block>
         <Block fallback={<RowSkeleton height="h-[230px]" />}>{(actor) => <AnnouncementsSection actor={actor} />}</Block>
-        <Block fallback={<RowSkeleton height="h-[136px]" />}>{(actor) => <RecommendedPathsSection actor={actor} />}</Block>
-        <Block fallback={<RowSkeleton height="h-[86px]" columns={4} />}>{(actor) => <FeaturedContentSection actor={actor} />}</Block>
+        <Block fallback={<RowSkeleton height="h-[150px]" />}>{(actor) => <DevelopmentGoalsSection actor={actor} />}</Block>
+        <Block fallback={null}>{(actor, m) => (m.learning ? <RecommendedPathsSection actor={actor} /> : null)}</Block>
+        <Block fallback={null}>{(actor, m) => (m.library ? <FeaturedContentSection actor={actor} /> : null)}</Block>
       </div>
       <aside className="space-y-5" aria-label="Seu resumo">
-        <Block fallback={<Skeleton className="h-[160px] rounded-xl" />}>{(actor) => <MyProgressCard actor={actor} />}</Block>
-        <Block fallback={<Skeleton className="h-[360px] rounded-xl" />}>{(actor) => <NextActivitiesCard actor={actor} />}</Block>
+        <Block fallback={<Skeleton className="h-[160px] rounded-xl" />}>{(actor, m) => (m.learning ? <MyProgressCard actor={actor} /> : <DevelopmentProgressCard actor={actor} />)}</Block>
+        <Block fallback={<Skeleton className="h-[360px] rounded-xl" />}>{(actor, m) => (m.learning ? <NextActivitiesCard actor={actor} /> : <NextPdiActionsCard actor={actor} />)}</Block>
         <Block fallback={<Skeleton className="h-[170px] rounded-xl" />}>{(actor) => <MoodCard actor={actor} />}</Block>
         <Block fallback={null}>{(actor) => <AchievementsCard actor={actor} />}</Block>
       </aside>
@@ -39,7 +44,7 @@ export default function HomePage() {
   );
 }
 
-function Block({ fallback, children }: { fallback: ReactNode; children: (actor: AuthenticatedActor) => ReactNode }) {
+function Block({ fallback, children }: { fallback: ReactNode; children: (actor: AuthenticatedActor, modules: EnabledModules) => ReactNode }) {
   return (
     <Suspense fallback={fallback}>
       <WithActor>{children}</WithActor>
@@ -47,9 +52,9 @@ function Block({ fallback, children }: { fallback: ReactNode; children: (actor: 
   );
 }
 
-async function WithActor({ children }: { children: (actor: AuthenticatedActor) => ReactNode }) {
+async function WithActor({ children }: { children: (actor: AuthenticatedActor, modules: EnabledModules) => ReactNode }) {
   const actor = await requireActor();
-  return children(actor);
+  return children(actor, await getEnabledModules(actor));
 }
 
 function RowSkeleton({ height, columns = 3 }: { height: string; columns?: number }) {

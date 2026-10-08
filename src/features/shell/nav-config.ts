@@ -1,4 +1,5 @@
 import type { Permission } from "@/server/authz/permissions";
+import type { ModuleKey } from "@/server/modules/flags/modules";
 
 /** Ícones referenciados por nome: config serializável entre Server e Client Components. */
 export type NavIcon =
@@ -27,17 +28,19 @@ export type NavItem = {
   icon: NavIcon;
   /** Correspondência exata do caminho (para itens "raiz" como /gestao). */
   exact?: boolean;
+  /** Módulo opcional (feature flag); item oculto quando o módulo está desligado. */
+  module?: ModuleKey;
 };
 
 /** Navegação do colaborador — briefing §47 e mockups. */
 export const EMPLOYEE_NAV: NavItem[] = [
   { href: "/inicio", label: "Início", icon: "home" },
-  { href: "/meus-cursos", label: "Meus cursos", icon: "courses" },
-  { href: "/trilhas", label: "Trilhas", icon: "paths" },
+  { href: "/meus-cursos", label: "Meus cursos", icon: "courses", module: "learning" },
+  { href: "/trilhas", label: "Trilhas", icon: "paths", module: "learning" },
   { href: "/desenvolvimento", label: "Desenvolvimento", icon: "development" },
   { href: "/pesquisas", label: "Pesquisas", icon: "surveys" },
   { href: "/comunicados", label: "Comunicados", icon: "announcements" },
-  { href: "/biblioteca", label: "Biblioteca", icon: "library" },
+  { href: "/biblioteca", label: "Biblioteca", icon: "library", module: "library" },
 ];
 
 export const EMPLOYEE_NAV_SECONDARY: NavItem[] = [
@@ -48,9 +51,9 @@ export const EMPLOYEE_NAV_SECONDARY: NavItem[] = [
 /** Barra inferior no mobile (styleguide "Navegação mobile"). */
 export const EMPLOYEE_MOBILE_NAV: NavItem[] = [
   { href: "/inicio", label: "Início", icon: "home" },
-  { href: "/meus-cursos", label: "Cursos", icon: "courses" },
-  { href: "/trilhas", label: "Trilhas", icon: "paths" },
+  { href: "/desenvolvimento", label: "Desenvolver", icon: "development" },
   { href: "/comunicados", label: "Comunicados", icon: "announcements" },
+  { href: "/pesquisas", label: "Pesquisas", icon: "surveys" },
   { href: "/meu-perfil", label: "Perfil", icon: "profile" },
 ];
 
@@ -70,13 +73,13 @@ export const MANAGEMENT_NAV: ManagementNavItem[] = [
     icon: "content",
     anyOf: ["content.course.create", "content.path.manage", "content.library.manage", "content.assessment.manage"],
     children: [
-      { href: "/gestao/conteudos/cursos", label: "Cursos", icon: "courses", anyOf: ["content.course.create", "content.course.edit"] },
-      { href: "/gestao/conteudos/trilhas", label: "Trilhas", icon: "paths", anyOf: ["content.path.manage"] },
-      { href: "/gestao/conteudos/biblioteca", label: "Biblioteca", icon: "library", anyOf: ["content.library.manage"] },
-      { href: "/gestao/conteudos/avaliacoes", label: "Avaliações", icon: "assessments", anyOf: ["content.assessment.manage"] },
+      { href: "/gestao/conteudos/cursos", label: "Cursos", icon: "courses", anyOf: ["content.course.create", "content.course.edit"], module: "learning" },
+      { href: "/gestao/conteudos/trilhas", label: "Trilhas", icon: "paths", anyOf: ["content.path.manage"], module: "learning" },
+      { href: "/gestao/conteudos/biblioteca", label: "Biblioteca", icon: "library", anyOf: ["content.library.manage"], module: "library" },
+      { href: "/gestao/conteudos/avaliacoes", label: "Avaliações", icon: "assessments", anyOf: ["content.assessment.manage"], module: "learning" },
     ],
   },
-  { href: "/gestao/engajamento", label: "Engajamento", icon: "engagement", anyOf: ["learning.progress.read", "content.analytics.read"] },
+  { href: "/gestao/engajamento", label: "Engajamento", icon: "engagement", anyOf: ["learning.progress.read", "content.analytics.read"], module: "learning" },
   { href: "/gestao/pesquisas", label: "Pesquisas", icon: "surveys", anyOf: ["survey.design", "survey.launch", "survey.results.read_aggregate"] },
   { href: "/gestao/desenvolvimento", label: "Desenvolvimento", icon: "development", anyOf: ["development.read"] },
   { href: "/gestao/relatorios", label: "Relatórios", icon: "reports", anyOf: ["reports.read"] },

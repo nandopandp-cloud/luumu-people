@@ -21,10 +21,12 @@ PostgreSQL 17 (Neon em preview/produção; PGlite, o Postgres em WASM, em desenv
 | Colaborador | `employee_profiles` (dados de RH), `employment_assignments` (lotação com vigência), `manager_relationships` (gestor com vigência), `org_tags`, `user_org_tags`, `profile_field_policies` |
 | Acesso | `permissions` (catálogo), `roles`, `role_permissions`, `user_roles` (com escopo) |
 | Plataforma | `audit_logs`, `feature_flags`, `feature_flag_overrides` |
+| Desenvolvimento (Fase 3) | `competencies`, `position_competencies` (nível esperado por cargo), `competency_assessments` (histórico, append-only), `pdis` (um ATIVO por pessoa — índice único parcial), `pdi_goals`, `pdi_actions` |
 | Experiência (Fase 2) | `announcements`, `courses`, `course_modules`, `lessons`, `lesson_progress`, `certificates`, `learning_paths`, `learning_path_courses`, `enrollments`, `library_items`, `mood_checkins`, `achievements`, `user_achievements`, `files` |
-
 | Home | `home_banners` (banners com período, ordem e ativo; imagem opcional em `files` com finalidade `home_banner`) |
 | Pesquisas (Fase 4) | `surveys`, `survey_questions`, `survey_invitations` (core) + schema `survey_vault` (cofre anônimo) |
+
+No desenvolvimento, "atrasada" é **derivado** (prazo vencido e ação em aberto), nunca gravado; `pdi_actions` garante por `CHECK` que `status = 'done'` ⇔ `completed_at` preenchido e que o link de evidência é `https://`. A role de runtime só tem `SELECT`/`INSERT` em `competency_assessments`: o histórico de avaliações não pode ser editado nem apagado.
 
 O progresso de uma matrícula é **derivado** das aulas concluídas (`lesson_progress`); ao chegar a 100% é emitido um certificado com código de verificação.
 

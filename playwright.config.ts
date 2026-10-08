@@ -39,6 +39,8 @@ export default defineConfig({
       APP_URL: `http://localhost:${PORT}`,
       BETTER_AUTH_SECRET: "e2e-secret-e2e-secret-e2e-secret-e2e-0000",
       SEED_PASSWORD: "Luumu@Demo2026",
+      // Módulos de cursos/biblioteca ficam desligados; só estas pessoas os veem (specs de cursos).
+      SEED_LEARNING_USERS: "natalia.cunha@aurora.example,fernando.santos@aurora.example",
       LOG_LEVEL: "warn",
     },
   },

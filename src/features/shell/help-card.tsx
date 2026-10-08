@@ -14,7 +14,7 @@ export function HelpCard() {
       open={open}
       onOpenChange={setOpen}
       title="Oi! Eu sou o Luumu"
-      description="Em breve vou poder tirar suas dúvidas sobre cursos, trilhas e a plataforma."
+      description="Em breve vou poder tirar suas dúvidas sobre seu desenvolvimento e a plataforma."
       trigger={
         <button
           type="button"

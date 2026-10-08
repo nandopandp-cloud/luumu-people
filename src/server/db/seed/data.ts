@@ -215,6 +215,8 @@ export const SEED_FEATURE_FLAGS = [
   { key: "survey_ai_analysis", description: "Análise de comentários de pesquisas com IA", defaultEnabled: false },
   { key: "ai_assistant", description: "Assistente Luumu", defaultEnabled: false },
   { key: "new_learning_dashboard", description: "Novo painel de aprendizagem", defaultEnabled: false },
+  { key: "module_learning", description: "Módulo de aprendizagem: Meus cursos, Trilhas e certificados", defaultEnabled: false },
+  { key: "module_library", description: "Módulo Biblioteca", defaultEnabled: false },
 ] as const;
 
 /** Campos do perfil que o colaborador pode editar por padrão. */

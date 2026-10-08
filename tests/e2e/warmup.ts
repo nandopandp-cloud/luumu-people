@@ -15,8 +15,8 @@ export default async function warmup(config: FullConfig) {
     await page.waitForLoadState("networkidle");
   };
   for (const [email, paths] of [
-    ["fernando.santos@aurora.example", ["/inicio", "/meu-perfil", "/meu-perfil?aba=meus-dados", "/trilhas", "/gestao/usuarios"]],
-    ["paula.ribeiro@aurora.example", ["/gestao", "/gestao/usuarios", "/gestao/auditoria"]],
+    ["fernando.santos@aurora.example", ["/inicio", "/meu-perfil", "/meu-perfil?aba=meus-dados", "/trilhas", "/desenvolvimento", "/desenvolvimento?aba=pdi", "/gestao/usuarios"]],
+    ["paula.ribeiro@aurora.example", ["/gestao", "/gestao/desenvolvimento", "/gestao/usuarios", "/gestao/auditoria"]],
   ] as const) {
     await page.context().clearCookies();
     await visit("/entrar");

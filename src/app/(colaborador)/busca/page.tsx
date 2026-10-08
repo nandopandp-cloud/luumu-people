@@ -16,7 +16,7 @@ export default function SearchPage({ searchParams }: PageProps<"/busca">) {
     <>
       <header className="mb-6">
         <h1 className="text-h1 font-extrabold tracking-[-0.02em] text-neutral-900">Busca</h1>
-        <p className="mt-1 text-body text-neutral-600">Cursos, trilhas, comunicados, pesquisas e páginas em um só lugar.</p>
+        <p className="mt-1 text-body text-neutral-600">Comunicados, pesquisas, pessoas e páginas em um só lugar.</p>
       </header>
       <Suspense fallback={<Skeleton className="h-[320px] rounded-xl" />}>
         <Results searchParams={searchParams} />

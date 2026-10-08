@@ -120,6 +120,20 @@
       "when": 1791486062186,
       "tag": "0016_announcement_cover_security",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791497329924,
+      "tag": "0017_development",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791497330340,
+      "tag": "0018_development_security",
+      "breakpoints": true
     }
   ]
 }

@@ -317,6 +317,7 @@ export async function seedContent(db: Database, tenantId: string, userIds: strin
     await db.insert(s.userAchievements).values(EARNED.map((e) => ({ tenantId, userId, achievementId: achievementIds.get(e.key)!, earnedAt: daysAgo(e.daysAgo) })));
   }
   await seedLessons(db, tenantId);
+  await seedDevelopment(db, tenantId);
   return true;
 }
 
@@ -422,4 +423,145 @@ export async function seedLessons(db: Database, tenantId: string): Promise<numbe
     }
   }
   return created;
+}
+
+/* ------------------------------------------------------ desenvolvimento */
+
+const COMPETENCIES: { name: string; category: "comportamental" | "tecnica" | "lideranca"; icon: string; description: string }[] = [
+  { name: "Comunicação", category: "comportamental", icon: "chat", description: "Expressar ideias com clareza e escutar com atenção." },
+  { name: "Trabalho em Equipe", category: "comportamental", icon: "people", description: "Colaborar para alcançar objetivos comuns." },
+  { name: "Liderança", category: "lideranca", icon: "crown", description: "Inspirar, orientar e desenvolver pessoas." },
+  { name: "Pensamento Estratégico", category: "lideranca", icon: "target", description: "Conectar o dia a dia aos objetivos de longo prazo." },
+  { name: "Gestão do Tempo", category: "comportamental", icon: "clock", description: "Priorizar e cumprir compromissos com equilíbrio." },
+  { name: "Inteligência Emocional", category: "comportamental", icon: "heart", description: "Reconhecer e lidar com as próprias emoções e as dos outros." },
+  { name: "Inovação", category: "tecnica", icon: "lightbulb", description: "Propor e testar novas formas de resolver problemas." },
+  { name: "Resolução de Problemas", category: "tecnica", icon: "puzzle", description: "Analisar causas e chegar a soluções sustentáveis." },
+];
+
+function hashScore(seed: string, min: number, max: number): number {
+  let h = 2166136261;
+  for (const ch of seed) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+  return min + (h % (max - min + 1));
+}
+
+/** Varia o andamento do PDI por pessoa (determinístico pelo nome) para a demo não parecer clonada. */
+function varyProgress(goals: { actions: { title: string; status: (typeof s.ACTION_STATUSES)[number]; due: number }[] }[], stage: number) {
+  const set = (title: string, status: (typeof s.ACTION_STATUSES)[number], due: number) => {
+    const action = goals.flatMap((g) => g.actions).find((a) => a.title === title);
+    if (action) Object.assign(action, { status, due });
+  };
+  if (stage === 1) {
+    // Adiantada: 6 de 8, nada atrasado.
+    set("Liderar um projeto transversal", "done", -3);
+    set("Pedir feedback sobre a clareza das apresentações", "done", -5);
+  } else if (stage === 2) {
+    // Começando: 2 de 8, duas atrasadas.
+    set("Conduzir a reunião de planejamento do time", "in_progress", 10);
+    set("Mapear os indicadores da área", "in_progress", -8);
+  } else if (stage === 3) {
+    // Em dia: 4 de 8, nada atrasado.
+    set("Pedir feedback sobre a clareza das apresentações", "in_progress", 12);
+  }
+}
+
+const isoDays = (n: number) => new Date(Date.now() + n * DAY).toISOString().slice(0, 10);
+
+/**
+ * Competências (com nível esperado por cargo), avaliações com histórico e um
+ * PDI demonstrativo por pessoa. Idempotente por tenant.
+ */
+export async function seedDevelopment(db: Database, tenantId: string): Promise<boolean> {
+  const existing = await db.select({ id: s.competencies.id }).from(s.competencies).where(eq(s.competencies.tenantId, tenantId)).limit(1);
+  if (existing.length > 0) return false;
+
+  const competencyIds = new Map<string, string>();
+  for (const c of COMPETENCIES) {
+    const id = randomUUID();
+    competencyIds.set(c.name, id);
+    await db.insert(s.competencies).values({ id, tenantId, ...c });
+  }
+
+  const positionRows = await db.select({ id: s.positions.id, managerial: s.positions.isManagerial }).from(s.positions).where(eq(s.positions.tenantId, tenantId));
+  for (const p of positionRows) {
+    await db.insert(s.positionCompetencies).values(
+      COMPETENCIES.map((c) => ({
+        tenantId,
+        positionId: p.id,
+        competencyId: competencyIds.get(c.name)!,
+        expectedScore: p.managerial && c.category === "lideranca" ? 80 : 70,
+      })),
+    );
+  }
+
+  const people = await db.select({ id: s.users.id, name: s.users.name }).from(s.users).where(and(eq(s.users.tenantId, tenantId), eq(s.users.status, "active")));
+  const year = new Date().getFullYear();
+  for (const person of people) {
+    // Histórico de avaliações: três momentos (há ~5 meses, ~3 meses e ~3 semanas).
+    for (const c of COMPETENCIES) {
+      const finalScore = hashScore(`${person.id}:${c.name}`, 35, 92);
+      const history = [
+        { days: 150, score: Math.max(20, finalScore - 18), source: "self" as const },
+        { days: 90, score: Math.max(20, finalScore - 9), source: "manager" as const },
+        { days: 20, score: finalScore, source: "manager" as const },
+      ];
+      await db.insert(s.competencyAssessments).values(
+        history.map((h) => ({ tenantId, userId: person.id, competencyId: competencyIds.get(c.name)!, score: h.score, source: h.source, assessedBy: person.id, assessedAt: daysAgo(h.days) })),
+      );
+    }
+
+    const pdiId = randomUUID();
+    await db.insert(s.pdis).values({ id: pdiId, tenantId, userId: person.id, title: `PDI ${year}`, periodStart: `${year}-01-01`, periodEnd: `${year}-12-31`, createdBy: person.id });
+    const goals: { title: string; competency: string; target: number; actions: { title: string; type: (typeof s.ACTION_TYPES)[number]; status: (typeof s.ACTION_STATUSES)[number]; due: number }[] }[] = [
+      {
+        title: "Evoluir para posição de liderança",
+        competency: "Liderança",
+        target: 120,
+        actions: [
+          { title: "Mentoria mensal com uma liderança sênior", type: "mentoria", status: "done", due: -40 },
+          { title: "Conduzir a reunião de planejamento do time", type: "pratica", status: "done", due: -15 },
+          { title: "Liderar um projeto transversal", type: "projeto", status: "in_progress", due: 20 },
+        ],
+      },
+      {
+        title: "Melhorar comunicação",
+        competency: "Comunicação",
+        target: 60,
+        actions: [
+          { title: "Apresentar resultados na reunião mensal", type: "pratica", status: "done", due: -20 },
+          { title: "Pedir feedback sobre a clareza das apresentações", type: "feedback", status: "not_started", due: -5 },
+        ],
+      },
+      {
+        title: "Desenvolver visão estratégica",
+        competency: "Pensamento Estratégico",
+        target: 150,
+        actions: [
+          { title: "Mapear os indicadores da área", type: "pratica", status: "done", due: -30 },
+          { title: "Ler um livro sobre estratégia e compartilhar aprendizados", type: "leitura", status: "in_progress", due: 45 },
+          { title: "Participar do planejamento trimestral", type: "projeto", status: "not_started", due: 60 },
+        ],
+      },
+    ];
+    varyProgress(goals, hashScore(person.name, 0, 3));
+    for (const [index, g] of goals.entries()) {
+      const goalId = randomUUID();
+      await db.insert(s.pdiGoals).values({ id: goalId, tenantId, pdiId, title: g.title, competencyId: competencyIds.get(g.competency)!, targetDate: isoDays(g.target), position: index + 1 });
+      await db.insert(s.pdiActions).values(
+        g.actions.map((a) => ({
+          tenantId,
+          pdiId,
+          goalId,
+          title: a.title,
+          type: a.type,
+          status: a.status,
+          dueDate: isoDays(a.due),
+          ownerUserId: person.id,
+          createdBy: person.id,
+          completedAt: a.status === "done" ? daysAgo(Math.max(1, -a.due)) : null,
+          evidence: a.status === "done" ? "Concluído conforme combinado com a liderança." : null,
+        })),
+      );
+    }
+  }
+  return true;
 }

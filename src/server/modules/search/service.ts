@@ -4,6 +4,7 @@ import type { AuthenticatedActor } from "@/server/auth/session";
 import { hasPermissionAnywhere, hasTenantWide } from "@/server/authz/policy";
 import { withTenant } from "@/server/db/tenant";
 import { EMPLOYEE_NAV, EMPLOYEE_NAV_SECONDARY, MANAGEMENT_NAV, type NavIcon } from "@/features/shell/nav-config";
+import { MODULE_FLAGS, type ModuleKey } from "@/server/modules/flags/modules";
 import { effectiveFlags } from "@/server/modules/flags/service";
 import { listPeople } from "@/server/modules/people/service";
 
@@ -54,14 +55,18 @@ const rows = <T>(result: unknown) => (result as Rows<T>).rows;
 const SURVEY_STATE: Record<string, string> = { open: "Aberta para responder", answered: "Você já respondeu", closed: "Encerrada" };
 
 /** Atalhos de navegação que a pessoa pode abrir. */
-function pages(actor: AuthenticatedActor, context: SearchContext, achievements: boolean) {
+function pages(actor: AuthenticatedActor, context: SearchContext, flags: Record<string, boolean>) {
+  const achievements = flags.gamification === true;
+  const on = (i: { module?: ModuleKey }) => !i.module || flags[MODULE_FLAGS[i.module]] === true;
   const items =
     context === "employee"
-      ? [...EMPLOYEE_NAV, ...EMPLOYEE_NAV_SECONDARY].filter((i) => achievements || i.href !== "/minhas-conquistas").map((i) => ({ ...i, subtitle: "Minha experiência" }))
+      ? [...EMPLOYEE_NAV, ...EMPLOYEE_NAV_SECONDARY]
+          .filter((i) => on(i) && (achievements || i.href !== "/minhas-conquistas"))
+          .map((i) => ({ ...i, subtitle: "Minha experiência" }))
       : [
-          ...MANAGEMENT_NAV.filter((i) => i.anyOf.some((p) => hasPermissionAnywhere(actor, p))).flatMap((i) => [
+          ...MANAGEMENT_NAV.filter((i) => on(i) && i.anyOf.some((p) => hasPermissionAnywhere(actor, p))).flatMap((i) => [
             { ...i, subtitle: "Gestão" },
-            ...(i.children ?? []).filter((c) => c.anyOf.some((p) => hasPermissionAnywhere(actor, p))).map((c) => ({ ...c, subtitle: `Gestão · ${i.label}` })),
+            ...(i.children ?? []).filter((c) => on(c) && c.anyOf.some((p) => hasPermissionAnywhere(actor, p))).map((c) => ({ ...c, subtitle: `Gestão · ${i.label}` })),
           ]),
           ...(hasTenantWide(actor, "comms.announcement.publish") ? [{ href: "/gestao/comunicacao/banners", label: "Banners da home", icon: "announcements" as NavIcon, subtitle: "Gestão · Comunicação" }] : []),
         ];
@@ -71,7 +76,7 @@ function pages(actor: AuthenticatedActor, context: SearchContext, achievements: 
 /** Atalhos sem termo (estado inicial da paleta). */
 export async function quickLinks(actor: AuthenticatedActor, context: SearchContext): Promise<SearchHit[]> {
   const flags = await effectiveFlags(actor);
-  return pages(actor, context, flags.gamification === true).slice(0, 8);
+  return pages(actor, context, flags).slice(0, 8);
 }
 
 export async function search(actor: AuthenticatedActor, query: string, context: SearchContext): Promise<SearchGroup[]> {
@@ -82,28 +87,31 @@ export async function search(actor: AuthenticatedActor, query: string, context: 
 
   const groups = await withTenant(actor, async (tx) => {
     const out: Partial<Record<SearchKind, SearchHit[]>> = {};
-    out.page = pages(actor, context, flags.gamification === true)
+    out.page = pages(actor, context, flags)
       .filter((p) => normalize(p.title).includes(term))
       .slice(0, PER_GROUP);
 
     if (context === "employee") {
-      out.course = rows<{ id: string; title: string; category: string | null; kind: string }>(
-        await tx.execute(sql`
-          select c.id, c.title, c.category, c.kind from courses c
-          where c.status = 'published' and (${matches(sql`c.title`, q)} or ${matches(sql`c.description`, q)} or ${matches(sql`c.category`, q)})
-          order by (${matches(sql`c.title`, q)}) desc, c.title limit ${PER_GROUP}`),
-      ).map((c) => ({ kind: "course", id: c.id, title: c.title, subtitle: c.category ?? (c.kind === "video" ? "Vídeo" : c.kind === "quiz" ? "Quiz" : "Curso"), href: `/meus-cursos/${c.id}` }));
+      // Cursos e trilhas só entram na busca com o módulo de aprendizagem ligado.
+      if (flags[MODULE_FLAGS.learning] === true) {
+        out.course = rows<{ id: string; title: string; category: string | null; kind: string }>(
+          await tx.execute(sql`
+            select c.id, c.title, c.category, c.kind from courses c
+            where c.status = 'published' and (${matches(sql`c.title`, q)} or ${matches(sql`c.description`, q)} or ${matches(sql`c.category`, q)})
+            order by (${matches(sql`c.title`, q)}) desc, c.title limit ${PER_GROUP}`),
+        ).map((c) => ({ kind: "course", id: c.id, title: c.title, subtitle: c.category ?? (c.kind === "video" ? "Vídeo" : c.kind === "quiz" ? "Quiz" : "Curso"), href: `/meus-cursos/${c.id}` }));
 
-      out.path = rows<{ id: string; title: string; category: string | null; courses: number }>(
-        await tx.execute(sql`
-          select p.id, p.title, p.category,
-                 (select count(*)::int from learning_path_courses lpc join courses c on c.id = lpc.course_id and c.status = 'published' where lpc.path_id = p.id) as courses
-          from learning_paths p
-          where p.status = 'published' and (${matches(sql`p.title`, q)} or ${matches(sql`p.description`, q)} or ${matches(sql`p.category`, q)})
-          order by p.featured desc, p.title limit ${PER_GROUP}`),
-      )
-        .filter((p) => p.courses > 0)
-        .map((p) => ({ kind: "path", id: p.id, title: p.title, subtitle: `${p.category ? `${p.category} · ` : ""}${p.courses} ${p.courses === 1 ? "curso" : "cursos"}`, href: `/trilhas/${p.id}` }));
+        out.path = rows<{ id: string; title: string; category: string | null; courses: number }>(
+          await tx.execute(sql`
+            select p.id, p.title, p.category,
+                   (select count(*)::int from learning_path_courses lpc join courses c on c.id = lpc.course_id and c.status = 'published' where lpc.path_id = p.id) as courses
+            from learning_paths p
+            where p.status = 'published' and (${matches(sql`p.title`, q)} or ${matches(sql`p.description`, q)} or ${matches(sql`p.category`, q)})
+            order by p.featured desc, p.title limit ${PER_GROUP}`),
+        )
+          .filter((p) => p.courses > 0)
+          .map((p) => ({ kind: "path", id: p.id, title: p.title, subtitle: `${p.category ? `${p.category} · ` : ""}${p.courses} ${p.courses === 1 ? "curso" : "cursos"}`, href: `/trilhas/${p.id}` }));
+      }
 
       out.announcement = rows<{ id: string; title: string; summary: string }>(
         await tx.execute(sql`

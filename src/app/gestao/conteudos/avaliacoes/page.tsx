@@ -8,6 +8,7 @@ export default function Page() {
   return (
     <Suspense>
       <ManagementModulePage
+        module="learning"
         anyOf={["content.assessment.manage"]}
         title="Avaliações"
         description="Quizzes e avaliações de aprendizagem."

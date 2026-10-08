@@ -8,6 +8,7 @@ export default function Page() {
   return (
     <Suspense>
       <ManagementModulePage
+        module="learning"
         anyOf={["learning.progress.read", "content.analytics.read"]}
         title="Engajamento"
         description="Participação em cursos, trilhas e conteúdos."

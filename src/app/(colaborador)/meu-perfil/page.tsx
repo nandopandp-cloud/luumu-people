@@ -1,5 +1,5 @@
 import { Briefcase, Building2, CalendarDays, FileBadge, Hash, Mail, MapPin, Network, Phone, UserRound, UsersRound, type LucideIcon } from "lucide-react";
-import type { Metadata } from "next";
+import type { Metadata, Route } from "next";
 import { Suspense } from "react";
 import { Avatar } from "@/design-system/components/avatar";
 import { Mascot } from "@/design-system/components/brand";
@@ -12,6 +12,9 @@ import { ChangePasswordForm } from "@/features/profile/change-password-form";
 import { EditProfileDialog } from "@/features/profile/edit-profile-dialog";
 import { CONTRACT_LABELS, formatDate, formatLocation } from "@/lib/format";
 import { requireActor } from "@/server/dal";
+import { getDevelopment } from "@/server/modules/development/service";
+import { getEnabledModules } from "@/server/modules/flags/modules";
+import { CompetencyBarsCard, GoalsCard, OverviewCards } from "@/features/development/sections";
 import { getMyProfile } from "@/server/modules/people/service";
 
 export const metadata: Metadata = { title: "Meu perfil" };
@@ -38,20 +41,19 @@ export default function ProfilePage({ searchParams }: PageProps<"/meu-perfil">) 
 
 async function Profile({ searchParams }: { searchParams: PageProps<"/meu-perfil">["searchParams"] }) {
   const actor = await requireActor();
-  const [profile, params] = await Promise.all([getMyProfile(actor), searchParams]);
-  const tab: Tab = TABS.some((t) => t.value === params.aba) ? (params.aba as Tab) : "visao-geral";
+  const [profile, params, modules] = await Promise.all([getMyProfile(actor), searchParams, getEnabledModules(actor)]);
+  const tabs = TABS.filter((t) => t.value !== "certificados" || modules.learning);
+  const tab: Tab = tabs.some((t) => t.value === params.aba) ? (params.aba as Tab) : "visao-geral";
 
   return (
     <>
       <ProfileHeader profile={profile} />
       <div className="mb-6">
-        <LinkTabs label="Seções do perfil" current={tab} items={TABS.map((t) => ({ ...t, href: { pathname: "/meu-perfil", query: t.value === "visao-geral" ? {} : { aba: t.value } } }))} />
+        <LinkTabs label="Seções do perfil" current={tab} items={tabs.map((t) => ({ ...t, href: { pathname: "/meu-perfil", query: t.value === "visao-geral" ? {} : { aba: t.value } } }))} />
       </div>
-      {tab === "visao-geral" ? <Overview profile={profile} /> : null}
+      {tab === "visao-geral" ? <Overview profile={profile} development={await getDevelopment(actor)} /> : null}
       {tab === "meus-dados" ? <MyData profile={profile} /> : null}
-      {tab === "desenvolvimento" ? (
-        <ComingSoon title="Seu desenvolvimento aparece aqui" description="Competências, PDI, metas e evolução ao longo do tempo." phase="Chega na Fase 3 · Desenvolvimento de pessoas" />
-      ) : null}
+      {tab === "desenvolvimento" ? <ProfileDevelopment development={await getDevelopment(actor)} /> : null}
       {tab === "conquistas" ? (
         <ComingSoon title="Suas conquistas vão aparecer aqui" description="Selos, níveis e marcos da sua jornada." phase="Chega na Fase 2 · Experiência do colaborador" />
       ) : null}
@@ -59,7 +61,7 @@ async function Profile({ searchParams }: { searchParams: PageProps<"/meu-perfil"
         <ComingSoon title="Seus certificados vão ficar guardados aqui" description="Certificados dos cursos e trilhas concluídos, prontos para baixar." phase="Chega na Fase 2 · Experiência do colaborador" />
       ) : null}
       {tab === "historico" ? (
-        <ComingSoon title="Seu histórico está a caminho" description="Cursos, trilhas, mudanças de área e cargo ao longo da sua trajetória." phase="Chega na Fase 2 · Experiência do colaborador" />
+        <ComingSoon title="Seu histórico está a caminho" description="Mudanças de área e cargo e PDIs concluídos ao longo da sua trajetória." phase="Chega na Fase 2 · Experiência do colaborador" />
       ) : null}
     </>
   );
@@ -125,7 +127,19 @@ function InfoRow({ icon: Icon, label, value }: { icon: LucideIcon; label: string
   );
 }
 
-function Overview({ profile }: { profile: Profile }) {
+function ProfileDevelopment({ development }: { development: Awaited<ReturnType<typeof getDevelopment>> }) {
+  return (
+    <div className="space-y-6">
+      <OverviewCards development={development} pdiHref={"/desenvolvimento?aba=pdi" as Route} />
+      <div className="grid gap-6 xl:grid-cols-2">
+        <GoalsCard development={development} pdiHref={"/desenvolvimento?aba=pdi" as Route} />
+        <CompetencyBarsCard development={development} href={"/desenvolvimento?aba=competencias" as Route} />
+      </div>
+    </div>
+  );
+}
+
+function Overview({ profile, development }: { profile: Profile; development: Awaited<ReturnType<typeof getDevelopment>> }) {
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
       <Card>
@@ -143,11 +157,7 @@ function Overview({ profile }: { profile: Profile }) {
           <InfoRow icon={UsersRound} label="Gestor(a)" value={profile.managerName ?? "—"} />
         </dl>
       </Card>
-      <ComingSoon
-        title="Competências, interesses e evolução"
-        description="Em breve, seu perfil vai mostrar suas competências, interesses, conquistas e certificados."
-        phase="Chega nas Fases 2 e 3"
-      />
+      <CompetencyBarsCard development={development} href={"/desenvolvimento?aba=competencias" as Route} />
     </div>
   );
 }
@@ -185,7 +195,7 @@ function MyData({ profile }: { profile: Profile }) {
 
 function ProfileSkeleton() {
   return (
-    <div aria-busy="true" aria-label="Carregando perfil">
+    <div role="status" aria-busy="true" aria-label="Carregando perfil">
       <div className="mb-6 flex items-center gap-6 rounded-xl bg-purple-50 p-8">
         <Skeleton className="size-36 rounded-xl" />
         <div className="flex-1 space-y-3">

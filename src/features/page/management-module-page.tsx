@@ -2,11 +2,13 @@ import { forbidden } from "next/navigation";
 import type { Permission } from "@/server/authz/permissions";
 import { hasPermissionAnywhere } from "@/server/authz/policy";
 import { requireActor } from "@/server/dal";
+import { requireModule, type ModuleKey } from "@/server/modules/flags/modules";
 import { ComingSoon } from "./coming-soon";
 
 /** Módulo de gestão de uma fase futura — ainda assim protegido por permissão. */
-export async function ManagementModulePage({ anyOf, title, description, soon }: { anyOf: Permission[]; title: string; description: string; soon: { title: string; description: string; phase: string } }) {
+export async function ManagementModulePage({ anyOf, title, description, soon, module }: { anyOf: Permission[]; title: string; description: string; soon: { title: string; description: string; phase: string }; module?: ModuleKey }) {
   const actor = await requireActor();
+  if (module) await requireModule(actor, module);
   if (!anyOf.some((p) => hasPermissionAnywhere(actor, p))) forbidden();
   return (
     <>

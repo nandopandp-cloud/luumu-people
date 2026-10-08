@@ -12,6 +12,7 @@ import { Progress } from "@/design-system/components/progress";
 import { CompleteLessonButton } from "@/features/courses/complete-lesson-button";
 import { formatMinutes } from "@/features/courses/labels";
 import { requireActor } from "@/server/dal";
+import { requireModule } from "@/server/modules/flags/modules";
 import { HttpError } from "@/server/http/errors";
 import { getLesson } from "@/server/modules/courses/service";
 import { toEmbedUrl } from "@/server/modules/courses/video";
@@ -28,6 +29,7 @@ export default function LessonPage({ params }: PageProps<"/meus-cursos/[courseId
 
 async function Lesson({ params }: { params: PageProps<"/meus-cursos/[courseId]/aulas/[lessonId]">["params"] }) {
   const actor = await requireActor();
+  await requireModule(actor, "learning");
   const { courseId, lessonId } = await params;
   if (!z.uuid().safeParse(courseId).success || !z.uuid().safeParse(lessonId).success) notFound();
   let data: Awaited<ReturnType<typeof getLesson>>;

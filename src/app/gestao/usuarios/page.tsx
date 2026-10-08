@@ -157,7 +157,7 @@ async function Users({ searchParams }: { searchParams: PageProps<"/gestao/usuari
 
 function TableSkeleton() {
   return (
-    <div className="card space-y-4 p-6" aria-busy="true" aria-label="Carregando usuários">
+    <div className="card space-y-4 p-6" role="status" aria-busy="true" aria-label="Carregando usuários">
       <Skeleton className="h-11 w-full" />
       {Array.from({ length: 8 }, (_, i) => (
         <div key={i} className="flex items-center gap-3">

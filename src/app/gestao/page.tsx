@@ -1,4 +1,4 @@
-import { BookOpenCheck, CalendarDays, ChevronRight, Megaphone, Network, ShieldCheck, UserCheck, UsersRound, Waypoints, type LucideIcon } from "lucide-react";
+import { BookOpenCheck, CalendarDays, ChevronRight, Megaphone, Network, ShieldCheck, TrendingUp, UserCheck, UsersRound, Waypoints, type LucideIcon } from "lucide-react";
 import type { Metadata, Route } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -17,6 +17,7 @@ import { requirePermission } from "@/server/dal";
 import { listAuditLogs } from "@/server/modules/audit/service";
 import { getManagementOverview } from "@/server/modules/management/service";
 import { getMyProfile } from "@/server/modules/people/service";
+import { getEnabledModules } from "@/server/modules/flags/modules";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -32,7 +33,7 @@ const ROLE_PRIORITY = ["admin", "people", "editor", "manager", "employee"];
 
 async function Dashboard() {
   const actor = await requirePermission("management.access");
-  const [profile, overview] = await Promise.all([getMyProfile(actor), getManagementOverview(actor)]);
+  const [profile, overview, modules] = await Promise.all([getMyProfile(actor), getManagementOverview(actor), getEnabledModules(actor)]);
   const firstName = (profile.preferredName || profile.name).split(" ")[0];
   const mainRole = ROLE_PRIORITY.find((key) => actor.grants.some((g) => g.roleKey === key)) ?? "employee";
   const todayRaw = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "America/Sao_Paulo" }).format(new Date());
@@ -85,18 +86,16 @@ async function Dashboard() {
           </section>
         ) : null}
 
-        <Card>
-          <CardHeader title="Engajamento e aprendizagem" description="Acessos, conclusões, tempo de uso e distribuição por perfil." />
-          <EmptyState
-            compact
-            title="Os indicadores de aprendizagem chegam com os cursos"
-            description="Assim que cursos, trilhas e conteúdos forem publicados, o engajamento aparece aqui."
-          />
-        </Card>
+        {modules.learning ? (
+          <Card>
+            <CardHeader title="Engajamento e aprendizagem" description="Acessos, conclusões, tempo de uso e distribuição por perfil." />
+            <EmptyState compact title="Os indicadores de aprendizagem chegam com os cursos" description="Assim que cursos, trilhas e conteúdos forem publicados, o engajamento aparece aqui." />
+          </Card>
+        ) : null}
       </div>
 
       <aside className="space-y-6" aria-label="Atalhos e atividade">
-        <QuickActions can={(p) => hasPermissionAnywhere(actor, p)} />
+        <QuickActions can={(p) => hasPermissionAnywhere(actor, p)} learning={modules.learning} />
         {hasTenantWide(actor, "audit.read") ? (
           <Suspense fallback={<ListSkeleton />}>
             <RecentActivity />
@@ -107,15 +106,16 @@ async function Dashboard() {
   );
 }
 
-function QuickActions({ can }: { can: (p: Permission) => boolean }) {
-  const actions: { title: string; description: string; icon: LucideIcon; tone: string; href?: Route; permission: Permission }[] = [
+function QuickActions({ can, learning }: { can: (p: Permission) => boolean; learning: boolean }) {
+  const actions: { title: string; description: string; icon: LucideIcon; tone: string; href?: Route; permission: Permission; learning?: boolean }[] = [
+    { title: "Acompanhar desenvolvimento", description: "PDIs, metas e competências", icon: TrendingUp, tone: "bg-green-100 text-green-700", href: "/gestao/desenvolvimento", permission: "development.read" },
     { title: "Gerenciar usuários", description: "Consulte pessoas e papéis de acesso", icon: UsersRound, tone: "bg-purple-100 text-purple-600", href: "/gestao/usuarios", permission: "people.directory.read" },
     { title: "Ver auditoria", description: "Acompanhe ações sensíveis", icon: ShieldCheck, tone: "bg-blue-100 text-blue-700", href: "/gestao/auditoria", permission: "audit.read" },
-    { title: "Criar novo curso", description: "Monte um curso do zero", icon: BookOpenCheck, tone: "bg-orange-100 text-orange-700", permission: "content.course.create" },
-    { title: "Criar nova trilha", description: "Organize jornadas de aprendizado", icon: Waypoints, tone: "bg-green-100 text-green-700", permission: "content.path.manage" },
+    { title: "Criar novo curso", description: "Monte um curso do zero", icon: BookOpenCheck, tone: "bg-orange-100 text-orange-700", permission: "content.course.create", learning: true },
+    { title: "Criar nova trilha", description: "Organize jornadas de aprendizado", icon: Waypoints, tone: "bg-green-100 text-green-700", permission: "content.path.manage", learning: true },
     { title: "Novo comunicado", description: "Publique para a empresa ou áreas", icon: Megaphone, tone: "bg-pink-100 text-pink-700", permission: "comms.announcement.create" },
   ];
-  const visible = actions.filter((a) => can(a.permission));
+  const visible = actions.filter((a) => can(a.permission) && (!a.learning || learning));
   if (visible.length === 0) return null;
 
   return (
@@ -197,7 +197,7 @@ function ListSkeleton() {
 
 function DashboardSkeleton() {
   return (
-    <div className="space-y-6" aria-busy="true" aria-label="Carregando dashboard">
+    <div className="space-y-6" role="status" aria-busy="true" aria-label="Carregando dashboard">
       <div className="card space-y-4 p-8">
         <Skeleton className="h-4 w-48" />
         <Skeleton className="h-11 w-72" />

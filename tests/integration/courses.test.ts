@@ -18,7 +18,21 @@ async function courseId(slug: string, title: string) {
 
 describe("cursos do colaborador", () => {
   beforeAll(async () => {
-    await testDatabase();
+    const { db } = await testDatabase();
+    // O módulo de aprendizagem nasce desligado; aqui ele é ligado só para a Aurora.
+    const tenant = await tenantOf("aurora");
+    await db.insert(s.featureFlagOverrides).values({ flagKey: "module_learning", tenantId: tenant.tenantId, enabled: true }).onConflictDoNothing();
+  });
+
+  it("com o módulo desligado, a API de cursos não existe (404)", async () => {
+    const { db } = await testDatabase();
+    const tenant = await tenantOf("aurora");
+    const session = await signIn("aurora", "rafael");
+    const actor = (await resolveActor(headersWith(session.cookie)))!;
+    await db.insert(s.featureFlagOverrides).values({ flagKey: "module_learning", tenantId: tenant.tenantId, userId: actor.userId, enabled: false });
+    const id = await courseId("aurora", "Autoconhecimento");
+    const res = await call(enrollRoute.POST, { path: "/x", method: "POST", cookie: session.cookie, params: { id } });
+    expect(res.status).toBe(404);
   });
 
   it("abas de Meus cursos refletem a jornada", async () => {

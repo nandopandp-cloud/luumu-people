@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { PERMISSIONS } from "@/server/authz/permissions";
 import { SYSTEM_ROLES, type SystemRoleKey } from "@/server/authz/system-roles";
 import { hashPassword } from "@/server/auth/password";
@@ -27,6 +27,28 @@ export async function syncCatalog(db: Database): Promise<void> {
       .insert(s.featureFlags)
       .values({ key: flag.key, description: flag.description, defaultEnabled: flag.defaultEnabled })
       .onConflictDoNothing();
+  }
+  await syncSystemRoles(db);
+}
+
+/**
+ * Mantém as permissões dos papéis de SISTEMA de todos os tenants iguais ao
+ * código (system-roles.ts). Roda junto com as migrations (role dona do schema).
+ */
+export async function syncSystemRoles(db: Database): Promise<void> {
+  const rows = await db.select({ id: s.roles.id, tenantId: s.roles.tenantId, key: s.roles.key }).from(s.roles).where(eq(s.roles.isSystem, true));
+  for (const role of rows) {
+    const definition = SYSTEM_ROLES.find((r) => r.key === role.key);
+    if (!definition) continue;
+    const current = await db.select({ key: s.rolePermissions.permissionKey }).from(s.rolePermissions).where(eq(s.rolePermissions.roleId, role.id));
+    const have = new Set(current.map((c) => c.key));
+    const want = new Set<string>(definition.permissions);
+    const missing = [...want].filter((p) => !have.has(p));
+    const extra = [...have].filter((p) => !want.has(p));
+    if (missing.length) await db.insert(s.rolePermissions).values(missing.map((permissionKey) => ({ tenantId: role.tenantId, roleId: role.id, permissionKey })));
+    for (const permissionKey of extra) {
+      await db.delete(s.rolePermissions).where(and(eq(s.rolePermissions.roleId, role.id), eq(s.rolePermissions.permissionKey, permissionKey)));
+    }
   }
 }
 
@@ -173,11 +195,27 @@ export async function seedDemo(db: Database, password: string): Promise<SeedResu
       if (seeded) {
         await seedContent(t, seeded.tenantId, [...seeded.users.values()].map((u) => u.id));
         await seedSurveys(t, seeded.tenantId);
+        await enableLearningFor(t, seeded);
         result.set(org.slug, seeded);
       }
     }
   });
   return result;
+}
+
+/**
+ * Cursos/trilhas/biblioteca nascem desligados. Para testes de ponta a ponta,
+ * SEED_LEARNING_USERS (e-mails separados por vírgula) liga os módulos só para
+ * essas pessoas — o seed demonstrativo nunca roda em produção.
+ */
+async function enableLearningFor(db: Database, org: SeededOrganization) {
+  const emails = new Set((process.env.SEED_LEARNING_USERS ?? "").split(",").map((e) => e.trim()).filter(Boolean));
+  for (const [, user] of org.users) {
+    if (!emails.has(user.email)) continue;
+    await db.insert(s.featureFlagOverrides).values(
+      ["module_learning", "module_library"].map((flagKey) => ({ flagKey, tenantId: org.tenantId, userId: user.id, enabled: true })),
+    );
+  }
 }
 
 export async function isDatabaseEmpty(db: Database): Promise<boolean> {

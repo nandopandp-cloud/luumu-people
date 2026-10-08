@@ -17,6 +17,7 @@ import { StartCourseButton } from "@/features/courses/start-course-button";
 import { PATH_STATUS } from "@/features/paths/labels";
 import { requireActor } from "@/server/dal";
 import { HttpError } from "@/server/http/errors";
+import { requireModule } from "@/server/modules/flags/modules";
 import { getPath, type PathCourse } from "@/server/modules/learning/service";
 
 export const metadata: Metadata = { title: "Trilha" };
@@ -31,6 +32,7 @@ export default function PathPage({ params }: PageProps<"/trilhas/[pathId]">) {
 
 async function PathDetail({ params }: { params: PageProps<"/trilhas/[pathId]">["params"] }) {
   const actor = await requireActor();
+  await requireModule(actor, "learning");
   const { pathId } = await params;
   if (!z.uuid().safeParse(pathId).success) notFound();
   let data: Awaited<ReturnType<typeof getPath>>;

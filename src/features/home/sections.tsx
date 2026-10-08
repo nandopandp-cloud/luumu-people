@@ -23,6 +23,8 @@ import { getMyProfile } from "@/server/modules/people/service";
 import { MOODS } from "@/server/modules/wellbeing/schemas";
 import { getTodayMood } from "@/server/modules/wellbeing/service";
 import { HeroCarousel } from "./hero-banner";
+import { getDevelopment } from "@/server/modules/development/service";
+import { formatDay } from "@/features/development/labels";
 import { ANNOUNCEMENT_CATEGORY, daysUntil, formatMinutes, LIBRARY_TYPE, relativeDay } from "./labels";
 import { MoodCheckin } from "./mood-checkin";
 
@@ -83,8 +85,8 @@ export async function HomeHero({ actor }: { actor: AuthenticatedActor }) {
           </h1>
           <p className="mt-4 max-w-[26rem] text-[15px] leading-relaxed text-neutral-700">Explore conteúdos, desenvolva suas habilidades e faça parte de uma cultura que cresce junta.</p>
           <Button asChild size="lg" className="mt-6 h-11 px-7">
-            <Link href="/meus-cursos">
-              Explorar cursos <ArrowRight aria-hidden />
+            <Link href="/desenvolvimento">
+              Ver meu desenvolvimento <ArrowRight aria-hidden />
             </Link>
           </Button>
         </div>
@@ -229,6 +231,74 @@ function AsideHeader({ id, title, href, linkLabel }: { id: string; title: string
   );
 }
 
+/** Sem o módulo de aprendizagem: progresso do PDI. */
+export async function DevelopmentProgressCard({ actor }: { actor: AuthenticatedActor }) {
+  const { pdi } = await getDevelopment(actor);
+  return (
+    <Panel>
+      <AsideHeader id="meu-progresso" title="Meu desenvolvimento" href="/desenvolvimento" linkLabel="Ver tudo" />
+      {!pdi ? (
+        <p className="text-body-sm text-neutral-600">Você ainda não tem um PDI ativo. Que tal começar o seu?</p>
+      ) : (
+        <div className="flex items-center gap-5">
+          <CircularProgress value={pdi.stats.progress} label="Progresso do PDI" size={104} stroke={11} />
+          <div>
+            <p className="text-[26px] font-bold leading-none tracking-[-0.02em] text-neutral-900">
+              {pdi.stats.actionsDone} de {pdi.stats.actionsTotal}
+            </p>
+            <p className="mt-1.5 text-body-sm text-neutral-700">
+              ações do PDI concluídas <span aria-hidden>🎯</span>
+            </p>
+          </div>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+/** Sem o módulo de aprendizagem: próximas ações do PDI. */
+export async function NextPdiActionsCard({ actor }: { actor: AuthenticatedActor }) {
+  const { pdi } = await getDevelopment(actor);
+  const items = (pdi?.goals ?? [])
+    .flatMap((g) => g.actions.map((a) => ({ ...a, goalTitle: g.title })))
+    .filter((a) => a.status === "not_started" || a.status === "in_progress")
+    .sort((a, b) => (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999"))
+    .slice(0, 4);
+  return (
+    <Panel>
+      <AsideHeader id="proximas-atividades" title="Minhas próximas atividades" href="/desenvolvimento?aba=pdi" linkLabel="Ver PDI" />
+      {items.length === 0 ? (
+        <p className="text-body-sm text-neutral-600">Nada pendente por aqui. 🎈</p>
+      ) : (
+        <ul className="-my-1 divide-y divide-line">
+          {items.map((a) => (
+            <li key={a.id}>
+              <Link href="/desenvolvimento?aba=pdi" className="group flex items-center gap-3.5 py-3.5 focus-visible:outline-2 focus-visible:outline-purple-500">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-purple-50 text-purple-500">
+                  <SquarePen aria-hidden className="size-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-caption text-neutral-600">{a.status === "in_progress" ? "Continuar ação" : "Iniciar ação"}</span>
+                  <span className="block truncate text-body-sm font-semibold text-neutral-900 group-hover:text-purple-600">{a.title}</span>
+                  {a.late ? (
+                    <span className="mt-0.5 flex items-center gap-1 text-caption font-medium text-red-600">
+                      <AlarmClock aria-hidden className="size-3.5" /> Atrasada desde {formatDay(a.dueDate)}
+                    </span>
+                  ) : (
+                    <span className="block truncate text-caption text-neutral-600">{a.goalTitle}</span>
+                  )}
+                </span>
+                <span className="shrink-0 text-caption text-neutral-600">{a.dueDate ? formatDay(a.dueDate).slice(0, 5) : ""}</span>
+                <ChevronRight aria-hidden className="size-4 shrink-0 text-neutral-500" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
 export async function MyProgressCard({ actor }: { actor: AuthenticatedActor }) {
   const progress = await getMyLearningProgress(actor);
   return (
@@ -334,5 +404,39 @@ export async function AchievementsCard({ actor }: { actor: AuthenticatedActor })
         </ul>
       )}
     </Panel>
+  );
+}
+
+/** Sem o módulo de aprendizagem: metas do PDI na coluna principal. */
+export async function DevelopmentGoalsSection({ actor }: { actor: AuthenticatedActor }) {
+  const { pdi } = await getDevelopment(actor);
+  const goals = pdi?.goals.slice(0, 3) ?? [];
+  return (
+    <section aria-labelledby="metas-pdi">
+      <SectionHeader id="metas-pdi" title="Metas do meu PDI" href="/desenvolvimento?aba=pdi" linkLabel="Ver PDI" />
+      {goals.length === 0 ? (
+        <Panel>
+          <EmptyState compact title="Seu plano de desenvolvimento começa aqui" description="Crie seu PDI e defina as primeiras metas." />
+        </Panel>
+      ) : (
+        <ul className="grid gap-4 md:grid-cols-3">
+          {goals.map((g) => (
+            <li key={g.id}>
+              <Link href="/desenvolvimento?aba=pdi" className="group flex h-full flex-col rounded-xl border border-line bg-white p-4 shadow-sm transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-purple-500">
+                <div className="flex items-start justify-between gap-2">
+                  {g.competencyName ? <Badge tone="purple">{g.competencyName}</Badge> : <Badge tone="neutral">Meta</Badge>}
+                  <RoundArrow label="Ver meta" />
+                </div>
+                <h3 className="mt-3 text-[15px] font-semibold leading-snug text-neutral-900 group-hover:text-purple-600">{g.title}</h3>
+                <p className="mt-1 text-caption text-neutral-600">
+                  {g.actions.filter((a) => a.status === "done").length} de {g.actions.filter((a) => a.status !== "cancelled").length} ações · prazo {formatDay(g.targetDate)}
+                </p>
+                <Progress value={g.progress} label={`Progresso da meta ${g.title}`} className="mt-auto pt-3" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

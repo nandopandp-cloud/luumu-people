@@ -2,7 +2,17 @@ import { expect, test } from "@playwright/test";
 import { expectAccessible, signIn } from "./helpers";
 
 test.describe("Início do colaborador", () => {
-  test("mostra os blocos do dia a dia com dados reais e é acessível", async ({ page }) => {
+  test("sem o módulo de cursos, mostra o desenvolvimento e é acessível", async ({ page }) => {
+    await signIn(page, "camila.oliveira@aurora.example");
+    await expect(page.getByRole("heading", { name: "Comunicados para você" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Metas do meu PDI" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Evoluir para posição de liderança" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Minhas próximas atividades" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Meus cursos" })).toHaveCount(0);
+    await expectAccessible(page);
+  });
+
+  test("com o módulo de cursos, mostra trilhas e progresso de aprendizagem", async ({ page }) => {
     await signIn(page, "fernando.santos@aurora.example");
     await expect(page.getByRole("heading", { name: "Pequenos aprendizados constroem grandes futuros." })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Comunicados para você" })).toBeVisible();

@@ -55,6 +55,12 @@ Paginação por cursor: `?cursor=…&limit=…` → `{ items, nextCursor }`.
 | GET | `/api/v1/files/:id` | autenticado (mesmo tenant) | entrega o arquivo com `nosniff`, CSP `sandbox` e cache privado |
 | POST | `/api/v1/courses/:id/enroll` | autenticado | matrícula voluntária em curso publicado; devolve a próxima aula |
 | POST | `/api/v1/courses/:id/lessons/:lessonId/complete` | autenticado | conclui a aula (idempotente), recalcula o progresso e emite o certificado ao chegar a 100% |
+| POST | `/api/v1/development/pdis` | titular ou `development.pdi.manage` no escopo | cria o PDI ativo `{ userId?, title, periodStart, periodEnd }` (409 se já existir) |
+| POST | `/api/v1/development/pdis/:pdiId/goals` | idem | nova meta `{ title, description?, competencyId?, targetDate? }` |
+| POST | `/api/v1/development/goals/:goalId/actions` | idem | nova ação `{ title, type, dueDate?, ownerUserId? }` |
+| PATCH | `/api/v1/development/actions/:actionId` | idem | atualiza status, prazo e evidência (`evidenceUrl` só `https://`) |
+| POST | `/api/v1/development/assessments` | titular (autoavaliação) ou `development.pdi.manage` | registra avaliação `{ userId?, competencyId, score 0..100, note? }`; a origem (self/manager/people) é definida pelo servidor |
+| GET / POST | `/api/v1/development/competencies` | autenticado / `development.pdi.manage` (TENANT) | catálogo de competências da empresa |
 | GET / PUT | `/api/v1/me/mood` | autenticado | check-in de humor do dia `{ mood: 1..5 }` — somente o próprio registro |
 | GET | `/api/v1/audit-logs` | `audit.read` (TENANT) | trilha de auditoria (`action`, `actorUserId`, `cursor`) |
 | GET | `/api/v1/feature-flags` | autenticado | flags efetivas do usuário |

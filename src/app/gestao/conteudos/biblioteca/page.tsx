@@ -8,6 +8,7 @@ export default function Page() {
   return (
     <Suspense>
       <ManagementModulePage
+        module="library"
         anyOf={["content.library.manage"]}
         title="Biblioteca"
         description="Gerencie artigos, vídeos, podcasts, templates e playlists."

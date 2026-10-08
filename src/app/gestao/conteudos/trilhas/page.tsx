@@ -8,6 +8,7 @@ export default function Page() {
   return (
     <Suspense>
       <ManagementModulePage
+        module="learning"
         anyOf={["content.path.manage"]}
         title="Trilhas"
         description="Organize cursos em jornadas, com ordem, pré-requisitos e regras de conclusão."

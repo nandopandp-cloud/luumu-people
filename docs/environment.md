@@ -1,5 +1,7 @@
 # Variáveis de ambiente
 
+> Módulos opcionais (cursos/trilhas e biblioteca) não são variáveis de ambiente: são as feature flags `module_learning` e `module_library`, desligadas por padrão e ligáveis por empresa, papel ou pessoa (`feature_flag_overrides`). Em dev/testes, `SEED_LEARNING_USERS` (e-mails separados por vírgula) liga os dois módulos para essas pessoas do seed demonstrativo.
+
 Validadas em `src/server/env.ts`: a aplicação falha alto se algo estiver errado. Modelo comentado em [.env.example](../.env.example). Nenhuma variável é exposta ao navegador (não usamos `NEXT_PUBLIC_*`).
 
 | Variável | Onde | Obrigatória | Descrição |

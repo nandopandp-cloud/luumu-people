@@ -14,6 +14,7 @@ import {
 import { PageHero } from "@/features/page/page-hero";
 import type { AuthenticatedActor } from "@/server/auth/session";
 import { requireActor } from "@/server/dal";
+import { requireModule } from "@/server/modules/flags/modules";
 import { MY_COURSE_TABS, type CatalogFilter, type MyCourseTab } from "@/server/modules/courses/service";
 
 export const metadata: Metadata = { title: "Meus cursos" };
@@ -69,11 +70,13 @@ async function parse(searchParams: SP): Promise<Params> {
 
 async function Resolve({ searchParams, children }: { searchParams: SP; children: (actor: AuthenticatedActor, params: Params) => ReactNode }) {
   const [actor, params] = await Promise.all([requireActor(), parse(searchParams)]);
+  await requireModule(actor, "learning");
   return children(actor, params);
 }
 
 async function Hero({ searchParams }: { searchParams: SP }) {
-  const { tab } = await parse(searchParams);
+  const [{ tab }, actor] = await Promise.all([parse(searchParams), requireActor()]);
+  await requireModule(actor, "learning");
   return (
     <PageHero title="Meus cursos" description="Acompanhe seus treinamentos, continue de onde parou e descubra novos conteúdos." bubble="Aprender hoje constrói o seu próximo amanhã.">
       <LinkTabs

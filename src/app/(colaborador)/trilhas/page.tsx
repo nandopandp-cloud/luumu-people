@@ -2,6 +2,7 @@ import type { Metadata, Route } from "next";
 import { Suspense } from "react";
 import { Skeleton } from "@/design-system/components/feedback";
 import { LinkTabs } from "@/design-system/components/link-tabs";
+import { ModuleGate } from "@/features/page/module-gate";
 import { PageHero } from "@/features/page/page-hero";
 import { PathsSection } from "@/features/paths/sections";
 import { requireActor } from "@/server/dal";
@@ -21,14 +22,14 @@ async function parseTab(searchParams: SP): Promise<PathTab> {
 
 export default function PathsPage({ searchParams }: PageProps<"/trilhas">) {
   return (
-    <>
+    <ModuleGate module="learning">
       <Suspense fallback={<Skeleton className="mb-6 h-[230px] rounded-xl" />}>
         <Hero searchParams={searchParams} />
       </Suspense>
       <Suspense fallback={<Cards />}>
         <Paths searchParams={searchParams} />
       </Suspense>
-    </>
+    </ModuleGate>
   );
 }
 

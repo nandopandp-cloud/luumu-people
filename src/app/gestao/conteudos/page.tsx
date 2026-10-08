@@ -8,6 +8,7 @@ export default function Page() {
   return (
     <Suspense>
       <ManagementModulePage
+        module="learning"
         anyOf={["content.course.create", "content.path.manage", "content.library.manage", "content.assessment.manage"]}
         title="Conteúdos"
         description="Cursos, trilhas, biblioteca e avaliações em um só lugar."

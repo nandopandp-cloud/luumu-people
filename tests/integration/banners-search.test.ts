@@ -4,6 +4,7 @@ import * as orderRoute from "@/app/api/v1/banners/order/route";
 import * as bannersRoute from "@/app/api/v1/banners/route";
 import * as searchRoute from "@/app/api/v1/search/route";
 import { resolveActor } from "@/server/auth/session";
+import * as s from "@/server/db/schema";
 import { listLiveBanners } from "@/server/modules/banners/service";
 import { effectiveFlags } from "@/server/modules/flags/service";
 import { search } from "@/server/modules/search/service";
@@ -77,12 +78,19 @@ describe("banners da home", () => {
 
 describe("busca unificada", () => {
   it("encontra cursos, trilhas e comunicados sem acento e sem diferenciar caixa", async () => {
-    const actor = await actorFor("fernando");
+    // Cursos e trilhas só aparecem com o módulo de aprendizagem ligado (aqui, só para a Helena).
+    const actor = await actorFor("helena");
+    const { db } = await testDatabase();
+    await db.insert(s.featureFlagOverrides).values({ flagKey: "module_learning", tenantId: actor.tenantId, userId: actor.userId, enabled: true });
     const groups = await search(actor, "LIDERANCA", "employee");
     const titles = groups.flatMap((g) => g.items.map((i) => `${g.kind}:${i.title}`));
     expect(titles).toContain("path:Desenvolvimento de Liderança");
     expect(titles.some((t) => t.startsWith("course:"))).toBe(true);
     expect(groups.find((g) => g.kind === "announcement")?.items.map((i) => i.title)).toContain("Inscrições abertas para a Escola de Líderes");
+
+    const off = await search(await actorFor("fernando"), "LIDERANCA", "employee");
+    expect(off.some((g) => g.kind === "course" || g.kind === "path")).toBe(false);
+    expect(off.find((g) => g.kind === "announcement")?.items.map((i) => i.title)).toContain("Inscrições abertas para a Escola de Líderes");
   });
 
   it("nunca devolve rascunho, agendado ou pessoas para quem não pode ver", async () => {
@@ -105,7 +113,9 @@ describe("busca unificada", () => {
     const { cookie } = await signIn("aurora", "fernando");
     const res = await call(searchRoute.GET, { path: "/api/v1/search?q=", cookie });
     expect(res.status).toBe(200);
-    expect(res.json.quick.map((q: { href: string }) => q.href)).toContain("/trilhas");
+    const quick = res.json.quick.map((q: { href: string }) => q.href);
+    expect(quick).toContain("/desenvolvimento");
+    expect(quick).not.toContain("/trilhas");
     const conquistas = await call(searchRoute.GET, { path: "/api/v1/search?q=conquistas", cookie });
     expect(JSON.stringify(conquistas.json)).not.toContain("/minhas-conquistas");
   });

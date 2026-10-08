@@ -21,7 +21,7 @@ export function EmployeeShell({ children }: { children: ReactNode }) {
         <EmployeeSidebar />
         <div className="min-w-0 flex-1 lg:pt-2">
           <Logo className="mb-4 h-10 lg:hidden" />
-          <Topbar environment="employee" searchPlaceholder="Buscar cursos, trilhas, conteúdos ou pessoas…" />
+          <Topbar environment="employee" searchPlaceholder="Buscar comunicados, pesquisas ou pessoas…" />
           <main id="conteudo" tabIndex={-1} className="focus:outline-none">
             {children}
           </main>

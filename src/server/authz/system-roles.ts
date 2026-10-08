@@ -58,6 +58,7 @@ export const SYSTEM_ROLES: readonly SystemRole[] = [
       "learning.progress.read",
       "learning.assign",
       "development.read",
+      "development.pdi.manage",
       "survey.results.read_aggregate",
       "reports.read",
     ],

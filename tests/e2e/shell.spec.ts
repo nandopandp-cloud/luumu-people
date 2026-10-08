@@ -46,7 +46,7 @@ test.describe("Shell", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Desenvolvimento de Liderança" })).toBeVisible();
 
     // Busca recente aparece na próxima abertura.
-    await page.getByRole("button", { name: /Buscar cursos, trilhas/ }).click();
+    await page.getByRole("button", { name: /Buscar comunicados, pesquisas/ }).click();
     await expect(page.getByRole("button", { name: "lideranca" })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toHaveCount(0);
