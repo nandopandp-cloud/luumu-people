@@ -39,6 +39,9 @@ Para recomeçar do zero: `pnpm db:reset-local`.
 | `pnpm db:migrate` | Aplica migrations no Neon (`DATABASE_URL_MIGRATIONS`) |
 | `pnpm db:seed` | Dados demonstrativos no Neon (dev/preview) |
 | `pnpm db:provision-roles` | Cria os logins de runtime no Neon |
+| `pnpm tenant:create` | Cria uma empresa real e o primeiro administrador |
+| `pnpm org:import <arquivo.json>` | Importa áreas, cargos, níveis e pessoas de uma empresa |
+| `pnpm content:seed --tenant <slug>` | Carrega o conteúdo de exemplo (comunicados, trilhas, biblioteca, conquistas) |
 | `pnpm brand:build` | Regenera as variações da marca a partir do SVG oficial |
 
 ## Documentação

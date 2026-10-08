@@ -1,0 +1,1 @@
+ALTER TABLE "learning_paths" ADD COLUMN "display_order" integer DEFAULT 0 NOT NULL;

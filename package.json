@@ -18,7 +18,9 @@
     "db:provision-roles": "tsx scripts/db-provision-roles.mts",
     "db:reset-local": "rm -rf .data/pglite",
     "brand:build": "node scripts/brand-split.mjs",
-    "tenant:create": "tsx scripts/create-tenant.mts"
+    "tenant:create": "tsx scripts/create-tenant.mts",
+    "org:import": "tsx scripts/import-structure.mts",
+    "content:seed": "tsx scripts/seed-content.mts"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.2.2",

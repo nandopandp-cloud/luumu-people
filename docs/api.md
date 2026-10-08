@@ -50,6 +50,7 @@ Paginação por cursor: `?cursor=…&limit=…` → `{ items, nextCursor }`.
 | DELETE | `/api/v1/people/:id/roles/:assignmentId` | `access.roles.assign` | revoga papel |
 | GET | `/api/v1/roles` | `access.roles.assign` | papéis da empresa e permissões |
 | GET | `/api/v1/org-units` | autenticado | estrutura organizacional (não sensível) |
+| GET / PUT | `/api/v1/me/mood` | autenticado | check-in de humor do dia `{ mood: 1..5 }` — somente o próprio registro |
 | GET | `/api/v1/audit-logs` | `audit.read` (TENANT) | trilha de auditoria (`action`, `actorUserId`, `cursor`) |
 | GET | `/api/v1/feature-flags` | autenticado | flags efetivas do usuário |
 

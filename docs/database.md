@@ -21,6 +21,11 @@ PostgreSQL 17 (Neon em preview/produção; PGlite, o Postgres em WASM, em desenv
 | Colaborador | `employee_profiles` (dados de RH), `employment_assignments` (lotação com vigência), `manager_relationships` (gestor com vigência), `org_tags`, `user_org_tags`, `profile_field_policies` |
 | Acesso | `permissions` (catálogo), `roles`, `role_permissions`, `user_roles` (com escopo) |
 | Plataforma | `audit_logs`, `feature_flags`, `feature_flag_overrides` |
+| Experiência (Fase 2, início) | `announcements`, `courses`, `learning_paths`, `learning_path_courses`, `enrollments`, `library_items`, `mood_checkins`, `achievements`, `user_achievements` |
+
+`mood_checkins` tem, além do isolamento por tenant, uma policy `RESTRICTIVE` que só permite ler/gravar linhas de `app.current_user_id()`: nem administradores veem o humor individual de outra pessoa. `withTenant()` define `app.tenant_id` e `app.user_id` numa única ida ao banco.
+
+Capas de comunicados, trilhas e cursos usam `theme` + `illustration` do design system até a chegada do upload de imagens.
 
 Identidade (`users`) e dados de RH (`employee_profiles`) ficam separados: o Better Auth só enxerga a primeira.
 

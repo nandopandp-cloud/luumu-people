@@ -5,6 +5,7 @@ const PORT = 3100;
 /** E2E contra o app real, com banco PGlite próprio (semeado automaticamente). */
 export default defineConfig({
   testDir: "tests/e2e",
+  globalSetup: "./tests/e2e/warmup.ts",
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,

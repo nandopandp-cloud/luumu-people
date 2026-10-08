@@ -5,6 +5,7 @@ import { SYSTEM_ROLES, type SystemRoleKey } from "@/server/authz/system-roles";
 import { hashPassword } from "@/server/auth/password";
 import type { Database } from "../client";
 import * as s from "../schema";
+import { seedContent } from "./content";
 import { DEFAULT_EDITABLE_PROFILE_FIELDS, SEED_FEATURE_FLAGS, SEED_ORGANIZATIONS, seedEmail, type SeedOrganization } from "./data";
 
 /**
@@ -168,7 +169,10 @@ export async function seedDemo(db: Database, password: string): Promise<SeedResu
     await syncCatalog(t);
     for (const org of SEED_ORGANIZATIONS) {
       const seeded = await seedOrganization(t, org, passwordHash);
-      if (seeded) result.set(org.slug, seeded);
+      if (seeded) {
+        await seedContent(t, seeded.tenantId, [...seeded.users.values()].map((u) => u.id));
+        result.set(org.slug, seeded);
+      }
     }
   });
   return result;
