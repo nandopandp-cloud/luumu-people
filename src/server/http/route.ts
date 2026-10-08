@@ -7,7 +7,7 @@ import { hasPermissionAnywhere } from "@/server/authz/policy";
 import { trustedOrigins } from "@/server/env";
 import { logger } from "@/server/observability/logger";
 import { badRequest, forbidden, HttpError, problem, unauthorized } from "./errors";
-import { checkRateLimit, DEFAULT_RATE_LIMIT, type RateLimitRule } from "./rate-limit";
+import { checkRateLimit, checkVolatileRateLimit, DEFAULT_RATE_LIMIT, type RateLimitRule } from "./rate-limit";
 
 /**
  * Wrapper único para route handlers da API (/api/v1). Toda rota declara:
@@ -48,6 +48,12 @@ type RouteConfig<QS, BS, PS> = {
   body?: BS;
   params?: PS;
   rateLimit?: RateLimitRule;
+  /**
+   * Rota de envio de pesquisa ANÔNIMA (docs/anonymous-surveys.md): rate limit
+   * só em memória volátil (nada persistido ligado ao envio) e, em erro
+   * inesperado, log sem erro, caminho, payload ou usuário — só o requestId.
+   */
+  anonymous?: boolean;
   /** Corpo multipart/form-data (upload). O handler lê `request.formData()`; o tamanho total é limitado. */
   multipart?: { maxBytes: number };
   handler: (ctx: RouteContext<Infer<QS>, Infer<BS>, Infer<PS>>) => Promise<unknown>;
@@ -129,7 +135,9 @@ export function defineRoute<QS extends Schema | undefined = undefined, BS extend
       }
 
       const rule = config.rateLimit ?? DEFAULT_RATE_LIMIT;
-      const limit = await checkRateLimit(actor, `api:${actor.userId}:${rule.limit}`, rule);
+      const limit = config.anonymous
+        ? await checkVolatileRateLimit(actor, `anon:${actor.userId}`, rule)
+        : await checkRateLimit(actor, `api:${actor.userId}:${rule.limit}`, rule);
       if (!limit.allowed) {
         return problem(429, "Muitas requisições", "Aguarde um instante e tente novamente.", undefined, {
           "retry-after": String(limit.retryAfterSeconds),
@@ -157,7 +165,8 @@ export function defineRoute<QS extends Schema | undefined = undefined, BS extend
       if (error instanceof HttpError) {
         return problem(error.status, error.title, error.detail, { ...error.extra, requestId });
       }
-      logger().error({ err: error, requestId, path: new URL(request.url).pathname }, "erro inesperado na API");
+      if (config.anonymous) logger().error({ requestId }, "erro inesperado em rota anônima");
+      else logger().error({ err: error, requestId, path: new URL(request.url).pathname }, "erro inesperado na API");
       return problem(500, "Algo deu errado", "Tente novamente em instantes. Se persistir, informe o código ao suporte.", { requestId });
     }
   };

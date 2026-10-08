@@ -29,6 +29,16 @@ export const AUDIT_ACTIONS = [
   "tenant.settings_changed",
   "tenant.feature_flag_changed",
   "data.exported",
+  "comms.announcement_created",
+  "comms.announcement_updated",
+  "comms.announcement_published",
+  "comms.announcement_archived",
+  "comms.announcement_deleted",
+  "survey.created",
+  "survey.updated",
+  "survey.deleted",
+  "survey.launched",
+  "survey.closed",
   "tenant.seeded",
 ] as const;
 

@@ -16,11 +16,93 @@ const DAY = 24 * 60 * 60 * 1000;
 const daysAgo = (n: number) => new Date(Date.now() - n * DAY);
 const isoDateIn = (n: number) => new Date(Date.now() + n * DAY).toISOString().slice(0, 10);
 
-const ANNOUNCEMENTS: { title: string; summary: string; category: (typeof s.ANNOUNCEMENT_CATEGORIES)[number]; theme: Theme; illustration: Illustration; daysAgo: number }[] = [
-  { title: "Nova política de trabalho híbrido", summary: "Confira as diretrizes e dúvidas mais frequentes.", category: "institucional", theme: "purple", illustration: "megaphone", daysAgo: 0 },
-  { title: "Semana da Diversidade", summary: "Uma semana de conversas, aprendizado e experiências.", category: "gente_gestao", theme: "orange", illustration: "people", daysAgo: 1 },
-  { title: "Inscrições abertas para a Escola de Líderes", summary: "Desenvolva suas habilidades de liderança com a gente.", category: "desenvolvimento", theme: "green", illustration: "plant", daysAgo: 2 },
-  { title: "Programa de Saúde Mental", summary: "Conheça as iniciativas de apoio emocional e participe.", category: "bem_estar", theme: "pink", illustration: "heart", daysAgo: 5 },
+const ANNOUNCEMENTS: {
+  title: string;
+  summary: string;
+  body: string;
+  category: (typeof s.ANNOUNCEMENT_CATEGORIES)[number];
+  theme: Theme;
+  illustration: Illustration;
+  /** Dias atrás (negativo = agendado para o futuro). */
+  daysAgo: number;
+  pinned?: boolean;
+  status?: "draft" | "published" | "archived";
+}[] = [
+  {
+    title: "Nova política de trabalho híbrido",
+    summary: "Confira as diretrizes e dúvidas mais frequentes.",
+    body: "A partir do próximo mês, adotamos o modelo híbrido com dois dias presenciais por semana, combinados com cada time.\n\nOs dias presenciais priorizam rituais, alinhamentos e momentos de integração. Os demais dias são remotos, com horário flexível dentro da janela de colaboração (10h às 16h).\n\nDúvidas? Fale com o time de Gente & Gestão pelo canal #gente-e-gestao.",
+    category: "institucional",
+    theme: "purple",
+    illustration: "megaphone",
+    daysAgo: 0,
+    pinned: true,
+  },
+  {
+    title: "Semana da Diversidade",
+    summary: "Uma semana de conversas, aprendizado e experiências.",
+    body: "De segunda a sexta teremos rodas de conversa, uma palestra com convidadas e uma feira de projetos dos grupos de afinidade.\n\nA programação completa está no mural do escritório e as conversas também serão transmitidas para quem estiver remoto.",
+    category: "gente_gestao",
+    theme: "orange",
+    illustration: "people",
+    daysAgo: 1,
+  },
+  {
+    title: "Inscrições abertas para a Escola de Líderes",
+    summary: "Desenvolva suas habilidades de liderança com a gente.",
+    body: "A Escola de Líderes é um programa de 12 semanas com encontros quinzenais, mentoria e um projeto aplicado.\n\nPodem se inscrever pessoas em posições de liderança e quem tem interesse em seguir esse caminho. As inscrições ficam abertas por duas semanas.",
+    category: "desenvolvimento",
+    theme: "green",
+    illustration: "plant",
+    daysAgo: 2,
+  },
+  {
+    title: "Programa de Saúde Mental",
+    summary: "Conheça as iniciativas de apoio emocional e participe.",
+    body: "Todas as pessoas têm acesso a sessões gratuitas e confidenciais de apoio psicológico, além de encontros mensais sobre autocuidado.\n\nO acesso é individual e sigiloso: a empresa não recebe nenhuma informação sobre quem utiliza o serviço.",
+    category: "bem_estar",
+    theme: "pink",
+    illustration: "heart",
+    daysAgo: 5,
+  },
+  {
+    title: "Simulado de evacuação do prédio",
+    summary: "Na próxima quinta, às 15h, na sede do Rio.",
+    body: "O simulado leva cerca de 20 minutos. Siga as orientações das pessoas brigadistas, identificadas com colete laranja, e use as escadas.",
+    category: "seguranca",
+    theme: "yellow",
+    illustration: "shield",
+    daysAgo: 9,
+  },
+  {
+    title: "Resultado da campanha do agasalho",
+    summary: "Arrecadamos mais de 800 peças. Obrigado!",
+    body: "As doações foram entregues a três instituições parceiras. Obrigado a todas as pessoas que participaram.",
+    category: "cultura",
+    theme: "blue",
+    illustration: "heart",
+    daysAgo: 40,
+    status: "archived",
+  },
+  {
+    title: "Festa de fim de ano",
+    summary: "Reserve a data: 12 de dezembro.",
+    body: "Mais detalhes em breve, incluindo local e programação.",
+    category: "evento",
+    theme: "orange",
+    illustration: "calendar",
+    daysAgo: -7,
+  },
+  {
+    title: "Novo benefício de educação (rascunho)",
+    summary: "Em construção com o time de benefícios.",
+    body: "Texto em elaboração.",
+    category: "gente_gestao",
+    theme: "green",
+    illustration: "book",
+    daysAgo: 0,
+    status: "draft",
+  },
 ];
 
 type CourseSeed = { key: string; title: string; kind?: "course" | "video" | "quiz"; minutes: number; mandatory?: boolean; theme?: Theme; illustration?: Illustration };
@@ -133,11 +215,13 @@ export async function seedContent(db: Database, tenantId: string, userIds: strin
       tenantId,
       title: a.title,
       summary: a.summary,
+      body: a.body,
       category: a.category,
       theme: a.theme,
       illustration: a.illustration,
-      status: "published" as const,
-      publishedAt: daysAgo(a.daysAgo),
+      pinned: a.pinned ?? false,
+      status: a.status ?? ("published" as const),
+      publishedAt: a.status === "draft" ? null : daysAgo(a.daysAgo),
     })),
   );
 

@@ -98,7 +98,7 @@ export async function AnnouncementsSection({ actor }: { actor: AuthenticatedActo
             const category = ANNOUNCEMENT_CATEGORY[a.category] ?? { label: a.category, tone: "purple" as const };
             return (
               <li key={a.id}>
-                <Link href="/comunicados" className="group flex h-full flex-col overflow-hidden rounded-xl border border-line bg-white shadow-sm transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-purple-500">
+                <Link href={`/comunicados/${a.id}` as Route} className="group flex h-full flex-col overflow-hidden rounded-xl border border-line bg-white shadow-sm transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-purple-500">
                   <CoverArt theme={a.theme} illustration={a.illustration} className="h-[86px] shrink-0" />
                   <div className="flex flex-1 flex-col p-4">
                     <div className="flex items-center justify-between gap-2">

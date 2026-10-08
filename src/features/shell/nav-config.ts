@@ -77,7 +77,7 @@ export const MANAGEMENT_NAV: ManagementNavItem[] = [
     ],
   },
   { href: "/gestao/engajamento", label: "Engajamento", icon: "engagement", anyOf: ["learning.progress.read", "content.analytics.read"] },
-  { href: "/gestao/pesquisas", label: "Pesquisas", icon: "surveys", anyOf: ["survey.design", "survey.results.read_aggregate"] },
+  { href: "/gestao/pesquisas", label: "Pesquisas", icon: "surveys", anyOf: ["survey.design", "survey.launch", "survey.results.read_aggregate"] },
   { href: "/gestao/desenvolvimento", label: "Desenvolvimento", icon: "development", anyOf: ["development.read"] },
   { href: "/gestao/relatorios", label: "Relatórios", icon: "reports", anyOf: ["reports.read"] },
   { href: "/gestao/comunicacao", label: "Comunicação", icon: "announcements", anyOf: ["comms.announcement.create"] },

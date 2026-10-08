@@ -24,6 +24,16 @@ export const AUDIT_LABELS: Record<AuditAction, string> = {
   "tenant.settings_changed": "Configurações alteradas",
   "tenant.feature_flag_changed": "Recurso ligado/desligado",
   "data.exported": "Exportação de dados",
+  "comms.announcement_created": "Comunicado criado",
+  "comms.announcement_updated": "Comunicado editado",
+  "comms.announcement_published": "Comunicado publicado ou agendado",
+  "comms.announcement_archived": "Comunicado arquivado",
+  "comms.announcement_deleted": "Rascunho de comunicado excluído",
+  "survey.created": "Pesquisa criada",
+  "survey.updated": "Pesquisa editada",
+  "survey.deleted": "Rascunho de pesquisa excluído",
+  "survey.launched": "Pesquisa lançada",
+  "survey.closed": "Pesquisa encerrada",
   "tenant.seeded": "Empresa criada",
 };
 

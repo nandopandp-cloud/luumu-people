@@ -13,7 +13,7 @@ export const badgeVariants = cva("inline-flex items-center gap-1 whitespace-nowr
       purple: "bg-purple-100 text-purple-600",
       orange: "bg-orange-100 text-orange-700",
       green: "bg-green-100 text-green-700",
-      yellow: "bg-yellow-100 text-yellow-700",
+      yellow: "bg-yellow-100 text-yellow-800",
       blue: "bg-blue-100 text-blue-700",
       pink: "bg-pink-100 text-pink-700",
       red: "bg-red-100 text-red-700",

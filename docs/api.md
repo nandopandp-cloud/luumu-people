@@ -35,7 +35,7 @@ Paginação por cursor: `?cursor=…&limit=…` → `{ items, nextCursor }`.
 
 `tenant_id`/`tenantId`/`tenant` enviados pelo cliente são **descartados** em qualquer nível do JSON e da query: o tenant vem só da sessão.
 
-## Endpoints (Fase 1)
+## Endpoints
 
 | Método | Rota | Permissão | Descrição |
 |---|---|---|---|
@@ -58,6 +58,16 @@ Paginação por cursor: `?cursor=…&limit=…` → `{ items, nextCursor }`.
 | GET / PUT | `/api/v1/me/mood` | autenticado | check-in de humor do dia `{ mood: 1..5 }` — somente o próprio registro |
 | GET | `/api/v1/audit-logs` | `audit.read` (TENANT) | trilha de auditoria (`action`, `actorUserId`, `cursor`) |
 | GET | `/api/v1/feature-flags` | autenticado | flags efetivas do usuário |
+| POST | `/api/v1/announcements` | `comms.announcement.create` (TENANT) | cria rascunho de comunicado |
+| GET / PUT / DELETE | `/api/v1/announcements/:id` | `comms.announcement.create` | lê, edita (no ar ou fixado: exige `comms.announcement.publish`) e exclui (só rascunho) |
+| POST | `/api/v1/announcements/:id/publish` | `comms.announcement.publish` | publica agora ou agenda `{ publishAt? }` (até 12 meses) |
+| POST | `/api/v1/announcements/:id/archive` | `comms.announcement.publish` | tira do mural (fica no histórico) |
+| GET / POST | `/api/v1/surveys` | gestão / `survey.design` | lista pesquisas; cria rascunho (sempre anônima nesta versão) |
+| GET / PUT / DELETE | `/api/v1/surveys/:id` | gestão / `survey.design` | lê, edita e exclui — **somente rascunho** |
+| POST | `/api/v1/surveys/:id/launch` | `survey.launch` | lança para todas as pessoas ativas `{ closesAt }`; congela k e dimensões |
+| POST | `/api/v1/surveys/:id/close` | `survey.launch` | encerra e libera o último lote |
+| GET | `/api/v1/surveys/:id/results` | `survey.results.read_aggregate` (TENANT) | **somente agregados** (`dimension`, `bucket`); grupos < k → `suppressed` |
+| POST | `/api/v1/me/surveys/:id/responses` | autenticado (convidado) | envio anônimo `{ answers }` — sem log de payload/usuário, rate limit só em memória, sem auditoria |
 
 ## Criando uma rota nova
 

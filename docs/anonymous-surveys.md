@@ -1,6 +1,6 @@
 # Pesquisas anônimas — arquitetura de anonimato
 
-> Implementação: **Fase 4**. Este documento é o contrato que a implementação precisa cumprir. As regras que já valem desde a Fase 1 estão marcadas com ✅.
+> Implementação: **entregue em 2026-10-08** (migration `0012_surveys_security`, `src/server/modules/surveys`). Este documento é o contrato que a implementação cumpre; as decisões e limites desta versão estão em [Implementação atual](#implementação-atual). Regras cobertas por teste estão marcadas com ✅.
 
 ## Garantia
 
@@ -76,3 +76,29 @@ Durante o processamento da requisição de envio, o processo da aplicação vê 
 4. Inversão Survey → Response → User: introspecção (sem identidade, sem timestamp, sem FK), grants e ordem física pós-flush não correlacionada.
 5. String sentinela enviada numa resposta não aparece em logs, traces nem auditoria.
 6. `anonymity_mode` ou k reduzidos após o lançamento → rejeitados.
+
+## Implementação atual
+
+| Tema | Como está | Teste |
+|---|---|---|
+| Cofre | Schema `survey_vault` com `anon_submission_buffer`, `anon_response`, `anon_answer`, `anon_response_dimension`. Sem identidade, timestamp ou FK para o core; RLS habilitada sem policy; nenhuma role de runtime tem grant nas tabelas | ✅ `tests/integration/surveys.test.ts` (TESTE 4) |
+| Acesso | A role `luumu_app` tem só `EXECUTE` em `submit`, `close`, `results` e `breakdown` (`SECURITY DEFINER`, validam o tenant da sessão). As funções internas `_flush`, `_buckets` e `_survey_k` não têm grant. Não há roles `luumu_vault_writer/reader` separadas: a separação da RFC foi substituída por "nenhum grant de tabela + só funções" | ✅ TESTE 1 |
+| Envio | Tx 1 (core): valida convite e respostas, deriva as dimensões e marca o convite com a **data**. Tx 2 (sem usuário no contexto): `survey_vault.submit`. Se a Tx 2 falhar, o convite volta a pendente; o erro do banco não é logado | ✅ lotes/resposta única |
+| Lotes | O flush roda dentro do envio que completa k itens no buffer e no encerramento; move em ordem aleatória (`ORDER BY random()`) com UUIDv4 novos | ✅ resultados só mudam a cada k |
+| Encerramento | Manual (`survey.launch`) ou automático: pesquisas vencidas são encerradas, e o buffer liberado, antes de qualquer leitura da gestão (não há cron nesta versão) | — |
+| k | Padrão da empresa (piso 5); a pesquisa pode subir para 7 ou 10. Congela no lançamento; trigger impede reduzir | ✅ TESTE 6 |
+| Dimensões | `diretoria`, `area` e `tempo_de_casa`, aprovadas no lançamento só com valores de ≥ k convidados (o resto vira "Outros"; dimensão com < 2 valores é descartada) | ✅ TESTES 2 e 3 |
+| Supressão | Leitura por **uma** dimensão por vez (mais restrito que o limite de 2). `_buckets` junta em "Outros" os grupos com < k e, se "Outros" ficar entre 1 e k−1, absorve os menores grupos até chegar a k. Todo grupo exibido e todo complemento têm ≥ k (supressão complementar). Pergunta com < k respostas no grupo mostra só a contagem | ✅ TESTES 2 e 3 |
+| Comentários | Devolvidos só com ≥ k respostas no grupo, em ordem aleatória, sem data nem dimensão | ✅ |
+| Observabilidade | A rota de envio usa `defineRoute({ anonymous: true })`: rate limit só em memória volátil e, em erro inesperado, log apenas com `requestId`. Nada é auditado no envio | ✅ TESTE 5 |
+| Rascunho | Somente `sessionStorage` do navegador; apagado ao enviar | — |
+
+**Ainda não implementado (próximas etapas):**
+
+- Pesquisas **identificadas** (`survey_identified_response`, aviso na interface). Hoje toda pesquisa é anônima; a coluna `anonymity_mode` e o trigger de imutabilidade já existem.
+- Resultados para **gestores com escopo de equipe** (exigem uma dimensão de equipe aprovada no lançamento, sempre com k). Hoje só quem tem `survey.results.read_aggregate` com escopo TENANT vê resultados.
+- Público segmentado (hoje: todas as pessoas ativas), recorrência, lógica condicional entre perguntas e exportação (que usará as mesmas funções de agregação).
+- Cron diário para encerrar pesquisas vencidas mesmo sem acesso à gestão.
+- Teste estatístico de "ordem física pós-flush não correlacionada" (o embaralhamento existe, mas o teste automatizado não).
+
+**Risco residual adicional:** no encerramento, o último lote pode ter menos que k respostas. Quem comparar os resultados antes e depois do encerramento vê o efeito desse lote menor. Mitigação futura: só liberar o último lote junto com o anterior, ou exibir resultados apenas após o encerramento.

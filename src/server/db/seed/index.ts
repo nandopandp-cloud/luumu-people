@@ -6,6 +6,7 @@ import { hashPassword } from "@/server/auth/password";
 import type { Database } from "../client";
 import * as s from "../schema";
 import { seedContent } from "./content";
+import { seedSurveys } from "./surveys";
 import { DEFAULT_EDITABLE_PROFILE_FIELDS, SEED_FEATURE_FLAGS, SEED_ORGANIZATIONS, seedEmail, type SeedOrganization } from "./data";
 
 /**
@@ -171,6 +172,7 @@ export async function seedDemo(db: Database, password: string): Promise<SeedResu
       const seeded = await seedOrganization(t, org, passwordHash);
       if (seeded) {
         await seedContent(t, seeded.tenantId, [...seeded.users.values()].map((u) => u.id));
+        await seedSurveys(t, seeded.tenantId);
         result.set(org.slug, seeded);
       }
     }

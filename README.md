@@ -2,7 +2,7 @@
 
 Plataforma de experiência, desenvolvimento e inteligência de pessoas — comunicação interna, educação corporativa, pesquisas (com anonimato real), desenvolvimento e indicadores de G&G, para empresas e colaboradores.
 
-> **Status:** Fase 1 (Foundation) concluída — autenticação, multi-tenancy com RLS, RBAC com escopo, estrutura organizacional com histórico, auditoria, feature flags, design system e os dois ambientes (colaborador e gestão). Roadmap em [docs/rfc/0001-arquitetura.md](docs/rfc/0001-arquitetura.md#13-roadmap-e-definition-of-done).
+> **Status:** Fase 1 (Foundation) concluída. Fase 2 em andamento — cursos, trilhas e comunicados entregues; biblioteca e conquistas a seguir. Fase 4 adiantada: pesquisas anônimas (builder, cofre, k-anonimato, resultados agregados). Roadmap em [docs/rfc/0001-arquitetura.md](docs/rfc/0001-arquitetura.md#13-roadmap-e-definition-of-done).
 
 ## Começando (sem instalar banco)
 

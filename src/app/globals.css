@@ -56,6 +56,7 @@
   --color-yellow-100: #fef3c7; /* Amarelo */
   --color-yellow-500: #eab308;
   --color-yellow-700: #a16207;
+  --color-yellow-800: #854d0e; /* amarelo para TEXTO (≥ 4.5:1 sobre yellow-100) */
 
   --color-blue-50: #eff6ff;
   --color-blue-100: #dbeafe; /* Azul Claro */

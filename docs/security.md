@@ -50,7 +50,7 @@ A CSP é estática e permite `'unsafe-inline'` em scripts. Nonces exigiriam rend
 
 ## Auditoria
 
-`audit_logs` é append-only: a role de runtime só tem `INSERT`/`SELECT`, e um trigger rejeita `UPDATE`, `DELETE` e `TRUNCATE`. A lista de ações é fechada (`AUDIT_ACTIONS`). Hoje registra login, logout, sessão revogada, redefinição de senha, concessão e revogação de papel e edição de perfil. As ações de pessoas, estrutura, configurações e exportação entram com seus módulos. **Nunca** registra resposta de pesquisa anônima nem o vínculo entre pessoa e resposta.
+`audit_logs` é append-only: a role de runtime só tem `INSERT`/`SELECT`, e um trigger rejeita `UPDATE`, `DELETE` e `TRUNCATE`. A lista de ações é fechada (`AUDIT_ACTIONS`). Hoje registra login, logout, sessão revogada, redefinição de senha, concessão e revogação de papel, edição de perfil, criação/edição/publicação/arquivamento de comunicados e criação/edição/lançamento/encerramento de pesquisas. As ações de pessoas, estrutura, configurações e exportação entram com seus módulos. **Nunca** registra resposta de pesquisa anônima nem o vínculo entre pessoa e resposta.
 
 ## Uploads
 

@@ -33,6 +33,9 @@ export const announcements = pgTable(
     theme: text("theme", { enum: THEMES }).notNull().default("purple"),
     illustration: text("illustration", { enum: ILLUSTRATIONS }).notNull().default("megaphone"),
     status: text("status", { enum: CONTENT_STATUSES }).notNull().default("draft"),
+    /** Fixado no topo do mural. */
+    pinned: boolean("pinned").notNull().default(false),
+    /** Publicação agendada quando no futuro. */
     publishedAt: timestamp("published_at", { withTimezone: true, mode: "date" }),
     createdBy: uuid("created_by"),
     ...timestamps(),

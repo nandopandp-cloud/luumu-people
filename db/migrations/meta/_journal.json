@@ -78,6 +78,20 @@
       "when": 1791426565643,
       "tag": "0010_courses_lessons_security",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791465343115,
+      "tag": "0011_surveys_announcements",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791465343908,
+      "tag": "0012_surveys_security",
+      "breakpoints": true
     }
   ]
 }

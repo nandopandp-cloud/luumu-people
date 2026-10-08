@@ -24,7 +24,7 @@ export const postgresStore: RateLimitStore = {
   },
 };
 
-/** Store em memória (por processo) — apenas para testes unitários. */
+/** Store em memória (por processo): testes unitários e o limite volátil abaixo. */
 export function memoryStore(now: () => number = Date.now): RateLimitStore {
   const buckets = new Map<string, { count: number; resetAt: number }>();
   return {
@@ -60,5 +60,16 @@ export async function checkRateLimit(
   now = Date.now(),
 ): Promise<{ allowed: boolean; retryAfterSeconds: number }> {
   const bucket = await store.hit(ctx, key, rule.windowMs);
+  return { allowed: bucket.count <= rule.limit, retryAfterSeconds: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)) };
+}
+
+const volatile = memoryStore();
+
+/**
+ * Limite em memória do processo (melhor esforço por instância). Usado só onde
+ * nada ligado ao envio pode ser persistido: resposta de pesquisa anônima.
+ */
+export async function checkVolatileRateLimit(ctx: TenantContext, key: string, rule: RateLimitRule, now = Date.now()) {
+  const bucket = await volatile.hit(ctx, key, rule.windowMs);
   return { allowed: bucket.count <= rule.limit, retryAfterSeconds: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)) };
 }
