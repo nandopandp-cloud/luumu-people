@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Suspense } from "react";
-import { Wordmark } from "@/design-system/components/brand";
+import { Logo } from "@/design-system/components/brand";
 import { EmployeeBottomNav, EmployeeSidebar, ManagementNavList, ManagementSidebar, NavSkeleton } from "./sidebar";
 import { Topbar } from "./topbar";
 
@@ -20,7 +20,7 @@ export function EmployeeShell({ children }: { children: ReactNode }) {
       <div className="mx-auto flex min-h-dvh max-w-[1680px] gap-6 p-4 pb-24 lg:pb-4">
         <EmployeeSidebar />
         <div className="min-w-0 flex-1 lg:pt-2">
-          <Wordmark className="mb-4 h-9 lg:hidden" />
+          <Logo className="mb-4 h-10 lg:hidden" />
           <Topbar environment="employee" searchAction="/busca" searchPlaceholder="Buscar cursos, trilhas, conteúdos ou pessoas…" />
           <main id="conteudo" tabIndex={-1} className="focus:outline-none">
             {children}

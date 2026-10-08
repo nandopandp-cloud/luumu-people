@@ -7,8 +7,8 @@ Fontes: o styleguide da Luumu People e os mockups de interface. Código em `src/
 ## Marca
 
 - O SVG oficial fica em `brand/luumu-people.svg`. `pnpm brand:build` gera, sem redesenhar nada, apenas selecionando camadas e recortando:
-  - `public/brand/logo.svg`: mascote, balão e wordmark;
-  - `wordmark.svg`: "Luumú people" (sidebar);
+  - `public/brand/logo.svg`: mascote, balão e wordmark — **logo oficial, usada na sidebar e no login**;
+  - `wordmark.svg`: "Luumú people" sem o mascote (usos compactos);
   - `mascot.svg`: estados vazios, ajuda, heros e ícone do app;
   - `symbol.svg`: mascote com balão.
 - **A folha existe apenas sobre o "ú" final. Nunca adicione folha junto ao "L".** Alguns mockups antigos mostram essa folha; a logo oficial não tem.

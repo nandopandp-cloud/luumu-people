@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { Suspense, type ReactNode } from "react";
-import { Wordmark } from "@/design-system/components/brand";
+import { Logo } from "@/design-system/components/brand";
 import { Skeleton } from "@/design-system/components/feedback";
 import { hasPermissionAnywhere } from "@/server/authz/policy";
 import { getCurrentActor } from "@/server/dal";
@@ -12,8 +12,8 @@ import { MobileNavLink, NavLink } from "./nav-link";
 function SidebarFrame({ home, children, label }: { home: Route; children: ReactNode; label: string }) {
   return (
     <aside className="sticky top-4 hidden h-[calc(100dvh-2rem)] w-[248px] shrink-0 flex-col rounded-xl border border-line bg-white px-4 pb-4 pt-7 shadow-sm lg:flex">
-      <Link href={home} className="mb-8 block self-start rounded-md px-3 focus-visible:outline-2 focus-visible:outline-purple-500">
-        <Wordmark className="h-[52px]" />
+      <Link href={home} className="mb-7 block self-start rounded-md px-2 focus-visible:outline-2 focus-visible:outline-purple-500">
+        <Logo className="h-auto w-[196px]" />
       </Link>
       <nav aria-label={label} className="-mx-1 flex-1 overflow-y-auto px-1">
         {children}
