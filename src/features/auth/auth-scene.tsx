@@ -29,10 +29,10 @@ export function AuthScene() {
         className="hidden object-cover object-right-bottom xl:block"
       />
 
-      <div className="relative flex h-full flex-col px-16 pb-12 pt-14">
-        <Wordmark className="h-auto w-[292px] max-w-full" />
+      <div className="relative flex h-full flex-col px-14 pb-10 pt-11">
+        <Wordmark className="h-auto w-[220px] max-w-full" />
         {/* Quebras de linha da referência de design. */}
-        <p className="mt-7 whitespace-nowrap text-[2.6rem] font-extrabold leading-[1.04] tracking-[-0.035em] text-neutral-900 xl:text-[2.75rem]">
+        <p className="mt-6 whitespace-nowrap text-[2rem] font-extrabold leading-[1.1] tracking-[-0.03em] text-neutral-900 xl:text-[2.1rem]">
           Pessoas que
           <br />
           aprendem, crescem
@@ -40,26 +40,26 @@ export function AuthScene() {
           <br />
           <span className="text-purple-500">juntas.</span>
         </p>
-        <p className="mt-3 max-w-[310px] text-[17px] leading-[1.55] text-neutral-600">
+        <p className="mt-3 max-w-[290px] text-body leading-relaxed text-neutral-600">
           A Luumu People é a plataforma de experiência, desenvolvimento e inteligência de pessoas que conecta aprendizado, cultura e resultados dentro da sua empresa.
         </p>
-        <ul className="mt-6 space-y-4">
+        <ul className="mt-5 space-y-3">
           {FEATURES.map(({ icon: Icon, label, box, fill }) => (
-            <li key={label} className="flex items-center gap-5">
-              <span className={cn("flex size-14 shrink-0 items-center justify-center rounded-lg", box)}>
-                <Icon aria-hidden className={cn("size-7", fill && "fill-current")} strokeWidth={2.4} />
+            <li key={label} className="flex items-center gap-4">
+              <span className={cn("flex size-11 shrink-0 items-center justify-center rounded-lg", box)}>
+                <Icon aria-hidden className={cn("size-5", fill && "fill-current")} strokeWidth={2.4} />
               </span>
-              <span className="max-w-[8.5rem] text-[15px] font-medium leading-snug text-neutral-800">{label}</span>
+              <span className="max-w-[8.5rem] text-body-sm font-medium leading-snug text-neutral-800">{label}</span>
             </li>
           ))}
         </ul>
-        <div className="mt-auto pt-8">
+        <div className="mt-auto pt-6">
           <div aria-hidden className="flex gap-2">
             <span className="h-1.5 w-[52px] rounded-full bg-purple-500" />
             <span className="h-1.5 w-[44px] rounded-full bg-purple-200" />
             <span className="h-1.5 w-[44px] rounded-full bg-purple-200" />
           </div>
-          <p className="mt-5 max-w-[12rem] text-body-sm text-neutral-600">Uma plataforma completa para o futuro das pessoas.</p>
+          <p className="mt-4 max-w-[12rem] text-caption text-neutral-600">Uma plataforma completa para o futuro das pessoas.</p>
         </div>
       </div>
     </div>
