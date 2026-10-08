@@ -7,8 +7,8 @@ export const metadata: Metadata = { title: "Entrar" };
 export default function SignInPage() {
   return (
     <>
-      <h1 className="text-[2.1rem] font-extrabold leading-tight tracking-[-0.03em] text-neutral-900">Bem-vindo(a) de volta!</h1>
-      <p className="mb-9 mt-3 text-[17px] leading-relaxed text-neutral-600">Acesse sua conta e continue evoluindo com o Luumu People.</p>
+      <h1 className="text-[2.35rem] font-extrabold leading-tight tracking-[-0.03em] text-neutral-900">Bem-vindo(a) de volta!</h1>
+      <p className="mb-10 mt-3 text-[18px] leading-relaxed text-neutral-600">Acesse sua conta e continue evoluindo com o Luumu People.</p>
       <Suspense>
         <SignInForm />
       </Suspense>

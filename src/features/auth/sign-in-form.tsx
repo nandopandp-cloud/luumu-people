@@ -51,7 +51,7 @@ export function SignInForm() {
     });
   }
 
-  const field = "h-[52px] rounded-xl!";
+  const field = "h-[52px] rounded-md!";
   return (
     <>
       {/* method="post": sem JavaScript, as credenciais nunca vão para a URL. */}
@@ -108,7 +108,7 @@ export function SignInForm() {
             </Link>
           </div>
         </div>
-        <Button type="submit" size="lg" block loading={pending} className="h-[52px] rounded-xl! text-body">
+        <Button type="submit" size="lg" block loading={pending} className="h-[52px] rounded-md! text-body">
           Entrar <ArrowRight aria-hidden />
         </Button>
       </form>
@@ -128,7 +128,7 @@ export function SignInForm() {
             type="button"
             variant="ghost"
             block
-            className="h-[52px] rounded-xl! text-body font-medium"
+            className="h-[52px] rounded-md! text-body font-medium"
             aria-describedby={ssoNotice ? "sso-aviso" : undefined}
             onClick={() => setSsoNotice(`O acesso com ${name} fica disponível quando a sua empresa ativar o login corporativo (SSO). Por enquanto, entre com e-mail e senha.`)}
           >
