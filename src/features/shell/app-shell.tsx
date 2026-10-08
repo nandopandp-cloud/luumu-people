@@ -21,7 +21,7 @@ export function EmployeeShell({ children }: { children: ReactNode }) {
         <EmployeeSidebar />
         <div className="min-w-0 flex-1 lg:pt-2">
           <Logo className="mb-4 h-10 lg:hidden" />
-          <Topbar environment="employee" searchAction="/busca" searchPlaceholder="Buscar cursos, trilhas, conteúdos ou pessoas…" />
+          <Topbar environment="employee" searchPlaceholder="Buscar cursos, trilhas, conteúdos ou pessoas…" />
           <main id="conteudo" tabIndex={-1} className="focus:outline-none">
             {children}
           </main>
@@ -42,8 +42,7 @@ export function ManagementShell({ children }: { children: ReactNode }) {
         <div className="min-w-0 flex-1 lg:pt-2">
           <Topbar
             environment="management"
-            searchAction="/gestao/usuarios"
-            searchPlaceholder="Buscar usuários, cursos, trilhas, relatórios…"
+            searchPlaceholder="Buscar pessoas, comunicados, pesquisas, páginas…"
             mobileNav={
               <Suspense fallback={<NavSkeleton />}>
                 <ManagementNavList />

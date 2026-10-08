@@ -209,7 +209,7 @@ export const SEED_ORGANIZATIONS = [aurora, horizonte];
 
 export const SEED_FEATURE_FLAGS = [
   { key: "anonymous_surveys", description: "Pesquisas anônimas", defaultEnabled: true },
-  { key: "gamification", description: "Conquistas, XP e níveis", defaultEnabled: true },
+  { key: "gamification", description: "Conquistas, XP e níveis (oculto por enquanto)", defaultEnabled: false },
   { key: "achievements_ranking", description: "Ranking de conquistas entre colegas", defaultEnabled: false },
   { key: "mood_checkin", description: "Check-in de humor na página inicial", defaultEnabled: true },
   { key: "survey_ai_analysis", description: "Análise de comentários de pesquisas com IA", defaultEnabled: false },

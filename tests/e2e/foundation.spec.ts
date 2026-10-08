@@ -10,10 +10,22 @@ test.describe("Fase 1 — fundação", () => {
 
   test("senha errada mostra mensagem humana e não revela se o e-mail existe", async ({ page }) => {
     await gotoHydrated(page, "/entrar");
-    await page.getByLabel("E-mail corporativo").fill("fernando.santos@aurora.example");
+    await page.getByLabel("E-mail", { exact: true }).fill("fernando.santos@aurora.example");
     await page.getByLabel("Senha", { exact: true }).fill("senha-errada-123");
-    await page.getByRole("button", { name: "Entrar" }).click();
+    await page.getByRole("button", { name: "Entrar", exact: true }).click();
     await expect(page.getByText("E-mail ou senha incorretos")).toBeVisible();
+  });
+
+  test("login: SSO avisa que depende da empresa e ajuda para quem não tem conta", async ({ page }) => {
+    await gotoHydrated(page, "/entrar");
+    await expect(page.getByRole("heading", { level: 1, name: "Bem-vindo(a) de volta!" })).toBeVisible();
+    await page.getByRole("button", { name: "Entrar com Microsoft" }).click();
+    await expect(page.getByText(/O acesso com Microsoft fica disponível quando a sua empresa ativar o login corporativo/)).toBeVisible();
+    await page.getByRole("button", { name: "Entrar", exact: true }).click();
+    await expect(page.getByText("Informe seu e-mail e sua senha para entrar.")).toBeVisible();
+    await page.getByRole("button", { name: "Fale com o time da sua empresa." }).click();
+    await expect(page.getByRole("dialog", { name: "Seu acesso é criado pela empresa" })).toBeVisible();
+    await expectAccessible(page);
   });
 
   test("colaborador: início, perfil e edição do próprio perfil", async ({ page }) => {

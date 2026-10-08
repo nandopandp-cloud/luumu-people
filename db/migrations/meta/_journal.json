@@ -92,6 +92,20 @@
       "when": 1791465343908,
       "tag": "0012_surveys_security",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791477474328,
+      "tag": "0013_home_banners",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791477475286,
+      "tag": "0014_home_banners_security",
+      "breakpoints": true
     }
   ]
 }

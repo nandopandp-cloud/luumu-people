@@ -19,6 +19,7 @@ const UPLOAD_PERMISSION: Record<Exclude<FilePurpose, "avatar">, Permission> = {
   lesson_material: "content.course.edit",
   announcement_cover: "comms.announcement.create",
   library_material: "content.library.manage",
+  home_banner: "comms.announcement.publish",
 };
 
 function storage() {

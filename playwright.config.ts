@@ -1,3 +1,5 @@
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 3100;
@@ -9,6 +11,9 @@ const PORT = 3100;
  */
 export default defineConfig({
   testDir: "tests/e2e",
+  // Fora do projeto: o dev server observa a raiz, e cada trace/screenshot
+  // gravado em ./test-results disparava recompilação e recarregava a página em loop.
+  outputDir: path.join(tmpdir(), "luumu-people-e2e"),
   globalSetup: "./tests/e2e/warmup.ts",
   fullyParallel: false,
   workers: 1,

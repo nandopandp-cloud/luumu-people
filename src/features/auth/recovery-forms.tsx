@@ -41,7 +41,7 @@ export function RequestResetForm() {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-5" noValidate>
+    <form method="post" onSubmit={submit} className="space-y-5" noValidate>
       {error ? <Alert tone="error" title={error} /> : null}
       <Field label="E-mail corporativo">
         {({ id, describedBy }) => (
@@ -98,7 +98,7 @@ export function ResetPasswordForm() {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-5" noValidate>
+    <form method="post" onSubmit={submit} className="space-y-5" noValidate>
       {error ? <Alert tone="error" title={error} /> : null}
       <Field label="Nova senha" hint="Use pelo menos 10 caracteres." error={tooShort ? "A senha precisa de pelo menos 10 caracteres." : null}>
         {({ id, describedBy, invalid }) => (

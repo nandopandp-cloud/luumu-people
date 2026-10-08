@@ -11,9 +11,9 @@ export async function gotoHydrated(page: Page, path: string) {
 
 export async function signIn(page: Page, email: string) {
   await gotoHydrated(page, "/entrar");
-  await page.getByLabel("E-mail corporativo").fill(email);
+  await page.getByLabel("E-mail", { exact: true }).fill(email);
   await page.getByLabel("Senha", { exact: true }).fill(PASSWORD);
-  await page.getByRole("button", { name: "Entrar" }).click();
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
   await page.waitForURL("**/inicio");
 }
 

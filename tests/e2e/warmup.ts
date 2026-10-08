@@ -20,9 +20,9 @@ export default async function warmup(config: FullConfig) {
   ] as const) {
     await page.context().clearCookies();
     await visit("/entrar");
-    await page.getByLabel("E-mail corporativo").fill(email);
+    await page.getByLabel("E-mail", { exact: true }).fill(email);
     await page.getByLabel("Senha", { exact: true }).fill(PASSWORD);
-    await page.getByRole("button", { name: "Entrar" }).click();
+    await page.getByRole("button", { name: "Entrar", exact: true }).click();
     await page.waitForURL("**/inicio");
     for (const path of paths) await visit(path);
   }

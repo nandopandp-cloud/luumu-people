@@ -35,7 +35,7 @@ export default function MyCoursesPage({ searchParams }: PageProps<"/meus-cursos"
       <aside className="space-y-5" aria-label="Seu resumo de aprendizagem">
         <Block fallback={<Skeleton className="h-[160px] rounded-xl" />}>{(actor) => <OverallProgressCard actor={actor} />}</Block>
         <Block fallback={<Skeleton className="h-[300px] rounded-xl" />}>{(actor) => <RemindersCard actor={actor} />}</Block>
-        <Block fallback={<Skeleton className="h-[160px] rounded-xl" />}>{(actor) => <AchievementsMiniCard actor={actor} />}</Block>
+        <Block fallback={null}>{(actor) => <AchievementsMiniCard actor={actor} />}</Block>
         <Block fallback={<Skeleton className="h-[260px] rounded-xl" />}>{(actor) => <EvolutionCard actor={actor} />}</Block>
       </aside>
     </div>

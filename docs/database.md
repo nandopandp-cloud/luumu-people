@@ -23,6 +23,7 @@ PostgreSQL 17 (Neon em preview/produção; PGlite, o Postgres em WASM, em desenv
 | Plataforma | `audit_logs`, `feature_flags`, `feature_flag_overrides` |
 | Experiência (Fase 2) | `announcements`, `courses`, `course_modules`, `lessons`, `lesson_progress`, `certificates`, `learning_paths`, `learning_path_courses`, `enrollments`, `library_items`, `mood_checkins`, `achievements`, `user_achievements`, `files` |
 
+| Home | `home_banners` (banners com período, ordem e ativo; imagem opcional em `files` com finalidade `home_banner`) |
 | Pesquisas (Fase 4) | `surveys`, `survey_questions`, `survey_invitations` (core) + schema `survey_vault` (cofre anônimo) |
 
 O progresso de uma matrícula é **derivado** das aulas concluídas (`lesson_progress`); ao chegar a 100% é emitido um certificado com código de verificação.

@@ -24,13 +24,20 @@ export function NavLinkView({ item, nested, active = false }: { item: NavItem; n
       href={item.href as Route}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "group flex items-center gap-3.5 rounded-lg px-4 font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-500",
+        "group relative flex items-center gap-3.5 rounded-lg px-4 font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-500 sidebar-collapsed:justify-center sidebar-collapsed:px-0",
         nested ? "h-10 pl-12 text-body-sm" : "h-12 text-[15px]",
         active ? "bg-purple-100 font-semibold text-purple-600" : "text-neutral-700 hover:bg-purple-50 hover:text-purple-600",
       )}
     >
       {nested ? null : <Icon aria-hidden className={cn("size-[22px] shrink-0", active ? "text-purple-500" : "text-neutral-600 group-hover:text-purple-500")} strokeWidth={active ? 2.2 : 1.8} />}
-      <span className="truncate">{item.label}</span>
+      <span className="truncate sidebar-collapsed:sr-only">{item.label}</span>
+      {/* Dica com o nome do item quando a sidebar está recolhida. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute left-full top-1/2 z-20 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-2.5 py-1.5 text-caption font-medium text-white shadow-md sidebar-collapsed:group-hover:block sidebar-collapsed:group-focus-visible:block"
+      >
+        {item.label}
+      </span>
     </Link>
   );
 }

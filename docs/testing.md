@@ -41,3 +41,5 @@ Não rode `pnpm dev` junto com `pnpm test:e2e`: dois servidores de desenvolvimen
 - Tabela nova sem RLS faz `schema-security.test.ts` falhar. Isso é proposital.
 - E2E aguardam a hidratação (`gotoHydrated`) antes de interagir com formulários.
 - A varredura do axe falha com qualquer violação **séria** ou **crítica**.
+
+**Artefatos do E2E** (traces, screenshots) ficam em `$TMPDIR/luumu-people-e2e`, fora do projeto: gravá-los em `./test-results` fazia o dev server recompilar e recarregar a página em loop.

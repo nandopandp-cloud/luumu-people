@@ -33,7 +33,7 @@ export default function HomePage() {
         <Block fallback={<Skeleton className="h-[160px] rounded-xl" />}>{(actor) => <MyProgressCard actor={actor} />}</Block>
         <Block fallback={<Skeleton className="h-[360px] rounded-xl" />}>{(actor) => <NextActivitiesCard actor={actor} />}</Block>
         <Block fallback={<Skeleton className="h-[170px] rounded-xl" />}>{(actor) => <MoodCard actor={actor} />}</Block>
-        <Block fallback={<Skeleton className="h-[150px] rounded-xl" />}>{(actor) => <AchievementsCard actor={actor} />}</Block>
+        <Block fallback={null}>{(actor) => <AchievementsCard actor={actor} />}</Block>
       </aside>
     </div>
   );

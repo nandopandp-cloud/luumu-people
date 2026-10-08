@@ -1,9 +1,10 @@
-import { Bell, Search } from "lucide-react";
+import { Bell } from "lucide-react";
 import { Suspense, type ReactNode } from "react";
 import { Skeleton } from "@/design-system/components/feedback";
 import { hasPermissionAnywhere } from "@/server/authz/policy";
 import { getCurrentActor } from "@/server/dal";
 import { getMyProfile } from "@/server/modules/people/service";
+import { CommandPalette } from "@/features/search/command-palette";
 import { MobileMenuButton } from "./mobile-menu";
 import { UserMenu } from "./user-menu";
 
@@ -13,12 +14,10 @@ import { UserMenu } from "./user-menu";
  */
 export function Topbar({
   searchPlaceholder,
-  searchAction,
   environment,
   mobileNav,
 }: {
   searchPlaceholder: string;
-  searchAction: string;
   environment: "employee" | "management";
   /** Navegação exibida na gaveta mobile (somente gestão; colaborador usa a barra inferior). */
   mobileNav?: ReactNode;
@@ -26,19 +25,7 @@ export function Topbar({
   return (
     <header className="flex items-center gap-3 pb-6 sm:gap-4">
       {mobileNav ? <MobileMenuButton>{mobileNav}</MobileMenuButton> : null}
-      <form action={searchAction} role="search" className="relative min-w-0 max-w-[620px] flex-1">
-        <label htmlFor="global-search" className="sr-only">
-          Buscar
-        </label>
-        <Search aria-hidden className="pointer-events-none absolute left-5 top-1/2 size-5 -translate-y-1/2 text-neutral-500" />
-        <input
-          id="global-search"
-          name="q"
-          type="search"
-          placeholder={searchPlaceholder}
-          className="h-12 w-full rounded-full border border-line bg-white pl-13 pr-5 text-body-sm text-neutral-900 shadow-sm placeholder:text-neutral-500 focus:border-purple-400 focus:outline-none focus:ring-4 focus:ring-purple-100"
-        />
-      </form>
+      <CommandPalette placeholder={searchPlaceholder} context={environment} />
       <div className="ml-auto flex items-center gap-3 sm:gap-5">
         <button
           type="button"

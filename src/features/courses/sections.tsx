@@ -11,6 +11,7 @@ import { HexBadge } from "@/design-system/illustrations/hex-badge";
 import { daysUntil } from "@/features/home/labels";
 import { formatDate } from "@/lib/format";
 import type { AuthenticatedActor } from "@/server/auth/session";
+import { achievementsEnabled } from "@/server/dal";
 import { listMyAchievements } from "@/server/modules/achievements/service";
 import {
   learningHoursByMonth,
@@ -360,6 +361,7 @@ export async function RemindersCard({ actor }: { actor: AuthenticatedActor }) {
 }
 
 export async function AchievementsMiniCard({ actor }: { actor: AuthenticatedActor }) {
+  if (!(await achievementsEnabled())) return null;
   const items = await listMyAchievements(actor, 4);
   return (
     <AsideCard id="conquistas-cursos" title="Minhas conquistas" href={"/minhas-conquistas" as Route} linkLabel="Ver todas" className="bg-gradient-to-b from-green-50/70 to-white">

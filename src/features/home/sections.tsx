@@ -12,13 +12,16 @@ import { HexBadge } from "@/design-system/illustrations/hex-badge";
 import { JourneySignpost } from "@/design-system/illustrations/journey-signpost";
 import { formatDate } from "@/lib/format";
 import type { AuthenticatedActor } from "@/server/auth/session";
+import { achievementsEnabled } from "@/server/dal";
 import { listMyAchievements } from "@/server/modules/achievements/service";
 import { listAnnouncementFeed } from "@/server/modules/announcements/service";
+import { listLiveBanners } from "@/server/modules/banners/service";
 import { getMyLearningProgress, listNextActivities, listRecommendedPaths, type NextActivity } from "@/server/modules/learning/service";
 import { listFeaturedLibrary } from "@/server/modules/library/service";
 import { getMyProfile } from "@/server/modules/people/service";
 import { MOODS } from "@/server/modules/wellbeing/schemas";
 import { getTodayMood } from "@/server/modules/wellbeing/service";
+import { HeroCarousel } from "./hero-banner";
 import { ANNOUNCEMENT_CATEGORY, daysUntil, formatMinutes, LIBRARY_TYPE, relativeDay } from "./labels";
 import { MoodCheckin } from "./mood-checkin";
 
@@ -52,8 +55,17 @@ function RoundArrow({ label }: { label: string }) {
 /* ------------------------------------------------------------------ hero */
 
 export async function HomeHero({ actor }: { actor: AuthenticatedActor }) {
-  const profile = await getMyProfile(actor);
+  const [profile, banners] = await Promise.all([getMyProfile(actor), listLiveBanners(actor)]);
   const firstName = (profile.preferredName || profile.name).split(" ")[0];
+  if (banners.length > 0) {
+    return (
+      <>
+        <h1 className="sr-only">Início</h1>
+        <HeroCarousel greeting={`Olá, ${firstName}!`} slides={banners.map(({ id, title, subtitle, ctaLabel, ctaUrl, theme, illustration, imageFileId }) => ({ id, title, subtitle, ctaLabel, ctaUrl, theme, illustration, imageFileId }))} />
+      </>
+    );
+  }
+  // Sem banner ativo: boas-vindas padrão.
   return (
     <section aria-label="Boas-vindas" className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#efe8fe] via-[#e3d8fb] to-[#d3c2f7]">
       <svg aria-hidden viewBox="0 0 800 320" preserveAspectRatio="none" className="absolute inset-0 size-full">
@@ -302,6 +314,7 @@ export async function MoodCard({ actor }: { actor: AuthenticatedActor }) {
 }
 
 export async function AchievementsCard({ actor }: { actor: AuthenticatedActor }) {
+  if (!(await achievementsEnabled())) return null;
   const items = await listMyAchievements(actor, 4);
   return (
     <Panel>

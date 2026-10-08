@@ -5,7 +5,7 @@
  * ou pelo Content-Type declarado pelo navegador. SVG, HTML e executáveis são
  * recusados por padrão (vetores de XSS/malware).
  */
-export const FILE_PURPOSES = ["avatar", "course_cover", "announcement_cover", "lesson_material", "library_material"] as const;
+export const FILE_PURPOSES = ["avatar", "course_cover", "announcement_cover", "lesson_material", "library_material", "home_banner"] as const;
 export type FilePurpose = (typeof FILE_PURPOSES)[number];
 
 export type DetectedType = { mime: "image/png" | "image/jpeg" | "image/webp" | "application/pdf"; extension: "png" | "jpg" | "webp" | "pdf" };
@@ -18,6 +18,7 @@ export const UPLOAD_RULES: Record<FilePurpose, { mimes: DetectedType["mime"][]; 
   course_cover: { mimes: ["image/png", "image/jpeg", "image/webp"], maxBytes: 4 * MB, label: "PNG, JPG ou WEBP até 4 MB" },
   announcement_cover: { mimes: ["image/png", "image/jpeg", "image/webp"], maxBytes: 4 * MB, label: "PNG, JPG ou WEBP até 4 MB" },
   lesson_material: { mimes: ["application/pdf", "image/png", "image/jpeg", "image/webp"], maxBytes: 4 * MB, label: "PDF ou imagem até 4 MB" },
+  home_banner: { mimes: ["image/png", "image/jpeg", "image/webp"], maxBytes: 4 * MB, label: "PNG, JPG ou WEBP até 4 MB" },
   library_material: { mimes: ["application/pdf", "image/png", "image/jpeg", "image/webp"], maxBytes: 4 * MB, label: "PDF ou imagem até 4 MB" },
 };
 

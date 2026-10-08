@@ -10,8 +10,10 @@ import { Skeleton } from "@/design-system/components/feedback";
 import { LinkTabs } from "@/design-system/components/link-tabs";
 import { Table, Td, Th, THead, Tr } from "@/design-system/components/table";
 import { MANAGED_STATUS } from "@/features/announcements/labels";
+import { CommunicationTabs } from "@/features/banners/communication-tabs";
 import { ANNOUNCEMENT_CATEGORY } from "@/features/home/labels";
 import { formatDateTime } from "@/lib/format";
+import { hasTenantWide } from "@/server/authz/policy";
 import { requirePermission } from "@/server/dal";
 import { MANAGED_FILTERS, type ManagedFilter } from "@/server/modules/announcements/schemas";
 import { listManagedAnnouncements } from "@/server/modules/announcements/service";
@@ -42,11 +44,19 @@ export default function CommunicationPage({ searchParams }: PageProps<"/gestao/c
           </Link>
         </Button>
       </header>
+      <Suspense fallback={null}>
+        <Tabs />
+      </Suspense>
       <Suspense fallback={<Skeleton className="h-[420px] rounded-xl" />}>
         <List searchParams={searchParams} />
       </Suspense>
     </>
   );
+}
+
+async function Tabs() {
+  const actor = await requirePermission("comms.announcement.create");
+  return <CommunicationTabs current="comunicados" canManageBanners={hasTenantWide(actor, "comms.announcement.publish")} />;
 }
 
 async function List({ searchParams }: { searchParams: SP }) {

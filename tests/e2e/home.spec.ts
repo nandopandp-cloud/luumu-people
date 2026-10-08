@@ -4,7 +4,7 @@ import { expectAccessible, signIn } from "./helpers";
 test.describe("Início do colaborador", () => {
   test("mostra os blocos do dia a dia com dados reais e é acessível", async ({ page }) => {
     await signIn(page, "fernando.santos@aurora.example");
-    await expect(page.getByRole("heading", { name: "Pessoas que aprendem hoje constroem o amanhã." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Pequenos aprendizados constroem grandes futuros." })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Comunicados para você" })).toBeVisible();
     await expect(page.getByText("Nova política de trabalho híbrido")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Desenvolvimento de Liderança" })).toBeVisible();

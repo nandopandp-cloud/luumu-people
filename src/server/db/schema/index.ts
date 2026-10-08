@@ -6,3 +6,4 @@ export * from "./platform";
 export * from "./learning";
 export * from "./files";
 export * from "./surveys";
+export * from "./banners";

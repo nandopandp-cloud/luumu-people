@@ -17,7 +17,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={`${inter.variable} h-full antialiased`}>
+    // data-sidebar é aplicado antes da hidratação por /sidebar-init.js.
+    <html lang="pt-BR" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
+      <head>
+        {/* eslint-disable-next-line @next/next/no-sync-scripts -- precisa rodar antes da pintura (evita salto da sidebar); arquivo mínimo do próprio domínio */}
+        <script src="/sidebar-init.js" />
+      </head>
       <body className="min-h-full">
         <ToastProvider>{children}</ToastProvider>
       </body>

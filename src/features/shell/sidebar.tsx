@@ -1,21 +1,27 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { Suspense, type ReactNode } from "react";
-import { Logo } from "@/design-system/components/brand";
+import { Logo, Mascot } from "@/design-system/components/brand";
 import { Skeleton } from "@/design-system/components/feedback";
 import { hasPermissionAnywhere } from "@/server/authz/policy";
-import { getCurrentActor } from "@/server/dal";
+import { achievementsEnabled, getCurrentActor } from "@/server/dal";
 import { HelpCard } from "./help-card";
 import { EMPLOYEE_NAV, EMPLOYEE_NAV_SECONDARY, MANAGEMENT_NAV } from "./nav-config";
 import { MobileNavLink, MobileNavLinkView, NavLink, NavLinkView } from "./nav-link";
+import { SidebarToggle } from "./sidebar-toggle";
 
-function SidebarFrame({ home, children, label }: { home: Route; children: ReactNode; label: string }) {
+function SidebarFrame({ home, children, label, id }: { home: Route; children: ReactNode; label: string; id: string }) {
   return (
-    <aside className="sticky top-4 hidden h-[calc(100dvh-2rem)] w-[248px] shrink-0 flex-col rounded-xl border border-line bg-white px-4 pb-4 pt-7 shadow-sm lg:flex">
-      <Link href={home} className="mb-7 block self-start rounded-md px-2 focus-visible:outline-2 focus-visible:outline-purple-500">
-        <Logo className="h-auto w-[196px]" />
+    <aside
+      id={id}
+      className="sticky top-4 hidden h-[calc(100dvh-2rem)] w-[248px] shrink-0 flex-col rounded-xl border border-line bg-white px-4 pb-4 pt-7 shadow-sm transition-[width,padding] duration-200 ease-out-soft lg:flex sidebar-collapsed:w-[84px] sidebar-collapsed:px-3"
+    >
+      <SidebarToggle controls={id} />
+      <Link href={home} className="mb-7 block self-start rounded-md px-2 focus-visible:outline-2 focus-visible:outline-purple-500 sidebar-collapsed:self-center sidebar-collapsed:px-0">
+        <Logo className="h-auto w-[196px] sidebar-collapsed:hidden" />
+        <Mascot className="hidden h-11 sidebar-collapsed:block" label="Luumu People — início" />
       </Link>
-      <nav aria-label={label} className="-mx-1 flex-1 overflow-y-auto px-1">
+      <nav aria-label={label} className="-mx-1 flex-1 overflow-y-auto px-1 sidebar-collapsed:overflow-visible">
         {children}
       </nav>
       <div className="pt-4">
@@ -25,8 +31,9 @@ function SidebarFrame({ home, children, label }: { home: Route; children: ReactN
   );
 }
 
-function EmployeeNavItems({ live }: { live: boolean }) {
+function EmployeeNavItems({ live, achievements = false }: { live: boolean; achievements?: boolean }) {
   const Item = live ? NavLink : NavLinkView;
+  const secondary = EMPLOYEE_NAV_SECONDARY.filter((item) => achievements || item.href !== "/minhas-conquistas");
   return (
     <>
       <ul className="space-y-1">
@@ -36,9 +43,9 @@ function EmployeeNavItems({ live }: { live: boolean }) {
           </li>
         ))}
       </ul>
-      <hr className="mx-3 my-5 border-line" />
+      <hr className="mx-3 my-5 border-line sidebar-collapsed:mx-1" />
       <ul className="space-y-1">
-        {EMPLOYEE_NAV_SECONDARY.map((item) => (
+        {secondary.map((item) => (
           <li key={item.href}>
             <Item item={item} />
           </li>
@@ -48,18 +55,23 @@ function EmployeeNavItems({ live }: { live: boolean }) {
   );
 }
 
+/** "Minhas conquistas" só aparece com a flag `gamification` ligada. */
+async function LiveEmployeeNavItems() {
+  return <EmployeeNavItems live achievements={await achievementsEnabled()} />;
+}
+
 /** O destaque do item ativo depende da URL: fica atrás de <Suspense> (Cache Components). */
 export function EmployeeNavList() {
   return (
     <Suspense fallback={<EmployeeNavItems live={false} />}>
-      <EmployeeNavItems live />
+      <LiveEmployeeNavItems />
     </Suspense>
   );
 }
 
 export function EmployeeSidebar() {
   return (
-    <SidebarFrame home="/inicio" label="Navegação principal">
+    <SidebarFrame home="/inicio" label="Navegação principal" id="sidebar-colaborador">
       <EmployeeNavList />
     </SidebarFrame>
   );
@@ -113,7 +125,7 @@ export async function ManagementNavList() {
         <li key={item.href}>
           <NavLink item={item} />
           {item.children ? (
-            <ul className="mt-1 space-y-0.5">
+            <ul className="mt-1 space-y-0.5 sidebar-collapsed:hidden">
               {item.children
                 .filter((child) => allowed(child.anyOf))
                 .map((child) => (
@@ -141,7 +153,7 @@ export function NavSkeleton() {
 
 export function ManagementSidebar() {
   return (
-    <SidebarFrame home="/gestao" label="Navegação da gestão">
+    <SidebarFrame home="/gestao" label="Navegação da gestão" id="sidebar-gestao">
       <Suspense fallback={<NavSkeleton />}>
         <ManagementNavList />
       </Suspense>

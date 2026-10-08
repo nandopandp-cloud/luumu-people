@@ -105,6 +105,28 @@ const ANNOUNCEMENTS: {
   },
 ];
 
+/** Banners da home (o primeiro ativo; o segundo, inativo, para demonstrar a gestão). */
+const BANNERS: { title: string; subtitle: string; ctaLabel: string; ctaUrl: string; theme: Theme; illustration: Illustration | null; active: boolean }[] = [
+  {
+    title: "Pequenos aprendizados constroem grandes futuros.",
+    subtitle: "Conheça as trilhas de Liderança, Comunicação e Inteligência Emocional e continue de onde parou.",
+    ctaLabel: "Ver trilhas",
+    ctaUrl: "/trilhas",
+    theme: "purple",
+    illustration: null,
+    active: true,
+  },
+  {
+    title: "Pesquisa de Clima 2026: sua voz importa",
+    subtitle: "Leva cerca de 5 minutos e é anônima de verdade.",
+    ctaLabel: "Responder",
+    ctaUrl: "/pesquisas",
+    theme: "green",
+    illustration: "chat",
+    active: false,
+  },
+];
+
 type CourseSeed = { key: string; title: string; kind?: "course" | "video" | "quiz"; minutes: number; mandatory?: boolean; theme?: Theme; illustration?: Illustration };
 
 const PATHS: { title: string; description: string; category: string; theme: Theme; illustration: Illustration; featured?: boolean; courses: CourseSeed[] }[] = [
@@ -224,6 +246,8 @@ export async function seedContent(db: Database, tenantId: string, userIds: strin
       publishedAt: a.status === "draft" ? null : daysAgo(a.daysAgo),
     })),
   );
+
+  await db.insert(s.homeBanners).values(BANNERS.map((b, position) => ({ tenantId, ...b, position })));
 
   const courseIds = new Map<string, string>();
   const insertCourse = async (c: CourseSeed, fallbackTheme: Theme) => {

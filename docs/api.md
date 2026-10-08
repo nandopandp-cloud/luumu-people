@@ -67,6 +67,10 @@ Paginação por cursor: `?cursor=…&limit=…` → `{ items, nextCursor }`.
 | POST | `/api/v1/surveys/:id/launch` | `survey.launch` | lança para todas as pessoas ativas `{ closesAt }`; congela k e dimensões |
 | POST | `/api/v1/surveys/:id/close` | `survey.launch` | encerra e libera o último lote |
 | GET | `/api/v1/surveys/:id/results` | `survey.results.read_aggregate` (TENANT) | **somente agregados** (`dimension`, `bucket`); grupos < k → `suppressed` |
+| GET / POST | `/api/v1/banners` | `comms.announcement.publish` (TENANT) | banners da home (lista / cria). Destino do botão: caminho interno ou `https://` |
+| GET / PUT / DELETE | `/api/v1/banners/:id` | `comms.announcement.publish` | lê, edita e exclui um banner |
+| PUT | `/api/v1/banners/order` | `comms.announcement.publish` | ordem do carrossel `{ ids }` (todos os banners, uma vez cada) |
+| GET | `/api/v1/search?q=&context=` | autenticado | busca da paleta ⌘K; cada grupo respeita permissão, escopo e flags. Sem termo: atalhos |
 | POST | `/api/v1/me/surveys/:id/responses` | autenticado (convidado) | envio anônimo `{ answers }` — sem log de payload/usuário, rate limit só em memória, sem auditoria |
 
 ## Criando uma rota nova

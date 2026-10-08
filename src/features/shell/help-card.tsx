@@ -18,14 +18,14 @@ export function HelpCard() {
       trigger={
         <button
           type="button"
-          className="group flex w-full items-center gap-2.5 rounded-lg border border-line bg-white p-3 text-left shadow-sm transition-colors hover:border-purple-200 hover:bg-purple-50 focus-visible:outline-2 focus-visible:outline-purple-500"
+          className="group flex w-full items-center gap-2.5 rounded-lg border border-line bg-white p-3 text-left shadow-sm transition-colors hover:border-purple-200 hover:bg-purple-50 focus-visible:outline-2 focus-visible:outline-purple-500 sidebar-collapsed:justify-center sidebar-collapsed:p-2"
         >
           <Mascot className="h-10 shrink-0" />
-          <span className="min-w-0 flex-1">
+          <span className="min-w-0 flex-1 sidebar-collapsed:sr-only">
             <span className="block whitespace-nowrap text-[13px] font-semibold text-neutral-900">Precisa de ajuda?</span>
             <span className="block whitespace-nowrap text-caption text-neutral-500">Pergunte para o Luumu</span>
           </span>
-          <ChevronRight aria-hidden className="size-4 text-neutral-500 transition-transform group-hover:translate-x-0.5" />
+          <ChevronRight aria-hidden className="size-4 text-neutral-500 transition-transform group-hover:translate-x-0.5 sidebar-collapsed:hidden" />
         </button>
       }
       footer={<Button onClick={() => setOpen(false)}>Combinado</Button>}
