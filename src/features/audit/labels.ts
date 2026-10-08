@@ -10,8 +10,6 @@ export const AUDIT_LABELS: Record<AuditAction, string> = {
   "auth.password_reset": "Redefiniu a senha",
   "auth.password_changed": "Alterou a senha",
   "auth.account_locked": "Conta bloqueada temporariamente",
-  "auth.two_factor_enabled": "Ativou a verificação em duas etapas",
-  "auth.two_factor_disabled": "Desativou a verificação em duas etapas",
   "access.role_granted": "Papel concedido",
   "access.role_revoked": "Papel revogado",
   "people.created": "Pessoa cadastrada",

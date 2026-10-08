@@ -42,7 +42,7 @@ test.describe("Fase 1 — fundação", () => {
   test("gestora vê somente a própria equipe", async ({ page }) => {
     await signIn(page, "carla.mendes@aurora.example");
     await page.goto("/gestao/usuarios");
-    await expect(page.getByText("Você está vendo apenas as pessoas do seu escopo")).toBeVisible();
+    await expect(page.getByText("Você está vendo apenas as pessoas do seu escopo").filter({ visible: true })).toBeVisible();
     await expect(page.getByRole("link", { name: /Fernando Santos/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /João Silva/ })).toHaveCount(0);
   });

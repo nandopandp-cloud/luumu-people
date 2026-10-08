@@ -55,7 +55,19 @@ Fontes: o styleguide da Luumu People e os mockups de interface. Código em `src/
 | Table (vira lista no mobile) | `table.tsx` |
 | Logo, Wordmark, Mascot | `brand.tsx` |
 
-Para os próximos módulos ficam MultiSelect, DatePicker, FileUpload, Toast, Chart, DataTable e Notification.
+| Combobox (select com busca e multiselect com chips) | `combobox.tsx` — listbox acessível, setas/Enter/Esc |
+| DatePicker | `date-picker.tsx` — calendário pt-BR, grade navegável por teclado, mín./máx. |
+| FileUpload | `file-upload.tsx` — padrão, com arquivo, enviando, concluído, erro; arrastar e soltar |
+| Toast | `toast.tsx` — `useToast()`, provedor no layout raiz |
+| AreaChart, ColumnChart, DonutChart | `charts.tsx` — SVG próprio, tooltip, "Ver como tabela" |
+| DataTable | `data-table.tsx` — ordenação (`aria-sort`) e paginação no cliente |
+| NotificationBell, NotificationList | `notification.tsx` |
+
+**Vitrine:** `/design-system` (somente fora de produção) mostra todos os componentes e roda no E2E com axe.
+
+### Gráficos
+
+Paleta categórica em ordem fixa, validada para daltonismo: `--color-chart-1..5` = roxo, laranja, azul, verde (#16A34A), rosa. O laranja tem contraste < 3:1 sobre branco, então todo gráfico tem legenda com valores e alternância para tabela. Um único eixo; linha 2px; colunas ≤ 24px com ponta arredondada; área a ~10%; grade recessiva; texto nunca na cor da série.
 
 `cn()` combina classes com um `tailwind-merge` que conhece os tokens do tema. Sem isso, `text-body-sm` e `text-purple-600` se anulariam (há teste em `cn.test.ts`).
 

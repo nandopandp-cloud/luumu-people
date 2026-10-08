@@ -15,8 +15,6 @@ export const AUDIT_ACTIONS = [
   "auth.password_reset",
   "auth.password_changed",
   "auth.account_locked",
-  "auth.two_factor_enabled",
-  "auth.two_factor_disabled",
   "access.role_granted",
   "access.role_revoked",
   "people.created",

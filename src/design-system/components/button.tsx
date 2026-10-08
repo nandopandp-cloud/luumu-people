@@ -20,7 +20,7 @@ export const buttonVariants = cva(
         tertiary: "text-purple-600 hover:text-purple-700 hover:underline underline-offset-4 disabled:text-neutral-400 px-0!",
         soft: "bg-purple-100 text-purple-600 hover:bg-purple-200/70 active:bg-purple-200 disabled:bg-neutral-100 disabled:text-neutral-400",
         ghost: "border border-line bg-white text-neutral-800 hover:bg-neutral-50 active:bg-neutral-100 disabled:text-neutral-400",
-        destructive: "border border-red-100 bg-red-50 text-red-600 hover:bg-red-100 active:bg-red-100 disabled:border-neutral-200 disabled:bg-neutral-50 disabled:text-neutral-400",
+        destructive: "border border-red-100 bg-red-50 text-red-700 hover:bg-red-100 active:bg-red-100 disabled:border-neutral-200 disabled:bg-neutral-50 disabled:text-neutral-400",
       },
       size: {
         sm: "h-8 px-3.5 text-caption",

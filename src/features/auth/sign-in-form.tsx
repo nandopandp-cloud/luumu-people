@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, EyeOff, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -23,10 +23,8 @@ function message(status: number | undefined, fallback?: string) {
 export function SignInForm() {
   const router = useRouter();
   const next = safeNext(useSearchParams().get("next"));
-  const [step, setStep] = useState<"credentials" | "totp">("credentials");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [code, setCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -40,55 +38,10 @@ export function SignInForm() {
     event.preventDefault();
     setError(null);
     startTransition(async () => {
-      const { data, error: err } = await authClient.signIn.email({ email: email.trim(), password });
+      const { error: err } = await authClient.signIn.email({ email: email.trim(), password });
       if (err) return setError(message(err.status, err.status === 429 ? err.message : undefined));
-      if (data && "twoFactorRedirect" in data && data.twoFactorRedirect) return setStep("totp");
       done();
     });
-  }
-
-  function submitTotp(event: React.FormEvent) {
-    event.preventDefault();
-    setError(null);
-    startTransition(async () => {
-      const { error: err } = await authClient.twoFactor.verifyTotp({ code: code.trim() });
-      if (err) return setError(err.status === 429 ? message(429) : "Código inválido ou expirado. Confira o app autenticador.");
-      done();
-    });
-  }
-
-  if (step === "totp") {
-    return (
-      <form onSubmit={submitTotp} className="space-y-5" noValidate>
-        <div className="flex items-center gap-3 rounded-lg bg-purple-50 p-4 text-body-sm text-purple-700">
-          <ShieldCheck aria-hidden className="size-5 shrink-0" />
-          Sua conta tem verificação em duas etapas. Digite o código de 6 dígitos do seu app autenticador.
-        </div>
-        {error ? <Alert tone="error" title={error} /> : null}
-        <Field label="Código de verificação">
-          {({ id, describedBy }) => (
-            <Input
-              id={id}
-              aria-describedby={describedBy}
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              pattern="\d{6}"
-              maxLength={6}
-              autoFocus
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-              className="text-center text-h3 tracking-[0.5em]"
-            />
-          )}
-        </Field>
-        <Button type="submit" size="lg" block loading={pending} disabled={code.length !== 6}>
-          Verificar e entrar
-        </Button>
-        <button type="button" onClick={() => setStep("credentials")} className="w-full text-center text-body-sm font-medium text-purple-600 hover:underline">
-          Voltar
-        </button>
-      </form>
-    );
   }
 
   return (

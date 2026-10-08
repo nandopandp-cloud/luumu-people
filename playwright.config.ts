@@ -18,12 +18,13 @@ export default defineConfig({
     { name: "mobile", use: { ...devices["Pixel 7"] }, grep: /@mobile/ },
   ],
   webServer: {
-    command: `rm -rf .data/e2e && pnpm next dev --port ${PORT}`,
+    command: `pnpm next dev --port ${PORT}`,
     url: `http://localhost:${PORT}/api/health`,
     reuseExistingServer: false,
     timeout: 120_000,
     env: {
-      DATABASE_URL: "pglite://.data/e2e",
+      // Em memória: recriado a cada execução e fora da árvore observada pelo dev server.
+      DATABASE_URL: "pglite://memory",
       APP_URL: `http://localhost:${PORT}`,
       BETTER_AUTH_SECRET: "e2e-secret-e2e-secret-e2e-secret-e2e-0000",
       SEED_PASSWORD: "Luumu@Demo2026",

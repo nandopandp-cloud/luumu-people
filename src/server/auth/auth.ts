@@ -2,7 +2,6 @@ import "server-only";
 import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
-import { twoFactor } from "better-auth/plugins/two-factor";
 import { eq } from "drizzle-orm";
 import { recordAudit, type AuditAction } from "@/server/audit/audit";
 import { authDb } from "@/server/db/client";
@@ -16,7 +15,7 @@ import { hashPassword, verifyPassword } from "./password";
 
 /**
  * Autenticação (Better Auth) — sessões opacas em banco, cookies HttpOnly,
- * Argon2id, rate limit persistente, bloqueio por conta, 2FA (TOTP) e trilha
+ * Argon2id, rate limit persistente, bloqueio por conta e trilha
  * de auditoria. Cadastro público desabilitado: contas são criadas pela empresa.
  *
  * Conecta-se com a role luumu_auth, que só enxerga tabelas de autenticação.
@@ -136,7 +135,6 @@ function buildOptions(database: BetterAuthOptions["database"]): BetterAuthOption
         "/sign-in/email": { window: 60, max: 10 },
         "/request-password-reset": { window: 300, max: 3 },
         "/reset-password": { window: 300, max: 5 },
-        "/two-factor/*": { window: 60, max: 10 },
       },
     },
     advanced: {
@@ -154,13 +152,6 @@ function buildOptions(database: BetterAuthOptions["database"]): BetterAuthOption
       level: "warn",
       log: (level, message) => logger()[level]({ source: "better-auth" }, message),
     },
-    plugins: [
-      twoFactor({
-        issuer: "Luumu People",
-        schema: { twoFactor: { modelName: "twoFactors" } },
-        accountLockout: { enabled: true, maxFailedAttempts: 5, durationSeconds: 15 * 60 },
-      }),
-    ],
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
         if (ctx.path !== "/sign-in/email") return;
@@ -222,7 +213,6 @@ async function createAuth() {
           sessions: s.sessions,
           accounts: s.accounts,
           verifications: s.verifications,
-          twoFactors: s.twoFactors,
           rateLimits: s.rateLimits,
         },
       }),

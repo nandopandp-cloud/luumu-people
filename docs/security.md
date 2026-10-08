@@ -11,7 +11,7 @@
 | Força bruta | rate limit persistente por IP (Better Auth/`rate_limits`) + bloqueio por conta após 5 falhas em 15 min (`login_throttles`, chave HMAC do e-mail) |
 | Enumeração | mesma resposta para e-mail inexistente e senha errada; "esqueci a senha" sempre responde igual |
 | Recuperação | token de uso único, guardado com **hash**, válido por 30 min |
-| MFA | TOTP (plugin two-factor), com bloqueio após tentativas; obrigatoriedade por papel na Fase 5 |
+| MFA | **não faz parte do produto** (decisão de 2026-10-07). Tabela/coluna legadas `two_factors`/`two_factor_enabled` serão removidas na próxima release |
 | Cadastro | público desabilitado; endpoints `/sign-up`, `/update-user`, `/change-email`, `/delete-user` desligados |
 | SSO | Google Workspace / Microsoft Entra ID via OIDC (Fase 5) |
 | Telemetria do Better Auth | desligada |
@@ -31,7 +31,7 @@ Toda autorização acontece no servidor (ver [rbac.md](rbac.md)). Esconder um bo
 - **CSRF:** mutações exigem mesma origem (`Origin` + `Sec-Fetch-Site`); cookie `SameSite=Lax`.
 - **Validação:** Zod estrito em toda entrada (campos extras → 400); corpo limitado a 64 KB; somente JSON.
 - **Erros:** `application/problem+json` com mensagem humana e `requestId`; nunca stack ou SQL.
-- **Rate limit da API:** por usuário, mais rígido em rotas sensíveis. A implementação atual é em memória por instância (melhor esforço na Vercel). Para um limite global, implemente `RateLimitStore` com um store distribuído (ex.: Upstash) ou use o Firewall da Vercel.
+- **Rate limit da API:** por usuário, mais rígido em rotas sensíveis, **compartilhado entre todas as instâncias**: contador no Postgres (`app.rate_limit_buckets`), acessível somente pela função atômica `app.rate_limit_hit` (`SECURITY DEFINER`); a aplicação não lê nem altera contadores diretamente.
 - **Cabeçalhos:** CSP, HSTS, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, COOP; `Cache-Control: no-store` em `/api`.
 - **SQL injection:** queries parametrizadas (Drizzle). `sql.raw` só com constantes do código.
 - **XSS:** React escapa a saída; nenhum `dangerouslySetInnerHTML`; e-mails escapam o HTML.
@@ -65,5 +65,4 @@ Previsto: validação por *magic bytes*, limite por tipo, nome gerado no servido
 ## Riscos conhecidos e próximos passos
 
 - **Plano Hobby da Vercel:** os termos permitem apenas uso não comercial. Migre para o Pro antes de atender clientes.
-- Rate limit da API por instância (ver acima).
-- Obrigatoriedade de MFA para Admin/G&G e SSO: Fase 5.
+- SSO (Google Workspace / Microsoft Entra ID): Fase 5.

@@ -219,4 +219,17 @@ describe("autorização da API", () => {
       expect(res.status).toBe(403);
     });
   });
+
+  describe("rate limit compartilhado", () => {
+    it("bloqueia com 429 e Retry-After acima do limite de rotas sensíveis", async () => {
+      const session = await signIn("aurora", "priscila");
+      const statuses: number[] = [];
+      for (let i = 0; i < 21; i++) {
+        statuses.push((await call(profileRoute.PATCH, { path: "/api/v1/me/profile", method: "PATCH", cookie: session.cookie, body: { headline: `teste ${i}` } })).status);
+      }
+      expect(statuses.slice(0, 20).every((s) => s === 200)).toBe(true);
+      expect(statuses[20]).toBe(429);
+    });
+  });
 });
+

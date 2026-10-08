@@ -12,7 +12,7 @@ Next.js (Vercel, região gru1)
   ├─ proxy.ts ............. checagem otimista: sem cookie → /entrar (não é autorização)
   ├─ app/(colaborador) .... experiência do colaborador
   ├─ app/gestao ........... ambiente de gestão (itens filtrados por permissão)
-  ├─ app/api/auth ......... Better Auth (login, sessão, 2FA, senha)
+  ├─ app/api/auth ......... Better Auth (login, sessão, senha)
   └─ app/api/v1 ........... API REST → defineRoute() → serviços
                                    │
                     ┌──────────────┴──────────────┐

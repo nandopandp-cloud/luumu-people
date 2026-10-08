@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { sanitizeMetadata } from "@/server/audit/audit";
-import { checkRateLimit } from "@/server/http/rate-limit";
+import { checkRateLimit, memoryStore, setRateLimitStore } from "@/server/http/rate-limit";
 import { stripTenantKeys } from "@/server/http/route";
 import { evaluateFlags } from "@/server/modules/flags/service";
 import { safeNext } from "@/features/auth/safe-redirect";
@@ -29,16 +29,22 @@ describe("sanitizeMetadata — auditoria sem dados sensíveis", () => {
   });
 });
 
-describe("rate limit", () => {
-  it("bloqueia acima do limite e libera na próxima janela", () => {
+describe("rate limit (regra de janela fixa)", () => {
+  it("bloqueia acima do limite e libera na próxima janela", async () => {
+    let clock = 0;
+    setRateLimitStore(memoryStore(() => clock));
+    const ctx = { tenantId: "00000000-0000-4000-8000-000000000001", userId: null };
     const rule = { limit: 2, windowMs: 1000 };
     const key = `teste-${Math.random()}`;
-    expect(checkRateLimit(key, rule, 0).allowed).toBe(true);
-    expect(checkRateLimit(key, rule, 10).allowed).toBe(true);
-    const blocked = checkRateLimit(key, rule, 20);
+    expect((await checkRateLimit(ctx, key, rule, clock)).allowed).toBe(true);
+    clock = 10;
+    expect((await checkRateLimit(ctx, key, rule, clock)).allowed).toBe(true);
+    clock = 20;
+    const blocked = await checkRateLimit(ctx, key, rule, clock);
     expect(blocked.allowed).toBe(false);
     expect(blocked.retryAfterSeconds).toBe(1);
-    expect(checkRateLimit(key, rule, 1001).allowed).toBe(true);
+    clock = 1001;
+    expect((await checkRateLimit(ctx, key, rule, clock)).allowed).toBe(true);
   });
 });
 

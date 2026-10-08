@@ -27,6 +27,10 @@ PostgreSQL 17 (Neon em preview/produção; PGlite, o Postgres em WASM, em desenv
 
 Capas de comunicados, trilhas e cursos usam `theme` + `illustration` do design system até a chegada do upload de imagens.
 
+Schema interno `app`: funções de apoio (`current_tenant_id`, `current_user_id`) e o rate limit da API (`rate_limit_buckets` + `rate_limit_hit`), sem acesso direto pelas roles de runtime.
+
+**Pendência de contrato (expand/contract):** `two_factors` e `users.two_factor_enabled` não são mais usados (2FA descartado). Remover numa migration da PRÓXIMA release, depois que esta versão estiver no ar.
+
 Identidade (`users`) e dados de RH (`employee_profiles`) ficam separados: o Better Auth só enxerga a primeira.
 
 ## Roles de banco
@@ -56,7 +60,7 @@ Toda tabela nova **precisa** de RLS habilitada, policy de isolamento (se tiver `
 
 - Em desenvolvimento, o PGlite aplica as migrations ao iniciar.
 - No Neon, use `pnpm db:migrate` ou o workflow **Migrations (Neon)** no GitHub Actions.
-- Nunca altere o banco manualmente.
+- Nunca altere o banco manualmente. Migrations de uma release precisam ser **retrocompatíveis com a versão anterior do código** (só adicionar); remoções acontecem na release seguinte.
 
 ## Seed
 

@@ -21,7 +21,7 @@ import { checkRateLimit, DEFAULT_RATE_LIMIT, type RateLimitRule } from "./rate-l
  *  - mutações exigem mesma origem (Origin/Sec-Fetch-Site) — proteção CSRF;
  *  - qualquer `tenant_id`/`tenantId` enviado pelo cliente é descartado antes
  *    da validação: o tenant vem exclusivamente da sessão;
- *  - corpo limitado a MAX_BODY_BYTES; rate limit por usuário;
+ *  - corpo limitado a MAX_BODY_BYTES; rate limit por usuário, compartilhado entre instâncias;
  *  - erros inesperados viram 500 genérico, com requestId para correlação.
  */
 
@@ -126,7 +126,8 @@ export function defineRoute<QS extends Schema | undefined = undefined, BS extend
         throw forbidden();
       }
 
-      const limit = checkRateLimit(`api:${actor.userId}`, config.rateLimit ?? DEFAULT_RATE_LIMIT);
+      const rule = config.rateLimit ?? DEFAULT_RATE_LIMIT;
+      const limit = await checkRateLimit(actor, `api:${actor.userId}:${rule.limit}`, rule);
       if (!limit.allowed) {
         return problem(429, "Muitas requisições", "Aguarde um instante e tente novamente.", undefined, {
           "retry-after": String(limit.retryAfterSeconds),

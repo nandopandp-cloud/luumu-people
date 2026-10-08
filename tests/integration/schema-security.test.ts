@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
-import { expectDbError, testDatabase } from "../support/db";
+import { asRole, expectDbError, testDatabase } from "../support/db";
 
 /**
  * Introspecção do schema: garante que nenhuma tabela nasce sem RLS, policies e
@@ -128,4 +128,16 @@ describe("segurança do schema", () => {
     // Sem app.tenant_id definido: a RLS não devolve nada (fail closed).
     expect(rows[0]?.n).toBe(0);
   });
+
+  it("contadores de rate limit só são acessíveis pela função atômica", async () => {
+    await expectDbError(asRole("luumu_app", (db) => db.execute(sql`select * from app.rate_limit_buckets`)), /permission denied/);
+    await expectDbError(asRole("luumu_app", (db) => db.execute(sql`delete from app.rate_limit_buckets`)), /permission denied/);
+    const rows = await asRole("luumu_app", async (db) => {
+      await db.execute(sql`select * from app.rate_limit_hit('teste:atomico', 60000)`);
+      const r = await db.execute(sql`select hits from app.rate_limit_hit('teste:atomico', 60000)`);
+      return (r as unknown as { rows: { hits: number }[] }).rows;
+    });
+    expect(rows[0]?.hits).toBe(2);
+  });
 });
+

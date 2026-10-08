@@ -91,6 +91,16 @@
   --color-error: var(--color-red-600);
   --color-info: var(--color-blue-500);
 
+  /* Gráficos — ordem categórica FIXA, validada para daltonismo (scripts do
+     skill dataviz): roxo, laranja, azul, verde, rosa. O laranja tem contraste
+     < 3:1 sobre branco: gráficos sempre trazem legenda com valores + tabela. */
+  --color-chart-1: #7c3aed;
+  --color-chart-2: #f59e0b;
+  --color-chart-3: #3b82f6;
+  --color-chart-4: #16a34a;
+  --color-chart-5: #ec4899;
+  --color-chart-grid: #ece9f6;
+
   /* Superfícies */
   --color-canvas: #f6f5fc;   /* fundo da aplicação */
   --color-surface: #ffffff;  /* cards */

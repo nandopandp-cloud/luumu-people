@@ -11,7 +11,6 @@ export type SessionUser = {
   name: string;
   email: string;
   image: string | null;
-  twoFactorEnabled: boolean;
 };
 
 export type AuthenticatedActor = Actor & {
@@ -54,7 +53,6 @@ export async function resolveActor(headers: Headers): Promise<AuthenticatedActor
       name: user.name,
       email: user.email,
       image: user.image ?? null,
-      twoFactorEnabled: Boolean((user as { twoFactorEnabled?: unknown }).twoFactorEnabled),
     },
   };
 }

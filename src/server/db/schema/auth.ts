@@ -33,6 +33,7 @@ export const users = pgTable(
     email: text("email").notNull().unique(),
     emailVerified: boolean("email_verified").notNull().default(false),
     image: text("image"),
+    /** @deprecated 2FA foi descartado do produto. Remover na próxima release (expand/contract). */
     twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
     status: text("status", { enum: USER_STATUSES }).notNull().default("invited"),
     ...timestamps(),
@@ -96,6 +97,10 @@ export const verifications = pgTable(
   (t) => [index("verifications_identifier_idx").on(t.identifier)],
 );
 
+/**
+ * @deprecated 2FA foi descartado do produto. Tabela mantida só até a próxima
+ * release, para não quebrar a versão anterior durante o deploy (expand/contract).
+ */
 export const twoFactors = pgTable(
   "two_factors",
   {

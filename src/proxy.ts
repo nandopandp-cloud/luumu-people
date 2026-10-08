@@ -17,6 +17,7 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Tudo, exceto: login e recuperação de senha, API (protege a si mesma), assets.
-  matcher: ["/((?!entrar|recuperar-senha|redefinir-senha|api|_next/static|_next/image|brand|icon.svg|favicon.ico).*)"],
+  // Tudo, exceto: login e recuperação de senha, vitrine do design system (404 em
+  // produção), API (protege a si mesma) e assets.
+  matcher: ["/((?!entrar|recuperar-senha|redefinir-senha|design-system|api|_next/static|_next/image|brand|icon.svg|favicon.ico).*)"],
 };
