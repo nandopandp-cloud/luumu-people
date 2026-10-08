@@ -43,6 +43,10 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@electric-sql/pglite", "@node-rs/argon2", "pino"],
   experimental: {
     authInterrupts: true,
+    // Cache de build do Turbopack DESLIGADO: na Vercel ele é restaurado do deploy
+    // anterior e reaproveitou o CSS do Tailwind gerado com o globals.css antigo
+    // (variantes e animações novas sumiram em produção). Builds levam ~1 min sem ele.
+    turbopackFileSystemCacheForBuild: false,
     // Validação de "instant navigation" só em segmentos que exportam `instant`.
     // A validação automática de todas as rotas dispara um erro interno do
     // bundler no Next 16.4 (módulo ausente do client manifest) em dev.
