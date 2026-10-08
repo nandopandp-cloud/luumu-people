@@ -15,6 +15,8 @@ const contentSecurityPolicy = [
   "img-src 'self' blob: data:",
   "font-src 'self'",
   "connect-src 'self'",
+  // Somente players de vídeo permitidos nas aulas (YouTube sem cookies e Vimeo).
+  "frame-src https://www.youtube-nocookie.com https://player.vimeo.com",
   "media-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",

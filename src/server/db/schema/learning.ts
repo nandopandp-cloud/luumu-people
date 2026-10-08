@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { boolean, check, date, foreignKey, index, integer, pgTable, primaryKey, smallint, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { createdAt, id, tenantId, timestamps } from "./_columns";
 import { users } from "./auth";
+import { files } from "./files";
 import { organizations } from "./tenancy";
 
 /**
@@ -53,6 +54,8 @@ export const courses = pgTable(
     title: text("title").notNull(),
     description: text("description"),
     kind: text("kind", { enum: COURSE_KINDS }).notNull().default("course"),
+    category: text("category"),
+    coverFileId: uuid("cover_file_id"),
     durationMinutes: integer("duration_minutes").notNull(),
     mandatory: boolean("mandatory").notNull().default(false),
     theme: text("theme", { enum: THEMES }).notNull().default("purple"),
@@ -62,6 +65,7 @@ export const courses = pgTable(
   },
   (t) => [
     unique("courses_tenant_id_id_key").on(t.tenantId, t.id),
+    foreignKey({ name: "courses_cover_file_fk", columns: [t.tenantId, t.coverFileId], foreignColumns: [files.tenantId, files.id] }),
     index("courses_tenant_status_idx").on(t.tenantId, t.status),
     check("courses_duration_positive", sql`${t.durationMinutes} > 0`),
   ],
@@ -203,5 +207,98 @@ export const userAchievements = pgTable(
     primaryKey({ name: "user_achievements_pkey", columns: [t.userId, t.achievementId] }),
     foreignKey({ name: "user_achievements_user_fk", columns: [t.tenantId, t.userId], foreignColumns: [users.tenantId, users.id] }).onDelete("cascade"),
     foreignKey({ name: "user_achievements_achievement_fk", columns: [t.tenantId, t.achievementId], foreignColumns: [achievements.tenantId, achievements.id] }).onDelete("cascade"),
+  ],
+);
+
+/** Módulos de um curso, em ordem. */
+export const courseModules = pgTable(
+  "course_modules",
+  {
+    id: id(),
+    tenantId: tenantId(),
+    courseId: uuid("course_id").notNull(),
+    title: text("title").notNull(),
+    position: integer("position").notNull(),
+    ...timestamps(),
+  },
+  (t) => [
+    unique("course_modules_tenant_id_id_key").on(t.tenantId, t.id),
+    foreignKey({ name: "course_modules_course_fk", columns: [t.tenantId, t.courseId], foreignColumns: [courses.tenantId, courses.id] }).onDelete("cascade"),
+    uniqueIndex("course_modules_position_key").on(t.courseId, t.position),
+  ],
+);
+
+export const LESSON_TYPES = ["article", "video", "pdf", "link"] as const;
+
+/**
+ * Aula. Conteúdo conforme o tipo:
+ *  - article: texto (renderizado como texto, nunca como HTML)
+ *  - video:   URL do YouTube/Vimeo (incorporada em iframe com sandbox)
+ *  - pdf:     arquivo privado (files)
+ *  - link:    URL externa https
+ */
+export const lessons = pgTable(
+  "lessons",
+  {
+    id: id(),
+    tenantId: tenantId(),
+    courseId: uuid("course_id").notNull(),
+    moduleId: uuid("module_id").notNull(),
+    title: text("title").notNull(),
+    type: text("type", { enum: LESSON_TYPES }).notNull(),
+    position: integer("position").notNull(),
+    durationMinutes: integer("duration_minutes").notNull(),
+    body: text("body"),
+    videoUrl: text("video_url"),
+    externalUrl: text("external_url"),
+    fileId: uuid("file_id"),
+    ...timestamps(),
+  },
+  (t) => [
+    unique("lessons_tenant_id_id_key").on(t.tenantId, t.id),
+    foreignKey({ name: "lessons_course_fk", columns: [t.tenantId, t.courseId], foreignColumns: [courses.tenantId, courses.id] }).onDelete("cascade"),
+    foreignKey({ name: "lessons_module_fk", columns: [t.tenantId, t.moduleId], foreignColumns: [courseModules.tenantId, courseModules.id] }).onDelete("cascade"),
+    foreignKey({ name: "lessons_file_fk", columns: [t.tenantId, t.fileId], foreignColumns: [files.tenantId, files.id] }),
+    uniqueIndex("lessons_position_key").on(t.courseId, t.position),
+    check("lessons_duration_positive", sql`${t.durationMinutes} > 0`),
+    check(
+      "lessons_content_by_type",
+      sql`(${t.type} = 'article' and ${t.body} is not null) or (${t.type} = 'video' and ${t.videoUrl} is not null) or (${t.type} = 'pdf' and ${t.fileId} is not null) or (${t.type} = 'link' and ${t.externalUrl} like 'https://%')`,
+    ),
+  ],
+);
+
+/** Aulas concluídas por pessoa (fonte do progresso das matrículas). */
+export const lessonProgress = pgTable(
+  "lesson_progress",
+  {
+    tenantId: tenantId(),
+    userId: uuid("user_id").notNull(),
+    lessonId: uuid("lesson_id").notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ name: "lesson_progress_pkey", columns: [t.userId, t.lessonId] }),
+    foreignKey({ name: "lesson_progress_user_fk", columns: [t.tenantId, t.userId], foreignColumns: [users.tenantId, users.id] }).onDelete("cascade"),
+    foreignKey({ name: "lesson_progress_lesson_fk", columns: [t.tenantId, t.lessonId], foreignColumns: [lessons.tenantId, lessons.id] }).onDelete("cascade"),
+    index("lesson_progress_user_completed_idx").on(t.tenantId, t.userId, t.completedAt),
+  ],
+);
+
+/** Certificado emitido ao concluir um curso. `code` permite verificação. */
+export const certificates = pgTable(
+  "certificates",
+  {
+    id: id(),
+    tenantId: tenantId(),
+    userId: uuid("user_id").notNull(),
+    courseId: uuid("course_id").notNull(),
+    code: text("code").notNull().unique(),
+    issuedAt: timestamp("issued_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({ name: "certificates_user_fk", columns: [t.tenantId, t.userId], foreignColumns: [users.tenantId, users.id] }).onDelete("cascade"),
+    foreignKey({ name: "certificates_course_fk", columns: [t.tenantId, t.courseId], foreignColumns: [courses.tenantId, courses.id] }).onDelete("cascade"),
+    unique("certificates_user_course_key").on(t.userId, t.courseId),
   ],
 );

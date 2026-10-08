@@ -7,6 +7,7 @@ import { Card, CardHeader } from "@/design-system/components/card";
 import { Skeleton } from "@/design-system/components/feedback";
 import { LinkTabs } from "@/design-system/components/link-tabs";
 import { ComingSoon } from "@/features/page/coming-soon";
+import { AvatarUploadButton } from "@/features/profile/avatar-upload";
 import { ChangePasswordForm } from "@/features/profile/change-password-form";
 import { EditProfileDialog } from "@/features/profile/edit-profile-dialog";
 import { CONTRACT_LABELS, formatDate, formatLocation } from "@/lib/format";
@@ -70,8 +71,9 @@ function ProfileHeader({ profile }: { profile: Profile }) {
     <section className="relative mb-6 overflow-hidden rounded-xl bg-gradient-to-br from-purple-100 via-[#ece5fc] to-purple-200 px-6 py-7 sm:px-8">
       <div aria-hidden className="absolute -right-8 -top-16 size-72 rounded-full bg-white/40 blur-2xl" />
       <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center">
-        <div className="shrink-0 self-start rounded-xl bg-white p-2 shadow-md">
+        <div className="relative shrink-0 self-start rounded-xl bg-white p-2 shadow-md">
           <Avatar name={profile.name} src={profile.image} size="xl" className="ring-0" />
+          {profile.editableFields.includes("image") ? <AvatarUploadButton /> : null}
         </div>
         <div className="min-w-0 flex-1">
           <h1 className="text-[2rem] font-extrabold leading-tight tracking-[-0.03em] text-neutral-900 sm:text-[2.25rem]">{profile.preferredName || profile.name}</h1>

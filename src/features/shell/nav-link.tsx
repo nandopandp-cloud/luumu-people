@@ -13,7 +13,11 @@ export function isActive(pathname: string, item: Pick<NavItem, "href" | "exact">
 
 export function NavLink({ item, nested }: { item: NavItem; nested?: boolean }) {
   const pathname = usePathname();
-  const active = isActive(pathname, item);
+  return <NavLinkView item={item} nested={nested} active={isActive(pathname, item)} />;
+}
+
+/** Versão sem leitura da URL — fallback do <Suspense> (Cache Components). */
+export function NavLinkView({ item, nested, active = false }: { item: NavItem; nested?: boolean; active?: boolean }) {
   const Icon = NAV_ICONS[item.icon];
   return (
     <Link
@@ -33,7 +37,10 @@ export function NavLink({ item, nested }: { item: NavItem; nested?: boolean }) {
 
 export function MobileNavLink({ item }: { item: NavItem }) {
   const pathname = usePathname();
-  const active = isActive(pathname, item);
+  return <MobileNavLinkView item={item} active={isActive(pathname, item)} />;
+}
+
+export function MobileNavLinkView({ item, active = false }: { item: NavItem; active?: boolean }) {
   const Icon = NAV_ICONS[item.icon];
   return (
     <Link

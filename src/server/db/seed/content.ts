@@ -203,6 +203,7 @@ export async function seedContent(db: Database, tenantId: string, userIds: strin
     );
     await db.insert(s.userAchievements).values(EARNED.map((e) => ({ tenantId, userId, achievementId: achievementIds.get(e.key)!, earnedAt: daysAgo(e.daysAgo) })));
   }
+  await seedLessons(db, tenantId);
   return true;
 }
 
@@ -210,4 +211,102 @@ export async function seedContent(db: Database, tenantId: string, userIds: strin
 export async function activeUserIds(db: Database, tenantId: string): Promise<string[]> {
   const rows = await db.select({ id: s.users.id }).from(s.users).where(and(eq(s.users.tenantId, tenantId), eq(s.users.status, "active")));
   return rows.map((r) => r.id);
+}
+
+/* ------------------------------------------------------------- aulas */
+
+const LESSON_PLAN = [
+  { module: 0, title: "Boas-vindas e objetivos" },
+  { module: 0, title: "Conceitos essenciais" },
+  { module: 0, title: "Por que isso importa no dia a dia" },
+  { module: 1, title: "Ferramentas práticas" },
+  { module: 1, title: "Estudo de caso" },
+  { module: 1, title: "Encerramento e próximos passos" },
+];
+const MODULE_TITLES = ["Módulo 1 · Fundamentos", "Módulo 2 · Na prática"];
+
+function lessonBody(courseTitle: string, lessonTitle: string): string {
+  return [
+    `Nesta aula de “${courseTitle}”, vamos trabalhar o tema “${lessonTitle.toLowerCase()}”.`,
+    "Leia com calma, anote o que fizer sentido para a sua rotina e, ao final, reserve alguns minutos para refletir: o que você pode aplicar ainda esta semana?",
+    "Lembre-se: aprendizado é construção. Pequenos passos, repetidos com consistência, geram grandes resultados.",
+  ].join("\n\n");
+}
+
+function codeFor(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(10));
+  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
+}
+
+/**
+ * Cria módulos e aulas para os cursos do tenant que ainda não têm aulas, e
+ * converte o progresso demonstrativo das matrículas em aulas concluídas
+ * (o progresso passa a ser DERIVADO das aulas). Emite certificados dos
+ * cursos concluídos. Idempotente.
+ */
+export async function seedLessons(db: Database, tenantId: string): Promise<number> {
+  const courseRows = await db
+    .select({ id: s.courses.id, title: s.courses.title, minutes: s.courses.durationMinutes })
+    .from(s.courses)
+    .where(eq(s.courses.tenantId, tenantId));
+  let created = 0;
+
+  for (const course of courseRows) {
+    const existing = await db.select({ id: s.lessons.id }).from(s.lessons).where(eq(s.lessons.courseId, course.id)).limit(1);
+    if (existing.length > 0) continue;
+    created++;
+
+    const plan = course.minutes >= 60 ? LESSON_PLAN : [{ module: 0, title: course.title }];
+    const perLesson = Math.max(1, Math.round(course.minutes / plan.length));
+    const moduleIds = MODULE_TITLES.slice(0, Math.max(...plan.map((l) => l.module)) + 1).map(() => randomUUID());
+    await db.insert(s.courseModules).values(moduleIds.map((id, i) => ({ id, tenantId, courseId: course.id, title: plan.length === 1 ? "Conteúdo" : MODULE_TITLES[i]!, position: i + 1 })));
+    const lessonIds = plan.map(() => randomUUID());
+    await db.insert(s.lessons).values(
+      plan.map((l, i) => ({
+        id: lessonIds[i]!,
+        tenantId,
+        courseId: course.id,
+        moduleId: moduleIds[l.module]!,
+        title: l.title,
+        type: "article" as const,
+        position: i + 1,
+        durationMinutes: perLesson,
+        body: lessonBody(course.title, l.title),
+      })),
+    );
+
+    const enrolled = await db
+      .select({ id: s.enrollments.id, userId: s.enrollments.userId, progress: s.enrollments.progressPct })
+      .from(s.enrollments)
+      .where(eq(s.enrollments.courseId, course.id));
+    for (const e of enrolled) {
+      const done = Math.round((e.progress / 100) * plan.length);
+      if (done > 0) {
+        await db.insert(s.lessonProgress).values(
+          lessonIds.slice(0, done).map((lessonId, i) => ({
+            tenantId,
+            userId: e.userId,
+            lessonId,
+            // Espalha as conclusões pelos últimos meses (alimenta "Minha evolução").
+            completedAt: daysAgo(Math.max(1, 150 - i * 25 - (course.title.length % 20))),
+          })),
+        );
+      }
+      const pct = Math.round((done / plan.length) * 100);
+      await db
+        .update(s.enrollments)
+        .set({
+          progressPct: pct,
+          status: pct === 100 ? "completed" : pct > 0 ? "in_progress" : "not_started",
+          completedAt: pct === 100 ? daysAgo(10) : null,
+          startedAt: pct > 0 ? daysAgo(150) : null,
+        })
+        .where(eq(s.enrollments.id, e.id));
+      if (pct === 100) {
+        await db.insert(s.certificates).values({ tenantId, userId: e.userId, courseId: course.id, code: codeFor(), issuedAt: daysAgo(10) }).onConflictDoNothing();
+      }
+    }
+  }
+  return created;
 }

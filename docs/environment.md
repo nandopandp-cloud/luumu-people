@@ -15,6 +15,8 @@ Validadas em `src/server/env.ts`: a aplicação falha alto se algo estiver errad
 | `RESEND_API_KEY` | produção | sim em produção | sem ela, em dev os e-mails vão para o terminal |
 | `SEED_PASSWORD` | CLI | para `db:seed` | senha das contas demonstrativas |
 | `LUUMU_APP_LOGIN_PASSWORD`, `LUUMU_AUTH_LOGIN_PASSWORD` | CLI | para `db:provision-roles` | senhas dos logins de runtime (≥ 24 caracteres) |
+| `BLOB_READ_WRITE_TOKEN` | Vercel | para uploads | criado automaticamente ao conectar um **Blob store** ao projeto (Storage → Create → Blob). Sem ele, uploads respondem 503 |
+| `AUTH_SIGNIN_RATE_LIMIT` | testes | não (10) | logins por minuto por IP. Só os testes E2E elevam |
 | `LOG_LEVEL` | todos | não (`info`) | `fatal`…`trace`, `silent` |
 
 Regras:

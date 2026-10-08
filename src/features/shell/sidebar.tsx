@@ -7,7 +7,7 @@ import { hasPermissionAnywhere } from "@/server/authz/policy";
 import { getCurrentActor } from "@/server/dal";
 import { HelpCard } from "./help-card";
 import { EMPLOYEE_NAV, EMPLOYEE_NAV_SECONDARY, MANAGEMENT_NAV } from "./nav-config";
-import { MobileNavLink, NavLink } from "./nav-link";
+import { MobileNavLink, MobileNavLinkView, NavLink, NavLinkView } from "./nav-link";
 
 function SidebarFrame({ home, children, label }: { home: Route; children: ReactNode; label: string }) {
   return (
@@ -25,13 +25,14 @@ function SidebarFrame({ home, children, label }: { home: Route; children: ReactN
   );
 }
 
-export function EmployeeNavList() {
+function EmployeeNavItems({ live }: { live: boolean }) {
+  const Item = live ? NavLink : NavLinkView;
   return (
     <>
       <ul className="space-y-1">
         {EMPLOYEE_NAV.map((item) => (
           <li key={item.href}>
-            <NavLink item={item} />
+            <Item item={item} />
           </li>
         ))}
       </ul>
@@ -39,11 +40,20 @@ export function EmployeeNavList() {
       <ul className="space-y-1">
         {EMPLOYEE_NAV_SECONDARY.map((item) => (
           <li key={item.href}>
-            <NavLink item={item} />
+            <Item item={item} />
           </li>
         ))}
       </ul>
     </>
+  );
+}
+
+/** O destaque do item ativo depende da URL: fica atrás de <Suspense> (Cache Components). */
+export function EmployeeNavList() {
+  return (
+    <Suspense fallback={<EmployeeNavItems live={false} />}>
+      <EmployeeNavItems live />
+    </Suspense>
   );
 }
 
@@ -55,16 +65,30 @@ export function EmployeeSidebar() {
   );
 }
 
+const MOBILE_ITEMS = [EMPLOYEE_NAV[0]!, EMPLOYEE_NAV[1]!, EMPLOYEE_NAV[2]!, EMPLOYEE_NAV[5]!, EMPLOYEE_NAV_SECONDARY[0]!].map((item) => ({
+  ...item,
+  label: item.label === "Meus cursos" ? "Cursos" : item.label === "Meu perfil" ? "Perfil" : item.label,
+}));
+
+function BottomNavItems({ live }: { live: boolean }) {
+  const Item = live ? MobileNavLink : MobileNavLinkView;
+  return (
+    <ul className="flex">
+      {MOBILE_ITEMS.map((item) => (
+        <li key={item.href} className="flex flex-1">
+          <Item item={item} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function EmployeeBottomNav() {
   return (
     <nav aria-label="Navegação principal" className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
-      <ul className="flex">
-        {[EMPLOYEE_NAV[0]!, EMPLOYEE_NAV[1]!, EMPLOYEE_NAV[2]!, EMPLOYEE_NAV[5]!, EMPLOYEE_NAV_SECONDARY[0]!].map((item) => (
-          <li key={item.href} className="flex flex-1">
-            <MobileNavLink item={{ ...item, label: item.label === "Meus cursos" ? "Cursos" : item.label === "Meu perfil" ? "Perfil" : item.label }} />
-          </li>
-        ))}
-      </ul>
+      <Suspense fallback={<BottomNavItems live={false} />}>
+        <BottomNavItems live />
+      </Suspense>
     </nav>
   );
 }

@@ -22,17 +22,17 @@ describe("experiência do colaborador — Início", () => {
   it("progresso, trilhas, atividades e conquistas vêm do banco e são da própria pessoa", async () => {
     const actor = (await resolveActor(headersWith(fernando.cookie)))!;
     const progress = await getMyLearningProgress(actor);
-    expect(progress).toEqual({ enrolled: 9, completed: 4, percent: 61 });
+    expect(progress).toEqual({ enrolled: 9, completed: 4, percent: 63 });
 
     const paths = await listRecommendedPaths(actor);
     expect(paths.map((p) => [p.title, p.courseCount, p.totalMinutes, p.progress])).toEqual([
       ["Desenvolvimento de Liderança", 6, 720, 25],
-      ["Comunicação Eficaz", 4, 480, 50],
+      ["Comunicação Eficaz", 4, 480, 54],
       ["Inteligência Emocional", 5, 600, 0],
     ]);
 
     const activities = await listNextActivities(actor);
-    expect(activities[0]).toMatchObject({ courseTitle: "Comunicação Não Violenta", remainingMinutes: 30, pathTitle: "Comunicação Eficaz" });
+    expect(activities[0]).toMatchObject({ courseTitle: "Comunicação Não Violenta", remainingMinutes: 20, pathTitle: "Comunicação Eficaz" });
     expect(activities.map((a) => a.kind)).toContain("quiz");
 
     expect((await listMyAchievements(actor)).length).toBe(4);

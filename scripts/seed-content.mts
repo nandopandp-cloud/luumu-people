@@ -1,6 +1,6 @@
 import { parseArgs } from "node:util";
 import { eq } from "drizzle-orm";
-import { activeUserIds, seedContent } from "../src/server/db/seed/content";
+import { activeUserIds, seedContent, seedLessons } from "../src/server/db/seed/content";
 import { ownerDatabase, schema as s } from "./_db";
 
 /**
@@ -18,11 +18,14 @@ const { db, pool } = ownerDatabase();
 try {
   const [org] = await db.select({ id: s.organizations.id }).from(s.organizations).where(eq(s.organizations.slug, values.tenant));
   if (!org) throw new Error(`Empresa "${values.tenant}" não encontrada.`);
-  const done = await db.transaction(async (tx) => {
+  const [done, lessons] = await db.transaction(async (tx) => {
     const t = tx as unknown as typeof db;
-    return seedContent(t, org.id, await activeUserIds(t, org.id));
+    const content = await seedContent(t, org.id, await activeUserIds(t, org.id));
+    // Completa cursos antigos sem aulas (idempotente).
+    return [content, await seedLessons(t, org.id)] as const;
   });
-  console.log(done ? "✓ Conteúdo de exemplo carregado." : "Nada a fazer: a empresa já tem comunicados.");
+  console.log(done ? "✓ Conteúdo de exemplo carregado." : "Comunicados e trilhas já existiam.");
+  console.log(`✓ Aulas criadas para ${lessons} curso(s) sem aulas.`);
 } finally {
   await pool.end();
 }

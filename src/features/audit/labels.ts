@@ -19,6 +19,7 @@ export const AUDIT_LABELS: Record<AuditAction, string> = {
   "people.transferred": "Transferência de área",
   "people.manager_changed": "Troca de gestor(a)",
   "people.profile_updated": "Perfil atualizado",
+  "file.uploaded": "Arquivo enviado",
   "org.structure_changed": "Estrutura organizacional alterada",
   "tenant.settings_changed": "Configurações alteradas",
   "tenant.feature_flag_changed": "Recurso ligado/desligado",

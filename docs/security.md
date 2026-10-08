@@ -52,9 +52,13 @@ A CSP é estática e permite `'unsafe-inline'` em scripts. Nonces exigiriam rend
 
 `audit_logs` é append-only: a role de runtime só tem `INSERT`/`SELECT`, e um trigger rejeita `UPDATE`, `DELETE` e `TRUNCATE`. A lista de ações é fechada (`AUDIT_ACTIONS`). Hoje registra login, logout, sessão revogada, redefinição de senha, concessão e revogação de papel e edição de perfil. As ações de pessoas, estrutura, configurações e exportação entram com seus módulos. **Nunca** registra resposta de pesquisa anônima nem o vínculo entre pessoa e resposta.
 
-## Uploads (Fase 2)
+## Uploads
 
-Previsto: validação por *magic bytes*, limite por tipo, nome gerado no servidor, storage privado e URLs assinadas de curta duração.
+- Tipo detectado pelos **bytes do arquivo** (PNG, JPEG, WEBP, PDF); SVG, HTML e executáveis recusados.
+- Limites por finalidade (máx. 4 MB — corpo de função na Vercel é 4,5 MB); nome exibido saneado, chave de armazenamento gerada no servidor.
+- Armazenamento **privado** (Vercel Blob com `access: "private"`); nada é acessível por URL pública. Entrega só por `/api/v1/files/:id` após sessão + tenant, com `X-Content-Type-Options: nosniff`, CSP `sandbox` e `Cache-Control: private`.
+- Sem `BLOB_READ_WRITE_TOKEN` em produção, uploads respondem 503 com mensagem clara.
+- Vídeos de aulas: só YouTube (domínio *nocookie*) e Vimeo, em iframe com `sandbox`; o CSP `frame-src` libera apenas esses dois.
 
 ## LGPD
 

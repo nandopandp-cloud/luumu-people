@@ -2,7 +2,11 @@ import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 3100;
 
-/** E2E contra o app real, com banco PGlite próprio (semeado automaticamente). */
+/**
+ * E2E contra o app real, com banco PGlite próprio (semeado automaticamente).
+ * Não rode `pnpm dev` ao mesmo tempo: dois servidores de dev no mesmo projeto
+ * reescrevem os arquivos gerados um do outro e entram em loop de recarga.
+ */
 export default defineConfig({
   testDir: "tests/e2e",
   globalSetup: "./tests/e2e/warmup.ts",
@@ -25,6 +29,8 @@ export default defineConfig({
     env: {
       // Em memória: recriado a cada execução e fora da árvore observada pelo dev server.
       DATABASE_URL: "pglite://memory",
+      // Muitos logins seguidos do mesmo IP nos testes; em produção o padrão é 10/min.
+      AUTH_SIGNIN_RATE_LIMIT: "200",
       APP_URL: `http://localhost:${PORT}`,
       BETTER_AUTH_SECRET: "e2e-secret-e2e-secret-e2e-secret-e2e-0000",
       SEED_PASSWORD: "Luumu@Demo2026",

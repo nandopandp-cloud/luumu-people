@@ -50,6 +50,34 @@
       "when": 1791424516197,
       "tag": "0006_api_rate_limit",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791426418991,
+      "tag": "0007_files",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791426419406,
+      "tag": "0008_files_security",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791426565227,
+      "tag": "0009_courses_lessons",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791426565643,
+      "tag": "0010_courses_lessons_security",
+      "breakpoints": true
     }
   ]
 }

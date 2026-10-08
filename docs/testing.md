@@ -31,6 +31,10 @@ Não precisa de Docker: cada arquivo de teste recebe um Postgres em memória (PG
 | Autenticação | `auth.test.ts`: Argon2id, cookie HttpOnly/SameSite, mensagens sem enumeração, bloqueio por conta, usuário inativo, revogação imediata, cadastro desabilitado, auditoria de login/logout |
 | 1, 2, 3 e inversão de anonimato | Fase 4 — ver [anonymous-surveys.md](anonymous-surveys.md#testes-obrigatórios-fase-4) |
 
+## E2E local
+
+Não rode `pnpm dev` junto com `pnpm test:e2e`: dois servidores de desenvolvimento no mesmo projeto reescrevem os arquivos gerados um do outro e entram em loop de recarga.
+
 ## Regras
 
 - Funcionalidade nova só está pronta com testes de autorização (401/403/escopo) e do caminho feliz.

@@ -18,7 +18,7 @@ export function Progress({ value, label, tone = "purple", showValue = true, clas
       <div role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={clamped} className="h-2 flex-1 overflow-hidden rounded-full bg-neutral-100">
         <div className={cn("h-full rounded-full transition-[width] duration-500 ease-out-soft", barTones[tone])} style={{ width: `${clamped}%` }} />
       </div>
-      {showValue ? <span className="w-9 text-right text-caption tabular-nums text-neutral-500">{clamped}%</span> : null}
+      {showValue ? <span className="w-9 text-right text-caption tabular-nums text-neutral-600">{clamped}%</span> : null}
     </div>
   );
 }

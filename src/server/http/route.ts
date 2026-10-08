@@ -48,6 +48,8 @@ type RouteConfig<QS, BS, PS> = {
   body?: BS;
   params?: PS;
   rateLimit?: RateLimitRule;
+  /** Corpo multipart/form-data (upload). O handler lê `request.formData()`; o tamanho total é limitado. */
+  multipart?: { maxBytes: number };
   handler: (ctx: RouteContext<Infer<QS>, Infer<BS>, Infer<PS>>) => Promise<unknown>;
 };
 
@@ -137,7 +139,15 @@ export function defineRoute<QS extends Schema | undefined = undefined, BS extend
       const url = new URL(request.url);
       const query = parse(config.query, Object.fromEntries(url.searchParams), "consulta");
       const params = parse(config.params, (await segment?.params) ?? {}, "endereço");
-      const body = parse(config.body, MUTATING.has(request.method) ? await readJson(request) : {}, "envio");
+      if (config.multipart) {
+        if (!(request.headers.get("content-type") ?? "").startsWith("multipart/form-data")) {
+          throw new HttpError(415, "Formato não suportado", "Envie o arquivo como multipart/form-data.");
+        }
+        const length = Number(request.headers.get("content-length") ?? "0");
+        // Sem content-length, o tamanho é barrado na validação do arquivo (e a Vercel limita o corpo a 4,5 MB).
+        if (length > config.multipart.maxBytes + 64 * 1024) throw new HttpError(413, "Arquivo muito grande");
+      }
+      const body = parse(config.body, MUTATING.has(request.method) && !config.multipart ? await readJson(request) : {}, "envio");
 
       const result = await config.handler({ actor, query, body, params, request, requestId, meta } as RouteContext<Infer<QS>, Infer<BS>, Infer<PS>>);
       if (result instanceof Response) return result;

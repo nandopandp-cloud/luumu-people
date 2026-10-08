@@ -132,7 +132,7 @@ function buildOptions(database: BetterAuthOptions["database"]): BetterAuthOption
       window: 60,
       max: 100,
       customRules: {
-        "/sign-in/email": { window: 60, max: 10 },
+        "/sign-in/email": { window: 60, max: config.AUTH_SIGNIN_RATE_LIMIT },
         "/request-password-reset": { window: 300, max: 3 },
         "/reset-password": { window: 300, max: 5 },
       },

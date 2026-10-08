@@ -24,20 +24,20 @@ export function PageHero({ title, description, bubble, children, className }: { 
         <div className="min-w-0 flex-1">
           <h1 className="text-[2rem] font-extrabold leading-[1.1] tracking-[-0.03em] text-neutral-900 sm:text-display">{title}</h1>
           {description ? <p className="mt-3 max-w-xl text-body text-neutral-600 sm:text-[17px]">{description}</p> : null}
-          {children ? <div className="mt-6">{children}</div> : null}
         </div>
-        <div aria-hidden className="relative hidden h-44 w-64 shrink-0 md:block">
+        <div aria-hidden className="relative hidden h-40 w-[300px] shrink-0 lg:block">
           {bubble ? (
-            <div className="absolute -left-24 top-0 z-10 max-w-44 rounded-lg border border-line bg-white px-4 py-3 text-body-sm font-medium leading-snug text-neutral-800 shadow-md">
+            <div className="absolute left-0 top-0 z-10 w-40 rounded-lg border border-line bg-white px-3.5 py-2.5 text-body-sm font-medium leading-snug text-neutral-800 shadow-md">
               {bubble} <span className="text-purple-500">💜</span>
               <span className="absolute -right-2 top-6 size-4 rotate-45 border-r border-t border-line bg-white" />
             </div>
           ) : null}
-          <Leaf className="absolute bottom-0 left-10 h-24 -rotate-[28deg]" />
-          <Leaf className="absolute bottom-0 right-2 h-28 rotate-[24deg]" />
-          <Mascot className="absolute bottom-0 left-1/2 h-40 -translate-x-1/2" />
+          <Leaf className="absolute bottom-0 right-28 h-20 -rotate-[28deg]" />
+          <Leaf className="absolute bottom-0 right-0 h-24 rotate-[24deg]" />
+          <Mascot className="absolute bottom-0 right-6 h-36" />
         </div>
       </div>
+      {children ? <div className="relative mt-6">{children}</div> : null}
     </section>
   );
 }

@@ -9,7 +9,7 @@ type Href = ComponentProps<typeof Link>["href"];
 export function Breadcrumb({ items }: { items: { label: string; href?: Href }[] }) {
   return (
     <nav aria-label="Você está em">
-      <ol className="flex flex-wrap items-center gap-1.5 text-body-sm text-neutral-500">
+      <ol className="flex flex-wrap items-center gap-1.5 text-body-sm text-neutral-600">
         {items.map((item, index) => {
           const last = index === items.length - 1;
           return (

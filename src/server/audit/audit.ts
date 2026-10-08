@@ -24,6 +24,7 @@ export const AUDIT_ACTIONS = [
   "people.transferred",
   "people.manager_changed",
   "people.profile_updated",
+  "file.uploaded",
   "org.structure_changed",
   "tenant.settings_changed",
   "tenant.feature_flag_changed",

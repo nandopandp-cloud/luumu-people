@@ -39,6 +39,8 @@ const schema = z.object({
   DATABASE_URL_AUTH: databaseUrl.optional(),
   BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET precisa de pelo menos 32 caracteres"),
   SESSION_IDLE_HOURS: z.coerce.number().int().min(1).max(24).default(8),
+  /** Logins por minuto por IP. Padrão seguro: 10. Só testes automatizados devem elevar. */
+  AUTH_SIGNIN_RATE_LIMIT: z.coerce.number().int().min(3).max(1000).default(10),
   SESSION_ABSOLUTE_HOURS: z.coerce.number().int().min(1).max(72).default(12),
   EMAIL_FROM: z.string().default("Luumu People <nao-responda@luumu.app>"),
   RESEND_API_KEY: z.string().optional(),
