@@ -35,6 +35,8 @@ export const announcements = pgTable(
     status: text("status", { enum: CONTENT_STATUSES }).notNull().default("draft"),
     /** Fixado no topo do mural. */
     pinned: boolean("pinned").notNull().default(false),
+    /** Imagem de capa (arquivo privado, finalidade announcement_cover). Sem ela, tema + ilustração. */
+    coverFileId: uuid("cover_file_id"),
     /** Publicação agendada quando no futuro. */
     publishedAt: timestamp("published_at", { withTimezone: true, mode: "date" }),
     createdBy: uuid("created_by"),
@@ -42,6 +44,7 @@ export const announcements = pgTable(
   },
   (t) => [
     foreignKey({ name: "announcements_created_by_fk", columns: [t.tenantId, t.createdBy], foreignColumns: [users.tenantId, users.id] }),
+    foreignKey({ name: "announcements_cover_file_fk", columns: [t.tenantId, t.coverFileId], foreignColumns: [files.tenantId, files.id] }),
     index("announcements_feed_idx").on(t.tenantId, t.status, t.publishedAt.desc()),
     check("announcements_published_has_date", sql`${t.status} <> 'published' or ${t.publishedAt} is not null`),
   ],

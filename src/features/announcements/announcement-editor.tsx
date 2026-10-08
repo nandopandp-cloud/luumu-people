@@ -13,6 +13,7 @@ import { Field, Input, Textarea } from "@/design-system/components/field";
 import { Select } from "@/design-system/components/select";
 import { useToast } from "@/design-system/components/toast";
 import { CoverArt, type CoverIllustration, type CoverTheme } from "@/design-system/illustrations/cover-art";
+import { ImageUploadField } from "@/features/files/image-upload-field";
 import { ANNOUNCEMENT_CATEGORY } from "@/features/home/labels";
 import { api, ApiError } from "@/lib/api-client";
 import { ILLUSTRATION_LABEL, MANAGED_STATUS, THEME_LABEL } from "./labels";
@@ -25,11 +26,12 @@ type Values = {
   theme: CoverTheme;
   illustration: CoverIllustration;
   pinned: boolean;
+  coverFileId: string | null;
 };
 
 export type EditorAnnouncement = Values & { id: string; managedStatus: "draft" | "scheduled" | "published" | "archived" };
 
-const EMPTY: Values = { title: "", summary: "", body: "", category: "institucional", theme: "purple", illustration: "megaphone", pinned: false };
+const EMPTY: Values = { title: "", summary: "", body: "", category: "institucional", theme: "purple", illustration: "megaphone", pinned: false, coverFileId: null };
 
 /** Data/hora local (input datetime-local) → ISO com fuso. */
 const toIso = (local: string) => new Date(local).toISOString();
@@ -46,6 +48,7 @@ export function AnnouncementEditor({ announcement, canPublish }: { announcement?
   const [error, setError] = useState<string | null>(null);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleAt, setScheduleAt] = useState("");
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const status = announcement?.managedStatus ?? "draft";
   const locked = status !== "draft" && !canPublish;
@@ -169,6 +172,16 @@ export function AnnouncementEditor({ announcement, canPublish }: { announcement?
               )}
             </Field>
           </div>
+          <ImageUploadField
+            label="Imagem de capa (opcional)"
+            purpose="announcement_cover"
+            value={values.coverFileId}
+            hint="PNG, JPG ou WEBP até 3 MB. Sem imagem, usamos a cor e a ilustração escolhidas."
+            onChange={(fileId, previewUrl) => {
+              update("coverFileId", fileId);
+              setCoverPreview(previewUrl);
+            }}
+          />
           <div>
             <Switch label="Fixar no topo do mural" checked={values.pinned} onCheckedChange={(v) => update("pinned", v === true)} disabled={!canPublish} />
             {!canPublish ? <p className="mt-1 text-caption text-neutral-500">Fixar exige permissão de publicação.</p> : null}
@@ -209,7 +222,12 @@ export function AnnouncementEditor({ announcement, canPublish }: { announcement?
       <aside aria-label="Prévia no mural" className="space-y-3">
         <p className="text-body-sm font-semibold text-neutral-700">Prévia no mural</p>
         <article className="overflow-hidden rounded-xl border border-line bg-white shadow-sm">
-          <CoverArt theme={values.theme} illustration={values.illustration} className="h-[110px]" />
+          {coverPreview || values.coverFileId ? (
+            // eslint-disable-next-line @next/next/no-img-element -- prévia local ou arquivo privado servido pela própria API
+            <img src={coverPreview ?? `/api/v1/files/${values.coverFileId}`} alt="" className="h-[110px] w-full object-cover" />
+          ) : (
+            <CoverArt theme={values.theme} illustration={values.illustration} className="h-[110px]" />
+          )}
           <div className="p-4">
             <div className="flex flex-wrap items-center gap-2">
               {category ? <Badge tone={category.tone}>{category.label}</Badge> : null}

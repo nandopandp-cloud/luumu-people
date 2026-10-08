@@ -6,7 +6,7 @@ import { z } from "zod";
 import { Badge } from "@/design-system/components/badge";
 import { Skeleton } from "@/design-system/components/feedback";
 import { Breadcrumb } from "@/design-system/components/navigation";
-import { CoverArt } from "@/design-system/illustrations/cover-art";
+import { CourseCover } from "@/features/courses/course-cover";
 import { ANNOUNCEMENT_CATEGORY } from "@/features/home/labels";
 import { formatDateTime } from "@/lib/format";
 import { requireActor } from "@/server/dal";
@@ -44,7 +44,7 @@ async function Announcement({ params }: { params: PageProps<"/comunicados/[id]">
         <Breadcrumb items={[{ label: "Comunicados", href: "/comunicados" }, { label: a.title }]} />
       </div>
       <article className="card mx-auto max-w-3xl overflow-hidden">
-        <CoverArt theme={a.theme} illustration={a.illustration} className="h-44 w-full" iconClassName="size-20" />
+        <CourseCover coverFileId={a.coverFileId} theme={a.theme} illustration={a.illustration} className="h-56 w-full" iconClassName="size-20" />
         <div className="p-6 sm:p-10">
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone={cat.tone}>{cat.label}</Badge>

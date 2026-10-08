@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, gt, inArray, lte, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, lte, sql, type SQL } from "drizzle-orm";
 import { recordAudit } from "@/server/audit/audit";
 import type { AuthenticatedActor } from "@/server/auth/session";
 import { hasTenantWide } from "@/server/authz/policy";
@@ -27,6 +27,7 @@ const feedColumns = {
   theme: s.announcements.theme,
   illustration: s.announcements.illustration,
   pinned: s.announcements.pinned,
+  coverFileId: s.announcements.coverFileId,
   publishedAt: s.announcements.publishedAt,
 };
 
@@ -114,10 +115,21 @@ export async function getManagedAnnouncement(actor: AuthenticatedActor, id: stri
   return withTenant(actor, (tx) => loadManaged(tx, id));
 }
 
+/** A capa precisa ser uma imagem de comunicado do próprio tenant (RLS + finalidade). */
+async function assertCover(tx: Tx, coverFileId: string | null) {
+  if (!coverFileId) return;
+  const [file] = await tx
+    .select({ id: s.files.id })
+    .from(s.files)
+    .where(and(eq(s.files.id, coverFileId), eq(s.files.purpose, "announcement_cover"), isNull(s.files.deletedAt)));
+  if (!file) throw badRequest("Imagem de capa não encontrada. Envie a imagem novamente.");
+}
+
 export async function createAnnouncement(actor: AuthenticatedActor, input: AnnouncementInput, meta: Meta) {
   requireComms(actor, "comms.announcement.create");
   if (input.pinned) requireComms(actor, "comms.announcement.publish");
   return withTenant(actor, async (tx) => {
+    await assertCover(tx, input.coverFileId);
     const [row] = await tx
       .insert(s.announcements)
       .values({ tenantId: actor.tenantId, ...input, body: input.body || null, status: "draft", createdBy: actor.userId })
@@ -133,6 +145,7 @@ export async function updateAnnouncement(actor: AuthenticatedActor, id: string, 
     const current = await loadManaged(tx, id);
     // O que já está no ar (ou agendado) e o destaque só mudam com permissão de publicação.
     if (current.managedStatus !== "draft" || input.pinned !== current.pinned) requireComms(actor, "comms.announcement.publish");
+    await assertCover(tx, input.coverFileId);
     await tx
       .update(s.announcements)
       .set({ ...input, body: input.body || null })

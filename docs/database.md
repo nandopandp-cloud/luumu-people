@@ -30,7 +30,7 @@ O progresso de uma matrícula é **derivado** das aulas concluídas (`lesson_pro
 
 `mood_checkins` tem, além do isolamento por tenant, uma policy `RESTRICTIVE` que só permite ler/gravar linhas de `app.current_user_id()`: nem administradores veem o humor individual de outra pessoa. `withTenant()` define `app.tenant_id` e `app.user_id` numa única ida ao banco.
 
-Capas de comunicados, trilhas e cursos usam `theme` + `illustration` do design system até a chegada do upload de imagens. Comunicados: `pinned` fixa no topo; agendamento = `status = 'published'` com `published_at` futuro (o mural só mostra `published_at <= now()`).
+Capas de comunicados, trilhas e cursos usam `theme` + `illustration` do design system até a chegada do upload de imagens. Comunicados: `pinned` fixa no topo; `cover_file_id` é a capa opcional (arquivo privado com finalidade `announcement_cover`); agendamento = `status = 'published'` com `published_at` futuro (o mural só mostra `published_at <= now()`).
 
 **Pesquisas.** No core, a pesquisa é a própria campanha (uma aplicação por pesquisa). `survey_invitations` guarda só `status` e `completed_on` (**data**, sem timestamps). Triggers: `anonymity_mode` imutável após o lançamento (e sem grant de UPDATE para o runtime), k só sobe, dimensões e perguntas congelam, ciclo `draft → active → closed`, só rascunho é excluído. O schema `survey_vault` (`anon_submission_buffer`, `anon_response`, `anon_answer`, `anon_response_dimension`) não tem identidade, timestamp nem FK para o core, e nenhuma role de runtime tem grant nas tabelas: só `EXECUTE` em `submit`, `close`, `results` e `breakdown` (`SECURITY DEFINER`). Ver [anonymous-surveys.md](anonymous-surveys.md).
 

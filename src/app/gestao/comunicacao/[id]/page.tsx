@@ -48,6 +48,7 @@ async function Editor({ params }: { params: PageProps<"/gestao/comunicacao/[id]"
           theme: a.theme,
           illustration: a.illustration,
           pinned: a.pinned,
+          coverFileId: a.coverFileId,
           managedStatus: a.managedStatus,
         }}
       />

@@ -55,7 +55,7 @@ A CSP é estática e permite `'unsafe-inline'` em scripts. Nonces exigiriam rend
 ## Uploads
 
 - Tipo detectado pelos **bytes do arquivo** (PNG, JPEG, WEBP, PDF); SVG, HTML e executáveis recusados.
-- Limites por finalidade (máx. 4 MB — corpo de função na Vercel é 4,5 MB); nome exibido saneado, chave de armazenamento gerada no servidor.
+- Limites por finalidade: imagens de banner e de capa de comunicado até **3 MB**; demais até 4 MB (corpo de função na Vercel é 4,5 MB); nome exibido saneado, chave de armazenamento gerada no servidor.
 - Armazenamento **privado** (Vercel Blob com `access: "private"`); nada é acessível por URL pública. Entrega só por `/api/v1/files/:id` após sessão + tenant, com `X-Content-Type-Options: nosniff`, CSP `sandbox` e `Cache-Control: private`.
 - Sem `BLOB_READ_WRITE_TOKEN` em produção, uploads respondem 503 com mensagem clara.
 - Vídeos de aulas: só YouTube (domínio *nocookie*) e Vimeo, em iframe com `sandbox`; o CSP `frame-src` libera apenas esses dois.

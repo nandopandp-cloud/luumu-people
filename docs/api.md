@@ -51,7 +51,7 @@ Paginação por cursor: `?cursor=…&limit=…` → `{ items, nextCursor }`.
 | GET | `/api/v1/roles` | `access.roles.assign` | papéis da empresa e permissões |
 | GET | `/api/v1/org-units` | autenticado | estrutura organizacional (não sensível) |
 | POST | `/api/v1/me/avatar` | autenticado (se a empresa permitir) | troca a foto do perfil — multipart, campo `file` (PNG/JPG/WEBP até 2 MB) |
-| POST | `/api/v1/files?purpose=…` | conforme a finalidade | upload privado — `course_cover`/`lesson_material` (`content.course.edit`), `announcement_cover` (`comms.announcement.create`), `library_material` (`content.library.manage`) |
+| POST | `/api/v1/files?purpose=…` | conforme a finalidade | upload privado — `course_cover`/`lesson_material` (`content.course.edit`), `announcement_cover` (`comms.announcement.create`, até 3 MB), `home_banner` (`comms.announcement.publish`, até 3 MB), `library_material` (`content.library.manage`) |
 | GET | `/api/v1/files/:id` | autenticado (mesmo tenant) | entrega o arquivo com `nosniff`, CSP `sandbox` e cache privado |
 | POST | `/api/v1/courses/:id/enroll` | autenticado | matrícula voluntária em curso publicado; devolve a próxima aula |
 | POST | `/api/v1/courses/:id/lessons/:lessonId/complete` | autenticado | conclui a aula (idempotente), recalcula o progresso e emite o certificado ao chegar a 100% |

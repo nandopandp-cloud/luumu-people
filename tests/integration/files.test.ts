@@ -6,6 +6,9 @@ import { beforeAll, describe, expect, it } from "vitest";
 import * as fileRoute from "@/app/api/v1/files/[id]/route";
 import * as filesRoute from "@/app/api/v1/files/route";
 import * as avatarRoute from "@/app/api/v1/me/avatar/route";
+import * as announcementsRoute from "@/app/api/v1/announcements/route";
+import * as bannersRoute from "@/app/api/v1/banners/route";
+import { call } from "../support/http";
 import * as s from "@/server/db/schema";
 import { signIn } from "../support/auth";
 import { testDatabase } from "../support/db";
@@ -79,5 +82,31 @@ describe("arquivos", () => {
     const igor = await signIn("horizonte", "igor");
     await db.update(s.profileFieldPolicies).set({ editableByEmployee: false }).where(eq(s.profileFieldPolicies.tenantId, igor.tenantId));
     expect((await upload(avatarRoute.POST as never, "/api/v1/me/avatar", igor.cookie, PNG, "foto.png")).status).toBe(403);
+  });
+
+  it("imagens de banner e de comunicado: até 3 MB, e só arquivos da finalidade certa", async () => {
+    const rafael = await signIn("aurora", "rafael");
+    const big = new Uint8Array(3 * 1024 * 1024 + 1);
+    big.set(PNG);
+    for (const purpose of ["home_banner", "announcement_cover"]) {
+      const tooBig = await upload(filesRoute.POST, `/api/v1/files?purpose=${purpose}`, rafael.cookie, big, "grande.png");
+      expect(tooBig.status, purpose).toBe(400);
+      expect(tooBig.json.detail).toMatch(/3 MB/);
+    }
+
+    const cover = await upload(filesRoute.POST, "/api/v1/files?purpose=announcement_cover", rafael.cookie, PNG, "capa.png");
+    expect(cover.status).toBe(201);
+    const draft = { title: "Com capa", summary: "Resumo", category: "institucional", theme: "blue", illustration: "calendar", coverFileId: cover.json.id };
+    const created = await call(announcementsRoute.POST, { path: "/api/v1/announcements", method: "POST", cookie: rafael.cookie, body: draft });
+    expect(created.status).toBe(200);
+
+    // Arquivo de outra finalidade não serve como capa nem como imagem de banner.
+    const bannerImage = await upload(filesRoute.POST, "/api/v1/files?purpose=home_banner", rafael.cookie, PNG, "banner.png");
+    expect(bannerImage.status).toBe(201);
+    const wrong = await call(announcementsRoute.POST, { path: "/api/v1/announcements", method: "POST", cookie: rafael.cookie, body: { ...draft, coverFileId: bannerImage.json.id } });
+    expect(wrong.status).toBe(400);
+    const banner = { title: "Banner", theme: "purple", active: false };
+    expect((await call(bannersRoute.POST, { path: "/api/v1/banners", method: "POST", cookie: rafael.cookie, body: { ...banner, imageFileId: cover.json.id } })).status).toBe(400);
+    expect((await call(bannersRoute.POST, { path: "/api/v1/banners", method: "POST", cookie: rafael.cookie, body: { ...banner, imageFileId: bannerImage.json.id } })).status).toBe(200);
   });
 });

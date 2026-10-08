@@ -1,0 +1,2 @@
+ALTER TABLE "announcements" ADD COLUMN "cover_file_id" uuid;--> statement-breakpoint
+ALTER TABLE "announcements" ADD CONSTRAINT "announcements_cover_file_fk" FOREIGN KEY ("tenant_id","cover_file_id") REFERENCES "public"."files"("tenant_id","id") ON DELETE no action ON UPDATE no action;

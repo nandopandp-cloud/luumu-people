@@ -16,9 +16,9 @@ const MB = 1024 * 1024;
 export const UPLOAD_RULES: Record<FilePurpose, { mimes: DetectedType["mime"][]; maxBytes: number; label: string }> = {
   avatar: { mimes: ["image/png", "image/jpeg", "image/webp"], maxBytes: 2 * MB, label: "PNG, JPG ou WEBP até 2 MB" },
   course_cover: { mimes: ["image/png", "image/jpeg", "image/webp"], maxBytes: 4 * MB, label: "PNG, JPG ou WEBP até 4 MB" },
-  announcement_cover: { mimes: ["image/png", "image/jpeg", "image/webp"], maxBytes: 4 * MB, label: "PNG, JPG ou WEBP até 4 MB" },
+  announcement_cover: { mimes: ["image/png", "image/jpeg", "image/webp"], maxBytes: 3 * MB, label: "PNG, JPG ou WEBP até 3 MB" },
   lesson_material: { mimes: ["application/pdf", "image/png", "image/jpeg", "image/webp"], maxBytes: 4 * MB, label: "PDF ou imagem até 4 MB" },
-  home_banner: { mimes: ["image/png", "image/jpeg", "image/webp"], maxBytes: 4 * MB, label: "PNG, JPG ou WEBP até 4 MB" },
+  home_banner: { mimes: ["image/png", "image/jpeg", "image/webp"], maxBytes: 3 * MB, label: "PNG, JPG ou WEBP até 3 MB" },
   library_material: { mimes: ["application/pdf", "image/png", "image/jpeg", "image/webp"], maxBytes: 4 * MB, label: "PDF ou imagem até 4 MB" },
 };
 

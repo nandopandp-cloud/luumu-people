@@ -1,18 +1,18 @@
 "use client";
 
-import { ImagePlus, Trash2, X } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/design-system/components/button";
 import { Switch } from "@/design-system/components/choice";
 import { Alert } from "@/design-system/components/feedback";
 import { Field, Input, Textarea } from "@/design-system/components/field";
 import { Select } from "@/design-system/components/select";
-import { Spinner } from "@/design-system/components/spinner";
 import { useToast } from "@/design-system/components/toast";
 import type { CoverIllustration, CoverTheme } from "@/design-system/illustrations/cover-art";
 import { ILLUSTRATION_LABEL, THEME_LABEL } from "@/features/announcements/labels";
+import { ImageUploadField } from "@/features/files/image-upload-field";
 import { BannerView } from "@/features/home/hero-banner";
 import { api, ApiError } from "@/lib/api-client";
 import { fromLocalInput } from "./format";
@@ -31,7 +31,6 @@ export type EditableBanner = {
   endsAt: string;
 };
 
-const MAX_IMAGE = 4 * 1024 * 1024;
 
 /** Editor de banner com prévia ao vivo exatamente como aparece na home. */
 export function BannerEditor({ banner }: { banner: EditableBanner }) {
@@ -41,31 +40,8 @@ export function BannerEditor({ banner }: { banner: EditableBanner }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
   const [pending, startTransition] = useTransition();
-  const fileInput = useRef<HTMLInputElement>(null);
   const set = <K extends keyof EditableBanner>(key: K, value: EditableBanner[K]) => setValues((v) => ({ ...v, [key]: value }));
-
-  async function upload(file: File) {
-    if (file.size > MAX_IMAGE) {
-      toast({ tone: "error", title: "Imagem muito grande", description: "Envie PNG, JPG ou WEBP até 4 MB." });
-      return;
-    }
-    setUploading(true);
-    try {
-      const form = new FormData();
-      form.set("file", file);
-      const response = await fetch("/api/v1/files?purpose=home_banner", { method: "POST", body: form, credentials: "same-origin" });
-      const data = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(data?.detail ?? "Não foi possível enviar a imagem.");
-      set("imageFileId", data.id as string);
-      setPreview(URL.createObjectURL(file));
-    } catch (e) {
-      toast({ tone: "error", title: "Falha no envio da imagem", description: e instanceof Error ? e.message : undefined });
-    } finally {
-      setUploading(false);
-    }
-  }
 
   function save(event: React.FormEvent) {
     event.preventDefault();
@@ -181,40 +157,16 @@ export function BannerEditor({ banner }: { banner: EditableBanner }) {
             </Field>
           </div>
 
-          <div>
-            <p className="mb-1.5 text-body-sm font-medium text-neutral-700">Imagem (opcional)</p>
-            <div className="flex flex-wrap items-center gap-3">
-              <Button type="button" variant="secondary" onClick={() => fileInput.current?.click()} disabled={uploading}>
-                {uploading ? <Spinner className="size-4" /> : <ImagePlus aria-hidden />} {values.imageFileId ? "Trocar imagem" : "Enviar imagem"}
-              </Button>
-              {values.imageFileId ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => {
-                    set("imageFileId", null);
-                    setPreview(null);
-                  }}
-                >
-                  <X aria-hidden /> Remover imagem
-                </Button>
-              ) : null}
-              <span className="text-caption text-neutral-500">PNG, JPG ou WEBP até 4 MB. Recomendado: 900 × 600 px.</span>
-            </div>
-            <input
-              ref={fileInput}
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              className="sr-only"
-              tabIndex={-1}
-              aria-hidden
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = "";
-                if (file) void upload(file);
-              }}
-            />
-          </div>
+          <ImageUploadField
+            label="Imagem (opcional)"
+            purpose="home_banner"
+            value={values.imageFileId}
+            hint="PNG, JPG ou WEBP até 3 MB. Recomendado: 900 × 600 px."
+            onChange={(fileId, previewUrl) => {
+              set("imageFileId", fileId);
+              setPreview(previewUrl);
+            }}
+          />
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Exibir a partir de (horário de Brasília)" hint="Vazio: imediatamente." error={errors.startsAt}>
@@ -231,7 +183,7 @@ export function BannerEditor({ banner }: { banner: EditableBanner }) {
         {error ? <Alert tone="error" title={error} /> : null}
 
         <div className="flex flex-wrap gap-3 border-t border-line pt-5">
-          <Button type="submit" loading={pending} disabled={uploading}>
+          <Button type="submit" loading={pending} >
             {banner.id ? "Salvar banner" : "Criar banner"}
           </Button>
           <Button type="button" variant="ghost" onClick={() => router.push("/gestao/comunicacao/banners" as Route)}>

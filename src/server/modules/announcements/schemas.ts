@@ -11,6 +11,7 @@ export const announcementInputSchema = z.strictObject({
   theme: z.enum(THEMES),
   illustration: z.enum(ILLUSTRATIONS),
   pinned: z.boolean().default(false),
+  coverFileId: z.uuid().nullish().transform((v) => v ?? null),
 });
 export type AnnouncementInput = z.infer<typeof announcementInputSchema>;
 

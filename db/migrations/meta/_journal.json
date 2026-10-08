@@ -106,6 +106,20 @@
       "when": 1791477475286,
       "tag": "0014_home_banners_security",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1791486061277,
+      "tag": "0015_announcement_cover",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791486062186,
+      "tag": "0016_announcement_cover_security",
+      "breakpoints": true
     }
   ]
 }

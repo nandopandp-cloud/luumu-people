@@ -8,6 +8,7 @@ import { CircularProgress, Progress } from "@/design-system/components/progress"
 import { EmptyState } from "@/design-system/components/empty-state";
 import { cn } from "@/design-system/cn";
 import { CoverArt } from "@/design-system/illustrations/cover-art";
+import { CourseCover } from "@/features/courses/course-cover";
 import { HexBadge } from "@/design-system/illustrations/hex-badge";
 import { JourneySignpost } from "@/design-system/illustrations/journey-signpost";
 import { formatDate } from "@/lib/format";
@@ -111,7 +112,7 @@ export async function AnnouncementsSection({ actor }: { actor: AuthenticatedActo
             return (
               <li key={a.id}>
                 <Link href={`/comunicados/${a.id}` as Route} className="group flex h-full flex-col overflow-hidden rounded-xl border border-line bg-white shadow-sm transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-purple-500">
-                  <CoverArt theme={a.theme} illustration={a.illustration} className="h-[86px] shrink-0" />
+                  <CourseCover coverFileId={a.coverFileId} theme={a.theme} illustration={a.illustration} className="h-[86px] w-full shrink-0" />
                   <div className="flex flex-1 flex-col p-4">
                     <div className="flex items-center justify-between gap-2">
                       <Badge tone={category.tone}>{category.label}</Badge>

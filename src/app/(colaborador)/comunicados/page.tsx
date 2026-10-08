@@ -6,7 +6,7 @@ import { Badge } from "@/design-system/components/badge";
 import { Button } from "@/design-system/components/button";
 import { EmptyState } from "@/design-system/components/empty-state";
 import { Skeleton } from "@/design-system/components/feedback";
-import { CoverArt } from "@/design-system/illustrations/cover-art";
+import { CourseCover } from "@/features/courses/course-cover";
 import { cn } from "@/design-system/cn";
 import { ANNOUNCEMENT_CATEGORY, relativeDay } from "@/features/home/labels";
 import { PageHero } from "@/features/page/page-hero";
@@ -95,7 +95,7 @@ async function Feed({ searchParams }: { searchParams: SP }) {
             return (
               <li key={a.id} className={featured ? "md:col-span-2 xl:col-span-3" : undefined}>
                 <article className={cn("group relative flex h-full overflow-hidden rounded-xl border border-line bg-white shadow-sm transition-shadow hover:shadow-md", featured ? "flex-col md:flex-row" : "flex-col")}>
-                  <CoverArt theme={a.theme} illustration={a.illustration} className={featured ? "h-36 shrink-0 md:h-auto md:w-[40%]" : "h-[110px] shrink-0"} iconClassName={featured ? "size-16" : undefined} />
+                  <CourseCover coverFileId={a.coverFileId} theme={a.theme} illustration={a.illustration} className={featured ? "h-36 w-full shrink-0 md:h-auto md:w-[40%]" : "h-[110px] w-full shrink-0"} iconClassName={featured ? "size-16" : undefined} />
                   <div className={cn("flex flex-1 flex-col", featured ? "p-6 sm:p-8" : "p-4")}>
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge tone={cat.tone}>{cat.label}</Badge>
