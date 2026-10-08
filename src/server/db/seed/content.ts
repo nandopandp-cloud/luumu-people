@@ -25,9 +25,10 @@ const ANNOUNCEMENTS: { title: string; summary: string; category: (typeof s.ANNOU
 
 type CourseSeed = { key: string; title: string; kind?: "course" | "video" | "quiz"; minutes: number; mandatory?: boolean; theme?: Theme; illustration?: Illustration };
 
-const PATHS: { title: string; category: string; theme: Theme; illustration: Illustration; featured?: boolean; courses: CourseSeed[] }[] = [
+const PATHS: { title: string; description: string; category: string; theme: Theme; illustration: Illustration; featured?: boolean; courses: CourseSeed[] }[] = [
   {
     title: "Desenvolvimento de Liderança",
+    description: "Do primeiro time à gestão de líderes: feedback, delegação, conversas difíceis e desenvolvimento de pessoas.",
     category: "Liderança",
     theme: "purple",
     illustration: "compass",
@@ -43,6 +44,7 @@ const PATHS: { title: string; category: string; theme: Theme; illustration: Illu
   },
   {
     title: "Comunicação Eficaz",
+    description: "Comunique com clareza e empatia: escuta ativa, CNV, apresentações e escrita no trabalho.",
     category: "Comunicação",
     theme: "green",
     illustration: "chat",
@@ -56,6 +58,7 @@ const PATHS: { title: string; category: string; theme: Theme; illustration: Illu
   },
   {
     title: "Inteligência Emocional",
+    description: "Conheça e regule suas emoções para construir relações mais saudáveis e resilientes.",
     category: "Desenvolvimento pessoal",
     theme: "orange",
     illustration: "heart",
@@ -70,6 +73,7 @@ const PATHS: { title: string; category: string; theme: Theme; illustration: Illu
   },
   {
     title: "Gestão de Pessoas",
+    description: "Boas práticas do dia a dia de quem cuida de pessoas e equipes.",
     category: "Liderança",
     theme: "blue",
     illustration: "people",
@@ -161,6 +165,7 @@ export async function seedContent(db: Database, tenantId: string, userIds: strin
       id: pathId,
       tenantId,
       title: path.title,
+      description: path.description,
       category: path.category,
       theme: path.theme,
       illustration: path.illustration,

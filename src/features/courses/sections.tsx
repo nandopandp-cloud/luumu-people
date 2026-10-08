@@ -136,7 +136,7 @@ function CourseCard({ course: c }: { course: MyCourse }) {
 export async function RecommendedSection({ actor }: { actor: AuthenticatedActor }) {
   const [paths, courses] = await Promise.all([listRecommendedPaths(actor, 2), listRecommendedCourses(actor, 1)]);
   const items = [
-    ...paths.map((p) => ({ key: `p-${p.id}`, kind: "Trilha" as const, title: p.title, description: p.category ? `Desenvolva ${p.category.toLowerCase()} na prática.` : "Uma jornada completa de aprendizado.", meta: `${p.courseCount} cursos · ${formatMinutes(p.totalMinutes)}`, href: "/trilhas" as Route, cta: "Ver trilha", theme: p.theme, illustration: p.illustration, coverFileId: null })),
+    ...paths.map((p) => ({ key: `p-${p.id}`, kind: "Trilha" as const, title: p.title, description: p.category ? `Desenvolva ${p.category.toLowerCase()} na prática.` : "Uma jornada completa de aprendizado.", meta: `${p.courseCount} cursos · ${formatMinutes(p.totalMinutes)}`, href: `/trilhas/${p.id}` as Route, cta: "Ver trilha", theme: p.theme, illustration: p.illustration, coverFileId: null })),
     ...courses.map((c) => ({ key: `c-${c.id}`, kind: "Curso" as const, title: c.title, description: c.category ?? "Aprenda no seu ritmo, quando quiser.", meta: `${c.lessons} aulas · ${formatMinutes(c.minutes)}`, href: `/meus-cursos/${c.id}` as Route, cta: "Ver curso", theme: c.theme, illustration: c.illustration, coverFileId: c.coverFileId })),
   ];
   if (items.length === 0) return null;
@@ -221,7 +221,7 @@ export async function CatalogSection({ actor, filter, query, tab, limit }: { act
       ) : (
         <ul className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
           {items.map((i) => {
-            const href = (i.kind === "path" ? "/trilhas" : `/meus-cursos/${i.id}`) as Route;
+            const href = (i.kind === "path" ? `/trilhas/${i.id}` : `/meus-cursos/${i.id}`) as Route;
             return (
               <li key={`${i.kind}-${i.id}`}>
                 <article className="flex h-full gap-3.5 rounded-xl border border-line bg-white p-3 shadow-sm">

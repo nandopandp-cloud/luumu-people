@@ -41,7 +41,7 @@ async function Course({ params }: { params: PageProps<"/meus-cursos/[courseId]">
     if (error instanceof HttpError && error.status === 404) notFound();
     throw error;
   }
-  const { course, modules, lessons, enrollment, certificate, pathTitle, nextLessonId } = data;
+  const { course, modules, lessons, enrollment, certificate, pathId, pathTitle, nextLessonId } = data;
   const done = lessons.filter((l) => l.done).length;
   const progress = enrollment?.progress ?? 0;
   const status = enrollment?.status ?? "available";
@@ -58,7 +58,13 @@ async function Course({ params }: { params: PageProps<"/meus-cursos/[courseId]">
             <div className="flex flex-wrap gap-2">
               <Badge tone="purple">{COURSE_KIND_LABEL[course.kind]}</Badge>
               {course.mandatory ? <Badge tone="red">Obrigatório</Badge> : <Badge tone="blue">Opcional</Badge>}
-              {pathTitle ? <Badge tone="green">Trilha {pathTitle}</Badge> : null}
+              {pathId && pathTitle ? (
+                <Link href={`/trilhas/${pathId}` as Route} className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-500">
+                  <Badge tone="green" className="underline-offset-2 hover:underline">
+                    Trilha {pathTitle}
+                  </Badge>
+                </Link>
+              ) : null}
             </div>
             <h1 className="mt-3 text-[2rem] font-extrabold leading-tight tracking-[-0.03em] text-neutral-900">{course.title}</h1>
             {course.description ? <p className="mt-2 max-w-2xl text-body text-neutral-600">{course.description}</p> : null}

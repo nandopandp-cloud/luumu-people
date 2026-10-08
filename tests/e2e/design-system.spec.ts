@@ -25,7 +25,7 @@ test.describe("Design system", () => {
 
     // Toast anunciado.
     await page.getByRole("button", { name: "Toast de sucesso" }).click();
-    await expect(page.getByText("Operação realizada com sucesso!")).toBeVisible();
+    await expect(page.getByText("Operação realizada com sucesso!", { exact: true })).toBeVisible();
 
     // Tabela: ordena por progresso (desc) e pagina.
     const progresso = page.getByRole("columnheader", { name: "Progresso" });

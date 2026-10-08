@@ -138,7 +138,7 @@ export async function RecommendedPathsSection({ actor }: { actor: AuthenticatedA
         <ul className="grid gap-4 md:grid-cols-3">
           {paths.map((p) => (
             <li key={p.id}>
-              <Link href="/trilhas" className="group flex h-full gap-3.5 rounded-xl border border-line bg-white p-3 shadow-sm transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-purple-500">
+              <Link href={`/trilhas/${p.id}` as Route} className="group flex h-full gap-3.5 rounded-xl border border-line bg-white p-3 shadow-sm transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-purple-500">
                 <CoverArt theme={p.theme} illustration={p.illustration} className="h-[112px] w-[92px] shrink-0 rounded-lg" iconClassName="size-10" />
                 <div className="flex min-w-0 flex-1 flex-col">
                   <div className="flex items-start justify-between gap-2">

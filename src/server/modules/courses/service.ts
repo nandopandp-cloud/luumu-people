@@ -211,11 +211,11 @@ export async function getCourse(actor: AuthenticatedActor, courseId: string) {
       .select({ code: s.certificates.code, issuedAt: s.certificates.issuedAt })
       .from(s.certificates)
       .where(and(eq(s.certificates.courseId, courseId), eq(s.certificates.userId, actor.userId)));
-    const pathTitle = rows<{ title: string }>(
-      await tx.execute(sql`select p.title from learning_path_courses lpc join learning_paths p on p.id = lpc.path_id where lpc.course_id = ${courseId} and p.status = 'published' order by p.featured desc limit 1`),
-    )[0]?.title;
+    const [path] = rows<{ id: string; title: string }>(
+      await tx.execute(sql`select p.id, p.title from learning_path_courses lpc join learning_paths p on p.id = lpc.path_id where lpc.course_id = ${courseId} and p.status = 'published' order by p.featured desc, p.display_order limit 1`),
+    );
     const nextLesson = lessons.find((l) => !l.done) ?? lessons[0] ?? null;
-    return { course, modules, lessons, enrollment: enrollment ?? null, certificate: certificate ?? null, pathTitle: pathTitle ?? null, nextLessonId: nextLesson?.id ?? null };
+    return { course, modules, lessons, enrollment: enrollment ?? null, certificate: certificate ?? null, pathId: path?.id ?? null, pathTitle: path?.title ?? null, nextLessonId: nextLesson?.id ?? null };
   });
 }
 
