@@ -1,0 +1,31 @@
+name: Migrations (Neon)
+
+# Executado manualmente. As credenciais de DONO do schema ficam somente como
+# secret de Environment do GitHub — nunca na Vercel.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Ambiente"
+        type: choice
+        options: [preview, production]
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate
+        env:
+          DATABASE_URL_MIGRATIONS: ${{ secrets.DATABASE_URL_MIGRATIONS }}

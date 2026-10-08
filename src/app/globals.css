@@ -1,0 +1,168 @@
+@import "tailwindcss";
+
+/*
+ * Luumu People — Design tokens.
+ * Fonte: styleguide (Paleta de cores, Tipografia, Divisores e espaçamentos,
+ * Sombras e bordas). Componentes NUNCA usam valores soltos: apenas estes tokens.
+ * Documentação: docs/design-system.md
+ */
+
+@theme {
+  /* Tipografia */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  --text-h1: 2rem;          /* 32px · semibold · 120% */
+  --text-h1--line-height: 1.2;
+  --text-h2: 1.5rem;        /* 24px */
+  --text-h2--line-height: 1.2;
+  --text-h3: 1.125rem;      /* 18px */
+  --text-h3--line-height: 1.25;
+  --text-h4: 1rem;          /* 16px · medium */
+  --text-h4--line-height: 1.25;
+  --text-body: 1rem;        /* 16px · 150% */
+  --text-body--line-height: 1.5;
+  --text-body-sm: 0.875rem; /* 14px */
+  --text-body-sm--line-height: 1.5;
+  --text-caption: 0.75rem;  /* 12px */
+  --text-caption--line-height: 1.5;
+  --text-display: 2.75rem;  /* títulos de página (hero) */
+  --text-display--line-height: 1.1;
+
+  /* Cores principais */
+  --color-purple-50: #f7f5ff;
+  --color-purple-100: #ede9fe; /* Roxo Claro */
+  --color-purple-200: #ddd6fe;
+  --color-purple-300: #c4b5fd;
+  --color-purple-400: #a78bfa;
+  --color-purple-500: #7c3aed; /* Roxo Primário */
+  --color-purple-600: #6d28d9;
+  --color-purple-700: #5b21b6; /* Roxo Escuro */
+  --color-purple-800: #4c1d95;
+  --color-purple-900: #2e1065;
+
+  --color-orange-50: #fff7ed;
+  --color-orange-100: #ffedd5;
+  --color-orange-500: #f59e0b; /* Laranja */
+  --color-orange-600: #d97706;
+  --color-orange-700: #9a3c06; /* laranja para TEXTO (≥ 4.5:1 sobre orange-100) */
+
+  --color-green-50: #f0fdf4;
+  --color-green-100: #dcfce7; /* Verde Claro */
+  --color-green-500: #22c55e; /* Verde */
+  --color-green-600: #16a34a;
+  --color-green-700: #15803d;
+
+  --color-yellow-100: #fef3c7; /* Amarelo */
+  --color-yellow-500: #eab308;
+  --color-yellow-700: #a16207;
+
+  --color-blue-50: #eff6ff;
+  --color-blue-100: #dbeafe; /* Azul Claro */
+  --color-blue-500: #3b82f6;
+  --color-blue-700: #1d4ed8;
+
+  --color-pink-50: #fdf2f8;
+  --color-pink-100: #fce7f3; /* Rosa */
+  --color-pink-500: #ec4899;
+  --color-pink-700: #be185d;
+
+  --color-red-50: #fef2f2;
+  --color-red-100: #fee2e2;
+  --color-red-500: #ef4444;
+  --color-red-600: #dc2626;
+  --color-red-700: #b91c1c;
+
+  /* Neutros */
+  --color-neutral-900: #0f172a;
+  --color-neutral-800: #1e293b;
+  --color-neutral-700: #334155;
+  --color-neutral-600: #475569;
+  --color-neutral-500: #64748b;
+  --color-neutral-400: #94a3b8;
+  --color-neutral-300: #cbd5e1;
+  --color-neutral-200: #e2e8f0;
+  --color-neutral-100: #f1f5f9;
+  --color-neutral-50: #fafafc;
+
+  /* Semânticas */
+  --color-success: var(--color-green-600);
+  --color-warning: var(--color-orange-500);
+  --color-error: var(--color-red-600);
+  --color-info: var(--color-blue-500);
+
+  /* Superfícies */
+  --color-canvas: #f6f5fc;   /* fundo da aplicação */
+  --color-surface: #ffffff;  /* cards */
+  --color-line: #ece9f6;     /* bordas suaves */
+  --color-ink: var(--color-neutral-900);
+  --color-muted: var(--color-neutral-500);
+
+  /* Raios */
+  --radius-sm: 0.5rem;   /* 8  */
+  --radius-md: 0.75rem;  /* 12 */
+  --radius-lg: 1rem;     /* 16 */
+  --radius-xl: 1.5rem;   /* 24 */
+  --radius-full: 9999px;
+
+  /* Sombras (suaves, tingidas de roxo) */
+  --shadow-sm: 0 1px 2px rgb(76 29 149 / 0.04), 0 1px 3px rgb(76 29 149 / 0.04);
+  --shadow-md: 0 4px 16px -4px rgb(76 29 149 / 0.08), 0 2px 6px -2px rgb(76 29 149 / 0.04);
+  --shadow-lg: 0 16px 40px -12px rgb(76 29 149 / 0.16), 0 4px 12px -4px rgb(76 29 149 / 0.06);
+
+  /* Movimento */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  @keyframes shimmer {
+    from { background-position: -200% 0; }
+    to { background-position: 200% 0; }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  /* Foco sempre visível para teclado (WCAG 2.4.7 / 2.4.11) */
+  :focus-visible {
+    outline: 2px solid var(--color-purple-500);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--color-purple-200);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@utility card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+}
+
+@utility skeleton {
+  background: linear-gradient(90deg, var(--color-neutral-100) 0%, var(--color-purple-50) 50%, var(--color-neutral-100) 100%);
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
