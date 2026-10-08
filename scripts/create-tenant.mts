@@ -2,10 +2,9 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { parseArgs } from "node:util";
 import { eq } from "drizzle-orm";
 import { hashPassword } from "../src/server/auth/password";
-import * as s from "../src/server/db/schema";
 import { createSystemRoles, syncCatalog } from "../src/server/db/seed";
 import { DEFAULT_EDITABLE_PROFILE_FIELDS } from "../src/server/db/seed/data";
-import { ownerDatabase } from "./_db";
+import { ownerDatabase, schema as s } from "./_db";
 
 /**
  * Provisiona uma empresa real com seu primeiro Administrador (até a console de

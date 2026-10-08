@@ -23,3 +23,4 @@ export function ownerDatabase(): { db: Database; pool: Pool } {
   const pool = new Pool({ connectionString: url, max: 1 });
   return { db: drizzle({ client: pool, schema }) as unknown as Database, pool };
 }
+export { schema };

@@ -111,4 +111,19 @@ describe("autenticação", () => {
     expect(actions).toContain("auth.logout");
     expect(JSON.stringify(rows)).not.toMatch(/Teste@Seguro2026|session_token/);
   });
+
+  it("troca de senha exige a senha atual, vale no próximo login e fica na auditoria", async () => {
+    const { db } = await testDatabase();
+    const { cookie, userId } = await signIn("aurora", "luiza");
+    const auth = await getAuth();
+    await expect(
+      auth.api.changePassword({ headers: headersWith(cookie), body: { currentPassword: "errada-errada", newPassword: "NovaSenha@Forte2026" } }),
+    ).rejects.toThrow();
+    await auth.api.changePassword({ headers: headersWith(cookie), body: { currentPassword: "Teste@Seguro2026", newPassword: "NovaSenha@Forte2026", revokeOtherSessions: true } });
+    await expect(signIn("aurora", "luiza")).rejects.toThrow();
+    await expect(signIn("aurora", "luiza", "NovaSenha@Forte2026")).resolves.toMatchObject({ userId });
+    const rows = await db.select({ action: s.auditLogs.action }).from(s.auditLogs).where(eq(s.auditLogs.actorUserId, userId));
+    expect(rows.map((r) => r.action)).toContain("auth.password_changed");
+  });
 });
+

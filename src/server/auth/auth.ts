@@ -172,6 +172,11 @@ function buildOptions(database: BetterAuthOptions["database"]): BetterAuthOption
         }
       }),
       after: createAuthMiddleware(async (ctx) => {
+        if (ctx.path === "/change-password") {
+          const userId = ctx.context.session?.user.id;
+          if (userId && !(ctx.context.returned instanceof APIError)) await audit(userId, "auth.password_changed");
+          return;
+        }
         if (ctx.path !== "/sign-in/email") return;
         const email = emailFrom(ctx.body);
         if (!email) return;

@@ -7,6 +7,7 @@ import { Card, CardHeader } from "@/design-system/components/card";
 import { Skeleton } from "@/design-system/components/feedback";
 import { LinkTabs } from "@/design-system/components/link-tabs";
 import { ComingSoon } from "@/features/page/coming-soon";
+import { ChangePasswordForm } from "@/features/profile/change-password-form";
 import { EditProfileDialog } from "@/features/profile/edit-profile-dialog";
 import { CONTRACT_LABELS, formatDate, formatLocation } from "@/lib/format";
 import { requireActor } from "@/server/dal";
@@ -171,6 +172,10 @@ function MyData({ profile }: { profile: Profile }) {
           <InfoRow icon={CalendarDays} label="Data de entrada" value={formatDate(profile.hireDate)} />
           <InfoRow icon={Briefcase} label="Nível" value={profile.level ?? "—"} />
         </dl>
+      </Card>
+      <Card>
+        <CardHeader title="Segurança" description="Troque sua senha sempre que achar necessário." />
+        <ChangePasswordForm />
       </Card>
     </div>
   );
