@@ -5,10 +5,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/design-system/components/button";
-import { Modal } from "@/design-system/components/dialog";
 import { Alert } from "@/design-system/components/feedback";
 import { Field, Input } from "@/design-system/components/field";
-import { GoogleLogo, MicrosoftLogo } from "@/design-system/illustrations/provider-logos";
+import { GoogleLogo } from "@/design-system/illustrations/provider-logos";
 import { authClient } from "@/lib/auth-client";
 import { safeNext } from "./safe-redirect";
 
@@ -51,8 +50,8 @@ export function SignInForm() {
   const [pending, startTransition] = useTransition();
   const [googlePending, startGoogle] = useTransition();
 
-  function unavailable(name: string) {
-    setSsoNotice(`O acesso com ${name} fica disponível quando a sua empresa ativar o login corporativo (SSO). Por enquanto, entre com e-mail e senha.`);
+  function unavailable() {
+    setSsoNotice(`O acesso com Google fica disponível quando a sua empresa ativar o login corporativo (SSO). Por enquanto, entre com e-mail e senha.`);
   }
 
   function signInWithGoogle() {
@@ -66,7 +65,7 @@ export function SignInForm() {
       });
       if (!err) return; // o cliente já redirecionou para o Google
       // 404: provedor não configurado neste ambiente.
-      if (err.status === 404) return unavailable("Google");
+      if (err.status === 404) return unavailable();
       setError(message(err.status, err.status === 429 ? err.message : undefined));
     });
   }
@@ -90,11 +89,11 @@ export function SignInForm() {
     });
   }
 
-  const field = "h-[52px] rounded-md!";
+  const field = "h-12 rounded-md!";
   return (
     <>
       {/* method="post": sem JavaScript, as credenciais nunca vão para a URL. */}
-      <form method="post" onSubmit={submitCredentials} className="space-y-5" noValidate>
+      <form method="post" onSubmit={submitCredentials} className="space-y-4" noValidate>
         {error ? <Alert tone="error" title={error} /> : null}
         <Field label="E-mail">
           {({ id, describedBy }) => (
@@ -146,12 +145,12 @@ export function SignInForm() {
             </Link>
           </div>
         </div>
-        <Button type="submit" size="lg" block loading={pending} className="h-[52px] rounded-md! text-body">
+        <Button type="submit" size="lg" block loading={pending} className="h-12 rounded-md! text-body">
           Entrar <ArrowRight aria-hidden />
         </Button>
       </form>
 
-      <div className="my-7 flex items-center gap-4 text-body-sm text-neutral-600">
+      <div className="my-5 flex items-center gap-4 text-body-sm text-neutral-600">
         <span aria-hidden className="h-px flex-1 bg-line" />
         Ou continue com
         <span aria-hidden className="h-px flex-1 bg-line" />
@@ -161,18 +160,8 @@ export function SignInForm() {
           type="button"
           variant="ghost"
           block
-          className="h-[52px] rounded-md! text-body font-medium"
-          aria-describedby={ssoNotice ? "sso-aviso" : undefined}
-          onClick={() => unavailable("Microsoft")}
-        >
-          <MicrosoftLogo className="size-5" /> Entrar com Microsoft
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          block
           loading={googlePending}
-          className="h-[52px] rounded-md! text-body font-medium"
+          className="h-12 rounded-md! text-body font-medium"
           aria-describedby={ssoNotice ? "sso-aviso" : undefined}
           onClick={signInWithGoogle}
         >
@@ -185,31 +174,5 @@ export function SignInForm() {
         ) : null}
       </div>
     </>
-  );
-}
-
-/** Rodapé do login: contas são criadas pela empresa, não há cadastro público. */
-export function NoAccountHelp() {
-  const [open, setOpen] = useState(false);
-  return (
-    <p className="text-center text-body-sm text-neutral-600">
-      Não tem uma conta?{" "}
-      <Modal
-        open={open}
-        onOpenChange={setOpen}
-        title="Seu acesso é criado pela empresa"
-        description="A Luumu People não tem cadastro aberto."
-        trigger={
-          <button type="button" className="font-medium text-blue-700 underline underline-offset-2 hover:text-blue-700/80">
-            Fale com o time da sua empresa.
-          </button>
-        }
-        footer={<Button onClick={() => setOpen(false)}>Entendi</Button>}
-      >
-        <p className="text-body-sm text-neutral-600">
-          Peça ao time de Gente &amp; Gestão (ou à pessoa administradora da plataforma) para criar o seu acesso. Você vai receber um e-mail com as instruções para definir a sua senha.
-        </p>
-      </Modal>
-    </p>
   );
 }

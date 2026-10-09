@@ -29,10 +29,10 @@ export function AuthScene() {
         className="hidden object-cover object-right-bottom xl:block"
       />
 
-      <div className="relative flex h-full flex-col px-14 pb-10 pt-11">
+      <div className="relative flex h-full flex-col px-14 pb-8 pt-9 [@media(max-height:760px)]:pb-6 [@media(max-height:760px)]:pt-7">
         <Wordmark className="h-auto w-[220px] max-w-full" />
         {/* Quebras de linha da referência de design. */}
-        <p className="mt-6 whitespace-nowrap text-[2rem] font-extrabold leading-[1.1] tracking-[-0.03em] text-neutral-900 xl:text-[2.1rem]">
+        <p className="mt-5 whitespace-nowrap text-[1.9rem] font-extrabold leading-[1.1] tracking-[-0.03em] text-neutral-900 xl:text-[2.1rem]">
           Pessoas que
           <br />
           aprendem, crescem
@@ -40,10 +40,10 @@ export function AuthScene() {
           <br />
           <span className="text-purple-500">juntas.</span>
         </p>
-        <p className="mt-3 max-w-[290px] text-body leading-relaxed text-neutral-600">
+        <p className="mt-3 max-w-[290px] text-body-sm leading-relaxed text-neutral-600 [@media(max-height:760px)]:hidden">
           A Luumu People é a plataforma de experiência, desenvolvimento e inteligência de pessoas que conecta aprendizado, cultura e resultados dentro da sua empresa.
         </p>
-        <ul className="mt-5 space-y-3">
+        <ul className="mt-5 space-y-3 [@media(max-height:760px)]:space-y-2">
           {FEATURES.map(({ icon: Icon, label, box, fill }) => (
             <li key={label} className="flex items-center gap-4">
               <span className={cn("flex size-11 shrink-0 items-center justify-center rounded-lg", box)}>
@@ -53,7 +53,7 @@ export function AuthScene() {
             </li>
           ))}
         </ul>
-        <div className="mt-auto pt-6">
+        <div className="mt-auto pt-4 [@media(max-height:700px)]:hidden">
           <div aria-hidden className="flex gap-2">
             <span className="h-1.5 w-[52px] rounded-full bg-purple-500" />
             <span className="h-1.5 w-[44px] rounded-full bg-purple-200" />
