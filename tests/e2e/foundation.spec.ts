@@ -16,15 +16,15 @@ test.describe("Fase 1 — fundação", () => {
     await expect(page.getByText("E-mail ou senha incorretos")).toBeVisible();
   });
 
-  test("login: SSO avisa que depende da empresa e ajuda para quem não tem conta", async ({ page }) => {
+  test("login: tela cheia sem rolagem, só Google como SSO e validação dos campos", async ({ page }) => {
     await gotoHydrated(page, "/entrar");
-    await expect(page.getByRole("heading", { level: 1, name: "Bem-vindo(a) de volta!" })).toBeVisible();
-    await page.getByRole("button", { name: "Entrar com Microsoft" }).click();
-    await expect(page.getByText(/O acesso com Microsoft fica disponível quando a sua empresa ativar o login corporativo/)).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Bem-vindo(a)!" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Entrar com Microsoft" })).toHaveCount(0);
+    await expect(page.getByText("Não tem uma conta?")).toHaveCount(0);
+    const overflow = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+    expect(overflow).toBeLessThanOrEqual(0);
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
     await expect(page.getByText("Informe seu e-mail e sua senha para entrar.")).toBeVisible();
-    await page.getByRole("button", { name: "Fale com o time da sua empresa." }).click();
-    await expect(page.getByRole("dialog", { name: "Seu acesso é criado pela empresa" })).toBeVisible();
     await expectAccessible(page);
   });
 
