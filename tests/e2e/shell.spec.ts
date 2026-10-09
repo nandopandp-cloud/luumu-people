@@ -1,3 +1,4 @@
+import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { expectAccessible, gotoHydrated, signIn } from "./helpers";
 
@@ -102,5 +103,40 @@ test.describe("Banners da home", () => {
     await page.waitForTimeout(600); // fim da animação de troca (o axe mede a opacidade)
     await expect(carousel.getByRole("link", { name: /Ver comunicados/ })).toHaveAttribute("href", "/comunicados");
     await expectAccessible(page);
+  });
+
+  test("banner só de imagem: editor com zoom, rotação, espelhamento e corte; saudação acima", async ({ page }) => {
+    test.setTimeout(120_000);
+    await signIn(page, "rafael.lima@aurora.example");
+    await gotoHydrated(page, "/gestao/comunicacao/banners/novo");
+    await page.getByRole("button", { name: "Enviar imagem" }).locator("../..").locator('input[type="file"]').setInputFiles(path.join(process.cwd(), "public/images/login-scene.jpg"));
+    const editor = page.getByRole("dialog", { name: "Ajustar imagem do banner" });
+    await expect(editor).toBeVisible();
+    await editor.getByLabel("Zoom").fill("1.5");
+    await editor.getByRole("button", { name: "Girar à direita" }).click();
+    await expect(editor.getByText("90°")).toBeVisible();
+    const mirror = editor.getByRole("button", { name: "Espelhar na horizontal" });
+    await mirror.click();
+    await expect(mirror).toHaveAttribute("aria-pressed", "true");
+    await expectAccessible(page);
+    await editor.getByRole("button", { name: "Salvar" }).click();
+    await expect(editor).toBeHidden();
+    await expect(page.getByRole("button", { name: "Ajustar imagem" })).toBeVisible();
+
+    await page.getByLabel("Descrição da imagem").fill("Semana da inovação: inscrições abertas");
+    await page.getByLabel("Link ao clicar (opcional)").fill("/comunicados");
+    await page.getByRole("button", { name: "Criar banner" }).click();
+    await page.waitForURL("**/gestao/comunicacao/banners");
+
+    await page.context().clearCookies();
+    await signIn(page, "fernando.santos@aurora.example");
+    await gotoHydrated(page, "/inicio");
+    const greeting = page.getByRole("heading", { level: 1, name: "Olá, Fernando!" });
+    const carousel = page.getByRole("region", { name: "Destaques" });
+    await carousel.getByRole("button", { name: /Semana da inovação/ }).click();
+    const art = carousel.getByRole("img", { name: "Semana da inovação: inscrições abertas" });
+    await expect(art).toBeVisible();
+    await expect(carousel.getByRole("link", { name: /Semana da inovação/ })).toHaveAttribute("href", "/comunicados");
+    expect((await greeting.boundingBox())!.y).toBeLessThan((await art.boundingBox())!.y);
   });
 });

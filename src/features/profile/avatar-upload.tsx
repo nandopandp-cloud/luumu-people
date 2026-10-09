@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/design-system/components/button";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/design-system/components/menu";
 import { useToast } from "@/design-system/components/toast";
-import { ImageEditor } from "./image-editor";
+import { ImageEditor } from "@/features/files/image-editor";
 
 const ACCEPT = "image/png,image/jpeg,image/webp";
 /** Limite da imagem ORIGINAL escolhida (o arquivo enviado é o recorte, bem menor). */

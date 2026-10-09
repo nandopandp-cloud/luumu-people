@@ -176,7 +176,8 @@ export function AnnouncementEditor({ announcement, canPublish }: { announcement?
             label="Imagem de capa (opcional)"
             purpose="announcement_cover"
             value={values.coverFileId}
-            hint="PNG, JPG ou WEBP até 3 MB. Sem imagem, usamos a cor e a ilustração escolhidas."
+            hint="PNG, JPG ou WEBP. Depois de escolher, você ajusta zoom, rotação, espelhamento e corte. Sem imagem, usamos a cor e a ilustração escolhidas."
+            crop={{ title: "Ajustar capa do comunicado", aspect: 16 / 9, output: { width: 1600, height: 900 } }}
             onChange={(fileId, previewUrl) => {
               update("coverFileId", fileId);
               setCoverPreview(previewUrl);

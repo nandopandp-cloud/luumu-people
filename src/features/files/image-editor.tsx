@@ -1,6 +1,6 @@
 "use client";
 
-import { RotateCcw, RotateCw, Undo2, ZoomIn, ZoomOut } from "lucide-react";
+import { FlipHorizontal2, FlipVertical2, RotateCcw, RotateCw, Undo2, ZoomIn, ZoomOut } from "lucide-react";
 import { useCallback, useState } from "react";
 import Cropper, { type Area } from "react-easy-crop";
 import "react-easy-crop/react-easy-crop.css";
@@ -14,6 +14,7 @@ export type ImageEditorProps = {
   /** URL local (object URL) da imagem escolhida. */
   src: string | null;
   title: string;
+  description?: string;
   /** Proporção do recorte (largura / altura). */
   aspect: number;
   shape: "round" | "rect";
@@ -27,11 +28,12 @@ export type ImageEditorProps = {
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
 
-/** Editor de imagem: arrastar para enquadrar, zoom e rotação (livre ou de 90°). Exporta JPEG recortado. */
-export function ImageEditor({ open, onOpenChange, src, title, aspect, shape, output, pending, error, onSave }: ImageEditorProps) {
+/** Editor de imagem: arrastar para enquadrar, zoom, rotação (livre ou de 90°) e espelhamento. Exporta JPEG recortado. */
+export function ImageEditor({ open, onOpenChange, src, title, description, aspect, shape, output, pending, error, onSave }: ImageEditorProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
+  const [flip, setFlip] = useState({ x: false, y: false });
   const [area, setArea] = useState<Area | null>(null);
   const [working, setWorking] = useState(false);
   const onCropComplete = useCallback((_: Area, pixels: Area) => setArea(pixels), []);
@@ -40,13 +42,14 @@ export function ImageEditor({ open, onOpenChange, src, title, aspect, shape, out
     setCrop({ x: 0, y: 0 });
     setZoom(1);
     setRotation(0);
+    setFlip({ x: false, y: false });
   }
 
   async function save() {
     if (!src || !area) return;
     setWorking(true);
     try {
-      onSave(await renderCrop(src, area, rotation, output));
+      onSave(await renderCrop(src, area, rotation, flip, output));
     } finally {
       setWorking(false);
     }
@@ -62,7 +65,7 @@ export function ImageEditor({ open, onOpenChange, src, title, aspect, shape, out
       }}
       size="lg"
       title={title}
-      description="Arraste para enquadrar. Use o zoom e a rotação para ajustar."
+      description={description ?? "Arraste para enquadrar. Use o zoom, a rotação e o espelhamento para ajustar."}
       footer={
         <>
           <Button variant="tertiary" onClick={() => onOpenChange(false)} disabled={busy}>
@@ -83,6 +86,8 @@ export function ImageEditor({ open, onOpenChange, src, title, aspect, shape, out
               crop={crop}
               zoom={zoom}
               rotation={rotation}
+              // Espelhamento: mesmo transform padrão da biblioteca, com escala negativa no eixo invertido.
+              transform={`translate(${crop.x}px, ${crop.y}px) rotate(${rotation}deg) scale(${flip.x ? -zoom : zoom}, ${flip.y ? -zoom : zoom})`}
               aspect={aspect}
               cropShape={shape}
               showGrid={shape === "rect"}
@@ -107,6 +112,12 @@ export function ImageEditor({ open, onOpenChange, src, title, aspect, shape, out
           </Button>
           <Button variant="secondary" size="sm" onClick={() => setRotation((r) => normalizeAngle(r + 90))}>
             <RotateCw aria-hidden /> Girar à direita
+          </Button>
+          <Button variant="secondary" size="sm" aria-pressed={flip.x} onClick={() => setFlip((f) => ({ ...f, x: !f.x }))}>
+            <FlipHorizontal2 aria-hidden /> Espelhar na horizontal
+          </Button>
+          <Button variant="secondary" size="sm" aria-pressed={flip.y} onClick={() => setFlip((f) => ({ ...f, y: !f.y }))}>
+            <FlipVertical2 aria-hidden /> Espelhar na vertical
           </Button>
           <Button variant="tertiary" size="sm" onClick={reset}>
             <Undo2 aria-hidden /> Restaurar
@@ -147,8 +158,8 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-/** Aplica a rotação e recorta a área escolhida, redimensionando para o tamanho final. */
-async function renderCrop(src: string, area: Area, rotation: number, output: { width: number; height: number }): Promise<Blob> {
+/** Aplica rotação e espelhamento e recorta a área escolhida, redimensionando para o tamanho final. */
+export async function renderCrop(src: string, area: Area, rotation: number, flip: { x: boolean; y: boolean }, output: { width: number; height: number }): Promise<Blob> {
   const image = await loadImage(src);
   const rad = (rotation * Math.PI) / 180;
   const sin = Math.abs(Math.sin(rad));
@@ -162,6 +173,7 @@ async function renderCrop(src: string, area: Area, rotation: number, output: { w
   const rctx = rotated.getContext("2d")!;
   rctx.translate(boundW / 2, boundH / 2);
   rctx.rotate(rad);
+  rctx.scale(flip.x ? -1 : 1, flip.y ? -1 : 1);
   rctx.translate(-image.width / 2, -image.height / 2);
   rctx.drawImage(image, 0, 0);
 

@@ -142,7 +142,8 @@ export function BannerEditor({ banner }: { banner: EditableBanner }) {
                 label="Imagem do banner"
                 purpose="home_banner"
                 value={values.imageFileId}
-                hint="PNG, JPG ou WEBP até 3 MB. Use 1600 × 500 px: a arte é exibida inteira, nessa proporção. Deixe textos importantes longe das bordas."
+                hint="PNG, JPG ou WEBP. Depois de escolher, você ajusta zoom, rotação, espelhamento e corte. Resultado: 1600 × 500 px. Deixe textos importantes longe das bordas."
+                crop={{ title: "Ajustar imagem do banner", aspect: 16 / 5, output: { width: 1600, height: 500 } }}
                 onChange={(fileId, previewUrl) => {
                   set("imageFileId", fileId);
                   setPreview(previewUrl);
@@ -203,7 +204,8 @@ export function BannerEditor({ banner }: { banner: EditableBanner }) {
               label="Imagem (opcional)"
               purpose="home_banner"
               value={values.imageFileId}
-              hint="PNG, JPG ou WEBP até 3 MB. Recomendado: 900 × 600 px."
+              hint="PNG, JPG ou WEBP. Depois de escolher, você ajusta zoom, rotação, espelhamento e corte."
+                crop={{ title: "Ajustar imagem do banner", aspect: 3 / 2, output: { width: 1200, height: 800 } }}
               onChange={(fileId, previewUrl) => {
                 set("imageFileId", fileId);
                 setPreview(previewUrl);
