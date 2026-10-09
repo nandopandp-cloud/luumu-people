@@ -76,8 +76,8 @@ function ProfileHeader({ profile }: { profile: Profile }) {
         <>
           {/* eslint-disable-next-line @next/next/no-img-element -- arquivo privado servido pela própria API */}
           <img src={profile.profileCover} alt="" className="absolute inset-0 size-full object-cover" />
-          {/* Véu leve sobre a imagem; a legibilidade vem do painel de vidro atrás dos textos. */}
-          <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-white/60 via-white/25 to-transparent" />
+          {/* Véu escuro: a imagem recua e o painel de textos e o botão "Alterar capa" se destacam sobre qualquer capa. */}
+          <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-neutral-900/70 via-neutral-900/55 to-neutral-900/40" />
         </>
       ) : (
         <div aria-hidden className="absolute -right-8 -top-16 size-72 rounded-full bg-white/40 blur-2xl" />
@@ -89,7 +89,7 @@ function ProfileHeader({ profile }: { profile: Profile }) {
         className={cn(
           "relative flex flex-col gap-6 sm:flex-row sm:items-center",
           // Com capa: painel de vidro garante contraste dos textos sobre qualquer imagem.
-          profile.profileCover && "w-fit max-w-full rounded-2xl bg-white/85 p-5 shadow-md ring-1 ring-white/70 backdrop-blur-md sm:pr-8",
+          profile.profileCover && "w-fit max-w-full rounded-2xl bg-white/95 p-5 shadow-lg ring-1 ring-white/70 backdrop-blur-md sm:pr-8",
         )}
       >
         <div className="relative shrink-0 self-start">
