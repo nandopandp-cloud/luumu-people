@@ -12,27 +12,35 @@ const FEATURES = [
 
 /**
  * Painel de marca das telas de acesso. Em telas largas (xl), a ilustração da
- * marca (public/images/login-scene.webp) fica inteira no canto inferior direito
- * do painel; logo, título, recursos e rodapé são HTML real à esquerda.
+ * marca (public/images/login-scene.webp) ocupa toda a altura do painel, com um corte
+ * leve à direita (só os livros), para o Luumu ficar ao lado dos textos; logo, título, recursos e rodapé são HTML real à esquerda, sobre um
+ * véu claro.
  * Abaixo de 1280 px, só o gradiente.
  */
 export function AuthScene() {
   return (
     <div className="relative h-full overflow-hidden bg-gradient-to-br from-purple-50 via-purple-100 to-purple-50">
-      {/* Ilustração inteira (sem cortes), encostada no canto inferior direito; as bordas
-          esquerda e superior se dissolvem no gradiente do painel. */}
+      {/* Ilustração ocupando toda a altura do painel. O corte fica à direita (só os
+          livros), para o Luumu ficar ao lado dos textos; os cards nunca são cortados.
+          Um véu claro estreito à esquerda garante a leitura dos textos. */}
+      <Image
+        src="/images/login-scene.webp"
+        alt=""
+        aria-hidden
+        fill
+        priority
+        quality={90}
+        sizes="(min-width: 1280px) 75vw, 0px"
+        className="hidden object-cover object-[20%_top] xl:block"
+      />
       <div
         aria-hidden
-        className="absolute bottom-0 right-0 hidden aspect-[1374/1145] h-[60%] max-w-full xl:block"
+        className="absolute inset-0 hidden xl:block"
         style={{
-          maskImage: "linear-gradient(to right, transparent 0, #000 16%), linear-gradient(to bottom, transparent 0, #000 10%)",
-          maskComposite: "intersect",
-          WebkitMaskImage: "linear-gradient(to right, transparent 0, #000 16%), linear-gradient(to bottom, transparent 0, #000 10%)",
-          WebkitMaskComposite: "source-in",
+          background:
+            "linear-gradient(to right, var(--color-purple-50) 0, var(--color-purple-50) 215px, color-mix(in srgb, var(--color-purple-50) 65%, transparent) 285px, transparent 370px)",
         }}
-      >
-        <Image src="/images/login-scene.webp" alt="" fill priority quality={90} sizes="(min-width: 1280px) 50vw, 0px" className="object-contain" />
-      </div>
+      />
 
       <div className="relative flex h-full flex-col px-14 pb-8 pt-9 [@media(max-height:760px)]:pb-6 [@media(max-height:760px)]:pt-7">
         <Wordmark className="h-auto w-[220px] max-w-full" />
@@ -45,7 +53,7 @@ export function AuthScene() {
           <br />
           <span className="text-purple-500">juntas.</span>
         </p>
-        <p className="mt-3 max-w-[290px] text-body-sm leading-relaxed text-neutral-600 [@media(max-height:760px)]:hidden">
+        <p className="mt-3 max-w-[270px] text-body-sm leading-relaxed text-neutral-600 [@media(max-height:760px)]:hidden">
           A Luumu People é a plataforma de experiência, desenvolvimento e inteligência de pessoas que conecta aprendizado, cultura e resultados dentro da sua empresa.
         </p>
         <ul className="mt-5 space-y-3 [@media(max-height:760px)]:space-y-2">

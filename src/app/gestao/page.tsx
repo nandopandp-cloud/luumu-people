@@ -130,7 +130,7 @@ function QuickActions({ can, learning }: { can: (p: Permission) => boolean; lear
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-body-sm font-semibold text-neutral-900">{a.title}</span>
-                <span className="block text-caption text-neutral-500">{a.description}</span>
+                <span className="block text-caption text-neutral-600">{a.description}</span>
               </span>
               {a.href ? <ChevronRight aria-hidden className="size-4 text-neutral-500" /> : <Badge tone="neutral">Em breve</Badge>}
             </>

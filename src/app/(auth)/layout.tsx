@@ -9,11 +9,11 @@ import { AuthScene } from "@/features/auth/auth-scene";
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh bg-white">
-      <div className="grid min-h-dvh overflow-hidden bg-white lg:h-dvh lg:grid-cols-[minmax(0,1.5fr)_minmax(440px,1fr)]">
+      <div className="grid min-h-dvh overflow-hidden bg-white lg:h-dvh lg:grid-cols-[minmax(0,1.5fr)_minmax(440px,1fr)] xl:grid-cols-[minmax(0,1fr)_minmax(440px,32%)]">
         <aside className="hidden lg:block" aria-label="Sobre a Luumu People">
           <AuthScene />
         </aside>
-        <main className="flex flex-col px-6 py-5 sm:px-12 lg:px-14 xl:px-20">
+        <main className="flex flex-col px-6 py-5 sm:px-12 lg:px-14 xl:px-10 2xl:px-16">
           <div className="flex items-center justify-between lg:justify-end">
             <Wordmark className="h-11 w-auto lg:hidden" />
             <label className="relative flex items-center gap-2 text-body-sm font-medium text-neutral-700">
