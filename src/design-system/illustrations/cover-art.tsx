@@ -9,7 +9,7 @@ import { cn } from "../cn";
 export type CoverTheme = "purple" | "green" | "orange" | "blue" | "pink" | "yellow";
 export type CoverIllustration = "megaphone" | "people" | "plant" | "shield" | "heart" | "calendar" | "trophy" | "book" | "target" | "lightbulb" | "chat" | "compass";
 
-const ICONS: Record<CoverIllustration, LucideIcon> = {
+export const COVER_ICONS: Record<CoverIllustration, LucideIcon> = {
   megaphone: Megaphone,
   people: UsersRound,
   plant: Sprout,
@@ -34,7 +34,7 @@ const THEMES: Record<CoverTheme, { bg: string; blob: string; icon: string; accen
 };
 
 export function CoverArt({ theme, illustration, className, iconClassName }: { theme: CoverTheme; illustration: CoverIllustration; className?: string; iconClassName?: string }) {
-  const Icon = ICONS[illustration];
+  const Icon = COVER_ICONS[illustration];
   const t = THEMES[theme];
   return (
     <div aria-hidden className={cn("relative isolate overflow-hidden bg-gradient-to-br", t.bg, className)}>

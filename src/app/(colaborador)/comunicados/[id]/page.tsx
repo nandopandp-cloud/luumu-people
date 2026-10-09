@@ -8,6 +8,7 @@ import { Skeleton } from "@/design-system/components/feedback";
 import { Breadcrumb } from "@/design-system/components/navigation";
 import { Comments } from "@/features/announcements/mural/comments";
 import { LikeButton } from "@/features/announcements/mural/like-button";
+import { RichText } from "@/features/announcements/rich-text";
 import { CourseCover } from "@/features/courses/course-cover";
 import { ANNOUNCEMENT_CATEGORY } from "@/features/home/labels";
 import { formatDateTime } from "@/lib/format";
@@ -39,8 +40,6 @@ async function Announcement({ params }: { params: PageProps<"/comunicados/[id]">
     throw error;
   }
   const cat = ANNOUNCEMENT_CATEGORY[a.category] ?? { label: a.category, tone: "purple" as const };
-  // Texto puro (nunca HTML): parágrafos separados por linha em branco.
-  const paragraphs = (a.body ?? "").split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
   const files = a.attachments.filter((x) => x.kind === "file" && x.fileId);
   const videos = a.attachments.filter((x) => x.kind === "video" && x.embedUrl);
 
@@ -67,15 +66,7 @@ async function Announcement({ params }: { params: PageProps<"/comunicados/[id]">
           </div>
           <h1 className="mt-3 text-[2rem] font-extrabold leading-tight tracking-[-0.03em] text-neutral-900">{a.title}</h1>
           <p className="mt-2 text-[17px] text-neutral-600">{a.summary}</p>
-          {paragraphs.length ? (
-            <div className="mt-6 space-y-4 border-t border-line pt-6 text-body leading-relaxed text-neutral-800">
-              {paragraphs.map((p, i) => (
-                <p key={i} className="whitespace-pre-line">
-                  {p}
-                </p>
-              ))}
-            </div>
-          ) : null}
+          {a.body?.trim() ? <RichText source={a.body} className="mt-6 border-t border-line pt-6" /> : null}
 
           {videos.length ? (
             <section aria-labelledby="videos" className="mt-8 space-y-4">

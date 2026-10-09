@@ -75,7 +75,8 @@ describe("mural de comunicados", () => {
   it("curtir: uma vez por pessoa, só em nome próprio (API e banco)", async () => {
     const id = await idOf("Programa de Saúde Mental");
     const { cookie } = await signIn("aurora", "leticia");
-    const before = (await getAnnouncement(await actorFor("leticia"), id)).likes;
+    // Parte de "não curtido", seja qual for o seed.
+    const before = (await call(likeRoute.DELETE, { path: "/x", method: "DELETE", cookie, params: { id } })).json.likes as number;
     const liked = await call(likeRoute.POST, { path: "/x", method: "POST", cookie, params: { id } });
     expect(liked.json).toEqual({ likes: before + 1, likedByMe: true });
     const again = await call(likeRoute.POST, { path: "/x", method: "POST", cookie, params: { id } });

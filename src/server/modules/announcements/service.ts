@@ -190,7 +190,7 @@ async function loadManaged(tx: Tx, id: string) {
 
 async function loadAttachments(tx: Tx, id: string) {
   return tx
-    .select({ kind: s.announcementAttachments.kind, title: s.announcementAttachments.title, fileId: s.announcementAttachments.fileId, videoUrl: s.announcementAttachments.videoUrl, mimeType: s.files.mimeType })
+    .select({ kind: s.announcementAttachments.kind, title: s.announcementAttachments.title, fileId: s.announcementAttachments.fileId, videoUrl: s.announcementAttachments.videoUrl, mimeType: s.files.mimeType, sizeBytes: s.files.sizeBytes })
     .from(s.announcementAttachments)
     .leftJoin(s.files, eq(s.files.id, s.announcementAttachments.fileId))
     .where(eq(s.announcementAttachments.announcementId, id))
@@ -240,7 +240,12 @@ export async function listAudienceOptions(actor: AuthenticatedActor) {
 
 export async function getManagedAnnouncement(actor: AuthenticatedActor, id: string) {
   requireComms(actor, "comms.announcement.create");
-  return withTenant(actor, async (tx) => ({ ...(await loadManaged(tx, id)), attachments: await loadAttachments(tx, id) }));
+  return withTenant(actor, async (tx) => {
+    const announcement = await loadManaged(tx, id);
+    const { likes, comments } = engagementColumns(actor);
+    const [counts] = await tx.select({ likes, comments }).from(s.announcements).where(eq(s.announcements.id, id));
+    return { ...announcement, likes: counts?.likes ?? 0, comments: counts?.comments ?? 0, attachments: await loadAttachments(tx, id) };
+  });
 }
 
 /** A capa precisa ser uma imagem de comunicado do próprio tenant (RLS + finalidade). */

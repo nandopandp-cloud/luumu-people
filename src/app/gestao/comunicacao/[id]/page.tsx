@@ -3,9 +3,9 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { z } from "zod";
 import { Skeleton } from "@/design-system/components/feedback";
-import { Breadcrumb } from "@/design-system/components/navigation";
 import { AnnouncementEditor } from "@/features/announcements/announcement-editor";
 import { toAudienceOptions } from "@/features/announcements/audience-options";
+import { EditorHeader } from "@/features/announcements/editor-header";
 import { hasTenantWide } from "@/server/authz/policy";
 import { requirePermission } from "@/server/dal";
 import { HttpError } from "@/server/http/errors";
@@ -35,10 +35,7 @@ async function Editor({ params }: { params: PageProps<"/gestao/comunicacao/[id]"
   }
   return (
     <>
-      <div className="mb-5">
-        <Breadcrumb items={[{ label: "Comunicação", href: "/gestao/comunicacao" }, { label: a.title }]} />
-      </div>
-      <h1 className="mb-6 text-h1 font-extrabold tracking-[-0.02em] text-neutral-900">Editar comunicado</h1>
+      <EditorHeader title="Editar comunicado" description="Altere as informações, revise a prévia e publique para sua audiência." current="Editar comunicado" />
       <AnnouncementEditor
         canPublish={hasTenantWide(actor, "comms.announcement.publish")}
         audienceOptions={toAudienceOptions(units)}
@@ -54,9 +51,12 @@ async function Editor({ params }: { params: PageProps<"/gestao/comunicacao/[id]"
           coverFileId: a.coverFileId,
           audienceOrgUnitId: a.audienceOrgUnitId ?? "",
           attachments: a.attachments.map((x) =>
-            x.kind === "file" ? { kind: "file" as const, title: x.title, fileId: x.fileId!, mimeType: x.mimeType } : { kind: "video" as const, title: x.title, videoUrl: x.videoUrl! },
+            x.kind === "file" ? { kind: "file" as const, title: x.title, fileId: x.fileId!, mimeType: x.mimeType, sizeBytes: x.sizeBytes } : { kind: "video" as const, title: x.title, videoUrl: x.videoUrl! },
           ),
           managedStatus: a.managedStatus,
+          publishedAt: a.publishedAt?.toISOString() ?? null,
+          likes: a.likes,
+          comments: a.comments,
         }}
       />
     </>

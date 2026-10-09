@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { Database } from "../client";
 import * as s from "../schema";
 
@@ -129,7 +129,8 @@ export async function seedCommunication(db: Database, tenantId: string): Promise
   const people = await db
     .select({ id: s.users.id, email: s.users.email })
     .from(s.users)
-    .where(and(eq(s.users.tenantId, tenantId), eq(s.users.status, "active")));
+    .where(and(eq(s.users.tenantId, tenantId), eq(s.users.status, "active")))
+    .orderBy(asc(s.users.email));
   const userByKey = new Map(people.map((p) => [p.email.split("@")[0]!, p.id]));
 
   // Curtidas determinísticas: cada comunicado publicado recebe uma fatia diferente das pessoas.

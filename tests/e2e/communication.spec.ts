@@ -1,3 +1,4 @@
+import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { expectAccessible, gotoHydrated, signIn } from "./helpers";
 
@@ -30,15 +31,16 @@ test.describe("Mural de comunicados", () => {
     await expect(row).toBeVisible();
     await expect(page.getByRole("region", { name: "Comunicados em destaque" })).toHaveCount(0);
 
-    // Curtir e descurtir (o número muda junto).
-    const like = row.getByRole("button", { name: /^Curtir/ });
+    // Curtir e descurtir (o número muda junto), seja qual for o estado do seed.
+    const like = row.getByRole("button", { name: /^(Curtir|Descurtir)/ });
+    const wasLiked = (await like.getAttribute("aria-pressed")) === "true";
     const before = Number((await like.innerText()).trim());
     await like.click();
-    const unlike = row.getByRole("button", { name: /^Descurtir/ });
-    await expect(unlike).toHaveAttribute("aria-pressed", "true");
-    await expect(unlike).toHaveText(String(before + 1));
-    await unlike.click();
-    await expect(row.getByRole("button", { name: /^Curtir/ })).toHaveText(String(before));
+    await expect(like).toHaveAttribute("aria-pressed", String(!wasLiked));
+    await expect(like).toHaveText(String(before + (wasLiked ? -1 : 1)));
+    await like.click();
+    await expect(like).toHaveAttribute("aria-pressed", String(wasLiked));
+    await expect(like).toHaveText(String(before));
 
     // Detalhe: comentar e remover o próprio comentário.
     await row.getByRole("link", { name: "Programa de Saúde Mental" }).click();
@@ -105,6 +107,53 @@ test.describe("Mural de comunicados", () => {
     await gotoHydrated(page, "/comunicados");
     await expect(page.getByRole("region", { name: "Próximos eventos" }).getByRole("link", { name: /Encontro de boas-vindas/ })).toBeVisible();
     await expect(page.getByRole("region", { name: "Links rápidos" }).getByRole("link", { name: /Holerite/ })).toBeVisible();
+  });
+
+  test("editor: formatação, capa própria desativa a ilustração, público e vídeo", async ({ page }) => {
+    test.setTimeout(120_000);
+    await signIn(page, "rafael.lima@aurora.example");
+    await gotoHydrated(page, "/gestao/comunicacao/novo");
+    await expect(page.getByRole("heading", { level: 1, name: "Novo comunicado" })).toBeVisible();
+    await page.getByLabel("Título").fill("Guia do trabalho híbrido");
+    await page.getByLabel("Resumo").fill("Tudo o que muda a partir de novembro.");
+
+    const body = page.getByLabel("Texto completo");
+    await body.fill("Olá, time!");
+    await body.press("End");
+    await body.press("Enter");
+    await body.press("Enter");
+    const toolbar = page.getByRole("toolbar", { name: "Formatação do texto" });
+    await toolbar.getByRole("button", { name: "Negrito" }).click();
+    await page.keyboard.type("Importante");
+    await expect(body).toHaveValue("Olá, time!\n\n**Importante**");
+
+    // Capa própria: a ilustração fica indisponível.
+    await expect(page.getByLabel("Ilustração")).toBeEnabled();
+    await page.getByRole("button", { name: /Enviar imagem/ }).locator("..").locator('input[type="file"]').setInputFiles(path.join(process.cwd(), "public/images/login-scene.jpg"));
+    const crop = page.getByRole("dialog", { name: "Ajustar capa do comunicado" });
+    await crop.getByRole("button", { name: "Salvar" }).click();
+    await expect(crop).toBeHidden();
+    await expect(page.getByLabel("Ilustração")).toBeDisabled();
+    await expect(page.getByText("Indisponível: a capa usa a imagem enviada.")).toBeVisible();
+
+    await page.getByRole("region", { name: "Público" }).getByRole("combobox").selectOption({ label: "Toda a empresa" });
+    await page.getByRole("button", { name: "Adicionar vídeo" }).click();
+    await page.getByLabel("Nome do anexo 1").fill("Vídeo explicativo");
+    await page.getByLabel("Link do vídeo 1").fill("https://exemplo.com/video");
+    await expectAccessible(page);
+    await page.getByRole("button", { name: "Publicar agora" }).click();
+    await expect(page.getByText("Alguns dados de envio são inválidos.")).toBeVisible();
+    await expect(page.getByText("Use um link de vídeo do YouTube ou do Vimeo.")).toBeVisible();
+
+    await page.getByLabel("Link do vídeo 1").fill("https://vimeo.com/76979871");
+    await page.getByRole("button", { name: "Publicar agora" }).click();
+    await page.waitForURL("**/gestao/comunicacao");
+
+    await gotoHydrated(page, "/comunicados");
+    await page.getByRole("link", { name: "Guia do trabalho híbrido" }).first().click();
+    await expect(page.getByRole("heading", { level: 1, name: "Guia do trabalho híbrido" })).toBeVisible();
+    await expect(page.locator("article strong", { hasText: "Importante" })).toBeVisible();
+    await expect(page.locator('iframe[title="Vídeo: Vídeo explicativo"]')).toBeVisible();
   });
 
   test("mural no celular @mobile", async ({ page }) => {
