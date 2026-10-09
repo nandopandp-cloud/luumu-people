@@ -7,6 +7,7 @@ import { EMPLOYEE_NAV, EMPLOYEE_NAV_SECONDARY, MANAGEMENT_NAV, type NavIcon } fr
 import { MODULE_FLAGS, type ModuleKey } from "@/server/modules/flags/modules";
 import { effectiveFlags } from "@/server/modules/flags/service";
 import { listPeople } from "@/server/modules/people/service";
+import { audienceVisibleSql } from "@/server/modules/announcements/audience";
 
 /**
  * Busca unificada da paleta (⌘K). Cada grupo respeita exatamente o que a
@@ -69,6 +70,8 @@ function pages(actor: AuthenticatedActor, context: SearchContext, flags: Record<
             ...(i.children ?? []).filter((c) => on(c) && c.anyOf.some((p) => hasPermissionAnywhere(actor, p))).map((c) => ({ ...c, subtitle: `Gestão · ${i.label}` })),
           ]),
           ...(hasTenantWide(actor, "comms.announcement.publish") ? [{ href: "/gestao/comunicacao/banners", label: "Banners da home", icon: "announcements" as NavIcon, subtitle: "Gestão · Comunicação" }] : []),
+          ...(hasTenantWide(actor, "comms.event.manage") ? [{ href: "/gestao/comunicacao/eventos", label: "Eventos", icon: "announcements" as NavIcon, subtitle: "Gestão · Comunicação" }] : []),
+          ...(hasTenantWide(actor, "comms.quicklink.manage") ? [{ href: "/gestao/comunicacao/links", label: "Links rápidos", icon: "announcements" as NavIcon, subtitle: "Gestão · Comunicação" }] : []),
         ];
   return items.map((i) => ({ kind: "page" as const, id: i.href, title: i.label, subtitle: i.subtitle, href: i.href, icon: i.icon }));
 }
@@ -116,7 +119,7 @@ export async function search(actor: AuthenticatedActor, query: string, context: 
       out.announcement = rows<{ id: string; title: string; summary: string }>(
         await tx.execute(sql`
           select a.id, a.title, a.summary from announcements a
-          where a.status = 'published' and a.published_at <= now() and (${matches(sql`a.title`, q)} or ${matches(sql`a.summary`, q)} or ${matches(sql`a.body`, q)})
+          where a.status = 'published' and a.published_at <= now() and ${audienceVisibleSql(sql`a.audience_org_unit_id`, actor.userId)} and (${matches(sql`a.title`, q)} or ${matches(sql`a.summary`, q)} or ${matches(sql`a.body`, q)})
           order by a.published_at desc limit ${PER_GROUP}`),
       ).map((a) => ({ kind: "announcement", id: a.id, title: a.title, subtitle: a.summary, href: `/comunicados/${a.id}` }));
 

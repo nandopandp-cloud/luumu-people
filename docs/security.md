@@ -51,15 +51,15 @@ A CSP é estática e permite `'unsafe-inline'` em scripts. Nonces exigiriam rend
 
 ## Auditoria
 
-`audit_logs` é append-only: a role de runtime só tem `INSERT`/`SELECT`, e um trigger rejeita `UPDATE`, `DELETE` e `TRUNCATE`. A lista de ações é fechada (`AUDIT_ACTIONS`). Hoje registra login (com o método: senha ou Google), vínculo de login corporativo, logout, sessão revogada, redefinição de senha, concessão e revogação de papel, edição de perfil, criação/edição/publicação/arquivamento de comunicados e criação/edição/lançamento/encerramento de pesquisas. As ações de pessoas, estrutura, configurações e exportação entram com seus módulos. **Nunca** registra resposta de pesquisa anônima nem o vínculo entre pessoa e resposta.
+`audit_logs` é append-only: a role de runtime só tem `INSERT`/`SELECT`, e um trigger rejeita `UPDATE`, `DELETE` e `TRUNCATE`. A lista de ações é fechada (`AUDIT_ACTIONS`). Hoje registra login (com o método: senha ou Google), vínculo de login corporativo, logout, sessão revogada, redefinição de senha, concessão e revogação de papel, edição de perfil, criação/edição/publicação/arquivamento de comunicados, remoção de comentário por moderação (sem o texto), criação/edição/exclusão de eventos e links rápidos e criação/edição/lançamento/encerramento de pesquisas. As ações de pessoas, estrutura, configurações e exportação entram com seus módulos. **Nunca** registra resposta de pesquisa anônima nem o vínculo entre pessoa e resposta.
 
 ## Uploads
 
 - Tipo detectado pelos **bytes do arquivo** (PNG, JPEG, WEBP, PDF); SVG, HTML e executáveis recusados.
-- Limites por finalidade: imagens de banner e de capa de comunicado até **3 MB**; demais até 4 MB (corpo de função na Vercel é 4,5 MB); nome exibido saneado, chave de armazenamento gerada no servidor.
+- Limites por finalidade: imagens de banner e de capa de comunicado até **3 MB**; anexos de comunicado (PDF ou imagem) e demais até 4 MB (corpo de função na Vercel é 4,5 MB); nome exibido saneado, chave de armazenamento gerada no servidor.
 - Armazenamento **privado** (Vercel Blob com `access: "private"`); nada é acessível por URL pública. Entrega só por `/api/v1/files/:id` após sessão + tenant, com `X-Content-Type-Options: nosniff`, CSP `sandbox` e `Cache-Control: private`.
 - Sem `BLOB_READ_WRITE_TOKEN` em produção, uploads respondem 503 com mensagem clara.
-- Vídeos de aulas: só YouTube (domínio *nocookie*) e Vimeo, em iframe com `sandbox`; o CSP `frame-src` libera apenas esses dois.
+- Vídeos de aulas e de comunicados: só YouTube (domínio *nocookie*) e Vimeo, em iframe com `sandbox`; o CSP `frame-src` libera apenas esses dois. Vídeo nunca é enviado como arquivo.
 
 ## LGPD
 

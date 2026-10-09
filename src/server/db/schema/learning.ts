@@ -3,6 +3,7 @@ import { boolean, check, date, foreignKey, index, integer, pgTable, primaryKey, 
 import { createdAt, id, tenantId, timestamps } from "./_columns";
 import { users } from "./auth";
 import { files } from "./files";
+import { orgUnits } from "./organization";
 import { organizations } from "./tenancy";
 
 /**
@@ -37,12 +38,16 @@ export const announcements = pgTable(
     pinned: boolean("pinned").notNull().default(false),
     /** Imagem de capa (arquivo privado, finalidade announcement_cover). Sem ela, tema + ilustração. */
     coverFileId: uuid("cover_file_id"),
+    /** Público: nulo = toda a empresa; senão, a área e suas subáreas (lotação atual). */
+    audienceOrgUnitId: uuid("audience_org_unit_id"),
     /** Publicação agendada quando no futuro. */
     publishedAt: timestamp("published_at", { withTimezone: true, mode: "date" }),
     createdBy: uuid("created_by"),
     ...timestamps(),
   },
   (t) => [
+    unique("announcements_tenant_id_id_key").on(t.tenantId, t.id),
+    foreignKey({ name: "announcements_audience_fk", columns: [t.tenantId, t.audienceOrgUnitId], foreignColumns: [orgUnits.tenantId, orgUnits.id] }),
     foreignKey({ name: "announcements_created_by_fk", columns: [t.tenantId, t.createdBy], foreignColumns: [users.tenantId, users.id] }),
     foreignKey({ name: "announcements_cover_file_fk", columns: [t.tenantId, t.coverFileId], foreignColumns: [files.tenantId, files.id] }),
     index("announcements_feed_idx").on(t.tenantId, t.status, t.publishedAt.desc()),

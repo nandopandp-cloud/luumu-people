@@ -13,7 +13,6 @@ import { MANAGED_STATUS } from "@/features/announcements/labels";
 import { CommunicationTabs } from "@/features/banners/communication-tabs";
 import { ANNOUNCEMENT_CATEGORY } from "@/features/home/labels";
 import { formatDateTime } from "@/lib/format";
-import { hasTenantWide } from "@/server/authz/policy";
 import { requirePermission } from "@/server/dal";
 import { MANAGED_FILTERS, type ManagedFilter } from "@/server/modules/announcements/schemas";
 import { listManagedAnnouncements } from "@/server/modules/announcements/service";
@@ -56,7 +55,7 @@ export default function CommunicationPage({ searchParams }: PageProps<"/gestao/c
 
 async function Tabs() {
   const actor = await requirePermission("comms.announcement.create");
-  return <CommunicationTabs current="comunicados" canManageBanners={hasTenantWide(actor, "comms.announcement.publish")} />;
+  return <CommunicationTabs current="comunicados" actor={actor} />;
 }
 
 async function List({ searchParams }: { searchParams: SP }) {

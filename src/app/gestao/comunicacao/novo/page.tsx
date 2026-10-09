@@ -5,6 +5,8 @@ import { Breadcrumb } from "@/design-system/components/navigation";
 import { AnnouncementEditor } from "@/features/announcements/announcement-editor";
 import { hasTenantWide } from "@/server/authz/policy";
 import { requirePermission } from "@/server/dal";
+import { toAudienceOptions } from "@/features/announcements/audience-options";
+import { listAudienceOptions } from "@/server/modules/announcements/service";
 
 export const metadata: Metadata = { title: "Novo comunicado" };
 
@@ -24,5 +26,5 @@ export default function NewAnnouncementPage() {
 
 async function Editor() {
   const actor = await requirePermission("comms.announcement.create");
-  return <AnnouncementEditor canPublish={hasTenantWide(actor, "comms.announcement.publish")} />;
+  return <AnnouncementEditor canPublish={hasTenantWide(actor, "comms.announcement.publish")} audienceOptions={toAudienceOptions(await listAudienceOptions(actor))} />;
 }

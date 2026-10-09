@@ -162,6 +162,20 @@
       "when": 1791570598509,
       "tag": "0022_banner_image_layout_security",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791585497529,
+      "tag": "0023_communication",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791585505391,
+      "tag": "0024_communication_security",
+      "breakpoints": true
     }
   ]
 }

@@ -10,7 +10,8 @@ test.describe("Comunicados", () => {
     await expect(page.getByText("Festa de fim de ano")).toHaveCount(0);
     await expectAccessible(page);
 
-    await page.getByRole("navigation", { name: "Filtrar por categoria" }).getByRole("link", { name: "Segurança" }).click();
+    await page.getByRole("region", { name: "Filtrar comunicados" }).getByLabel("Categoria").selectOption("seguranca");
+    await expect(page).toHaveURL(/categoria=seguranca/);
     await expect(page.getByRole("heading", { name: "Simulado de evacuação do prédio" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Nova política de trabalho híbrido" })).toHaveCount(0);
 

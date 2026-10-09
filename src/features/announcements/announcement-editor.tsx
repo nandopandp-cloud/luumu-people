@@ -15,6 +15,7 @@ import { useToast } from "@/design-system/components/toast";
 import { CoverArt, type CoverIllustration, type CoverTheme } from "@/design-system/illustrations/cover-art";
 import { ImageUploadField } from "@/features/files/image-upload-field";
 import { ANNOUNCEMENT_CATEGORY } from "@/features/home/labels";
+import { AttachmentsField, type EditorAttachment } from "./attachments-field";
 import { api, ApiError } from "@/lib/api-client";
 import { ILLUSTRATION_LABEL, MANAGED_STATUS, THEME_LABEL } from "./labels";
 
@@ -27,11 +28,17 @@ type Values = {
   illustration: CoverIllustration;
   pinned: boolean;
   coverFileId: string | null;
+  /** "" = empresa toda. */
+  audienceOrgUnitId: string;
+  attachments: EditorAttachment[];
 };
+
+/** Área disponível como público, já com a profundidade na hierarquia (para recuo na lista). */
+export type AudienceOption = { id: string; name: string; depth: number };
 
 export type EditorAnnouncement = Values & { id: string; managedStatus: "draft" | "scheduled" | "published" | "archived" };
 
-const EMPTY: Values = { title: "", summary: "", body: "", category: "institucional", theme: "purple", illustration: "megaphone", pinned: false, coverFileId: null };
+const EMPTY: Values = { title: "", summary: "", body: "", category: "institucional", theme: "purple", illustration: "megaphone", pinned: false, coverFileId: null, audienceOrgUnitId: "", attachments: [] };
 
 /** Data/hora local (input datetime-local) → ISO com fuso. */
 const toIso = (local: string) => new Date(local).toISOString();
@@ -40,7 +47,7 @@ const toIso = (local: string) => new Date(local).toISOString();
  * Editor de comunicado. A interface só oferece o que a pessoa pode fazer; o
  * servidor decide (rascunho × publicação, janela de agendamento).
  */
-export function AnnouncementEditor({ announcement, canPublish }: { announcement?: EditorAnnouncement; canPublish: boolean }) {
+export function AnnouncementEditor({ announcement, canPublish, audienceOptions }: { announcement?: EditorAnnouncement; canPublish: boolean; audienceOptions: AudienceOption[] }) {
   const router = useRouter();
   const toast = useToast();
   const [values, setValues] = useState<Values>(announcement ? { ...announcement, body: announcement.body ?? "" } : EMPTY);
@@ -73,7 +80,12 @@ export function AnnouncementEditor({ announcement, canPublish }: { announcement?
 
   /** Salva (cria ou atualiza) e devolve o id. */
   async function save(): Promise<string> {
-    const body = { ...values, body: values.body.trim() || null };
+    const body = {
+      ...values,
+      body: values.body.trim() || null,
+      audienceOrgUnitId: values.audienceOrgUnitId || null,
+      attachments: values.attachments.map((a) => (a.kind === "file" ? { kind: a.kind, title: a.title, fileId: a.fileId } : { kind: a.kind, title: a.title, videoUrl: a.videoUrl })),
+    };
     if (announcement) {
       await api(`/api/v1/announcements/${announcement.id}`, { method: "PUT", body });
       return announcement.id;
@@ -183,6 +195,20 @@ export function AnnouncementEditor({ announcement, canPublish }: { announcement?
               setCoverPreview(previewUrl);
             }}
           />
+          <Field label="Público" hint="Com uma área escolhida, o comunicado aparece só para quem está nela ou nas subáreas (aba “Minha área”)." error={errors.audienceOrgUnitId}>
+            {(f) => (
+              <Select id={f.id} aria-describedby={f.describedBy} value={values.audienceOrgUnitId} onChange={(e) => update("audienceOrgUnitId", e.target.value)}>
+                <option value="">Toda a empresa</option>
+                {audienceOptions.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {"\u2003".repeat(o.depth)}
+                    {o.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+          <AttachmentsField value={values.attachments} onChange={(next) => update("attachments", next)} errors={errors} />
           <div>
             <Switch label="Fixar no topo do mural" checked={values.pinned} onCheckedChange={(v) => update("pinned", v === true)} disabled={!canPublish} />
             {!canPublish ? <p className="mt-1 text-caption text-neutral-500">Fixar exige permissão de publicação.</p> : null}

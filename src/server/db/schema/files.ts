@@ -4,7 +4,7 @@ import { createdAt, id, tenantId } from "./_columns";
 import { users } from "./auth";
 import { organizations } from "./tenancy";
 
-export const FILE_PURPOSE_VALUES = ["avatar", "course_cover", "announcement_cover", "lesson_material", "library_material", "home_banner", "profile_cover"] as const;
+export const FILE_PURPOSE_VALUES = ["avatar", "course_cover", "announcement_cover", "lesson_material", "library_material", "home_banner", "profile_cover", "announcement_attachment"] as const;
 
 /**
  * Arquivos enviados. O conteúdo fica em storage PRIVADO (Vercel Blob privado em

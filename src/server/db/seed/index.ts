@@ -5,6 +5,7 @@ import { SYSTEM_ROLES, type SystemRoleKey } from "@/server/authz/system-roles";
 import { hashPassword } from "@/server/auth/password";
 import type { Database } from "../client";
 import * as s from "../schema";
+import { seedCommunication } from "./communication";
 import { seedContent } from "./content";
 import { seedSurveys } from "./surveys";
 import { DEFAULT_EDITABLE_PROFILE_FIELDS, SEED_FEATURE_FLAGS, SEED_ORGANIZATIONS, seedEmail, type SeedOrganization } from "./data";
@@ -194,6 +195,7 @@ export async function seedDemo(db: Database, password: string): Promise<SeedResu
       const seeded = await seedOrganization(t, org, passwordHash);
       if (seeded) {
         await seedContent(t, seeded.tenantId, [...seeded.users.values()].map((u) => u.id));
+        await seedCommunication(t, seeded.tenantId);
         await seedSurveys(t, seeded.tenantId);
         await enableLearningFor(t, seeded);
         result.set(org.slug, seeded);

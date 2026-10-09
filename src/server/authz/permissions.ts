@@ -48,6 +48,9 @@ export const PERMISSIONS = {
   // Comunicação
   "comms.announcement.create": { domain: "comms", description: "Criar e editar comunicados", scopes: tenantOnly },
   "comms.announcement.publish": { domain: "comms", description: "Publicar e agendar comunicados", scopes: tenantOnly },
+  "comms.comment.moderate": { domain: "comms", description: "Remover comentários de comunicados", scopes: tenantOnly },
+  "comms.event.manage": { domain: "comms", description: "Gerenciar a agenda de eventos", scopes: tenantOnly },
+  "comms.quicklink.manage": { domain: "comms", description: "Gerenciar os links rápidos do mural", scopes: tenantOnly },
 
   // Pessoas e organização
   "people.directory.read": { domain: "people", description: "Ver dados profissionais de colaboradores", scopes: people },

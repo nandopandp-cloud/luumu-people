@@ -1,5 +1,6 @@
 import { parseArgs } from "node:util";
 import { eq } from "drizzle-orm";
+import { seedCommunication } from "../src/server/db/seed/communication";
 import { activeUserIds, seedContent, seedDevelopment, seedLessons } from "../src/server/db/seed/content";
 import { ownerDatabase, schema as s } from "./_db";
 
@@ -24,11 +25,13 @@ try {
     // Completa cursos antigos sem aulas (idempotente).
     const lessonCount = await seedLessons(t, org.id);
     await seedDevelopment(t, org.id);
+    await seedCommunication(t, org.id);
     return [content, lessonCount] as const;
   });
   console.log(done ? "✓ Conteúdo de exemplo carregado." : "Comunicados e trilhas já existiam.");
   console.log(`✓ Aulas criadas para ${lessons} curso(s) sem aulas.`);
   console.log("✓ Competências e PDIs demonstrativos (se ainda não existiam).");
+  console.log("✓ Eventos, links rápidos e interações do mural (se ainda não existiam).");
 } finally {
   await pool.end();
 }

@@ -1,11 +1,13 @@
 import "server-only";
-import { and, desc, eq, gt, inArray, isNull, lte, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNull, lte, notInArray, sql, type SQL } from "drizzle-orm";
 import { recordAudit } from "@/server/audit/audit";
 import type { AuthenticatedActor } from "@/server/auth/session";
 import { hasTenantWide } from "@/server/authz/policy";
 import * as s from "@/server/db/schema";
 import { withTenant, type Tx } from "@/server/db/tenant";
 import { badRequest, conflict, forbidden, notFound } from "@/server/http/errors";
+import { toEmbedUrl } from "@/server/modules/courses/video";
+import { audienceMineSql, audienceVisibleSql } from "./audience";
 import type { AnnouncementInput, ManagedFilter } from "./schemas";
 
 /**
@@ -14,7 +16,8 @@ import type { AnnouncementInput, ManagedFilter } from "./schemas";
  *    (agendados ficam invisíveis até a data). Fixados primeiro.
  *  - Gestão: `comms.announcement.create` cria e edita rascunhos;
  *    `comms.announcement.publish` publica, agenda, fixa, arquiva e edita o que
- *    já está no ar. Segmentação por público: próxima etapa.
+ *    já está no ar.
+ *  - Público: empresa toda ou uma área (e subáreas) — ver ./audience.ts.
  */
 
 type Meta = { ip: string | null; userAgent: string | null; requestId: string };
@@ -33,36 +36,111 @@ const feedColumns = {
 
 const visibleNow = () => and(eq(s.announcements.status, "published"), lte(s.announcements.publishedAt, new Date()));
 
+/** Publicado, já no ar e dirigido à pessoa (empresa toda ou a área dela). */
+export const visibleTo = (actor: AuthenticatedActor) => and(visibleNow(), audienceVisibleSql(s.announcements.audienceOrgUnitId, actor.userId));
+
+/**
+ * Contadores do mural: curtidas, comentários (não removidos) e anexos por tipo.
+ * Colunas qualificadas à mão: o Drizzle omite a tabela no SELECT de uma tabela só,
+ * e "id" dentro da subconsulta apontaria para a tabela errada.
+ */
+const engagementColumns = (actor: AuthenticatedActor) => ({
+  likes: sql<number>`(select count(*)::int from announcement_reactions r where r.tenant_id = announcements.tenant_id and r.announcement_id = announcements.id)`,
+  likedByMe: sql<boolean>`exists (select 1 from announcement_reactions r where r.tenant_id = announcements.tenant_id and r.announcement_id = announcements.id and r.user_id = ${actor.userId})`,
+  comments: sql<number>`(select count(*)::int from announcement_comments c where c.tenant_id = announcements.tenant_id and c.announcement_id = announcements.id and c.deleted_at is null)`,
+  files: sql<number>`(select count(*)::int from announcement_attachments x where x.tenant_id = announcements.tenant_id and x.announcement_id = announcements.id and x.kind = 'file')`,
+  videos: sql<number>`(select count(*)::int from announcement_attachments x where x.tenant_id = announcements.tenant_id and x.announcement_id = announcements.id and x.kind = 'video')`,
+  forMyArea: sql<boolean>`(${s.announcements.audienceOrgUnitId} is not null)`,
+});
+
 /** Mural resumido (Início): fixados primeiro, depois os mais recentes. */
 export async function listAnnouncementFeed(actor: AuthenticatedActor, limit = 3) {
   return withTenant(actor, (tx) =>
-    tx.select(feedColumns).from(s.announcements).where(visibleNow()).orderBy(desc(s.announcements.pinned), desc(s.announcements.publishedAt)).limit(limit),
+    tx.select(feedColumns).from(s.announcements).where(visibleTo(actor)).orderBy(desc(s.announcements.pinned), desc(s.announcements.publishedAt)).limit(limit),
   );
 }
 
 export type AnnouncementCategory = (typeof s.ANNOUNCEMENT_CATEGORIES)[number];
 
-/** Mural completo, com filtro por categoria e paginação simples ("ver mais"). */
-export async function listAnnouncements(actor: AuthenticatedActor, { category, limit }: { category?: AnnouncementCategory; limit: number }) {
+export const FEED_TABS = ["todos", "importantes", "minha-area"] as const;
+export type FeedTab = (typeof FEED_TABS)[number];
+export const FEED_PERIODS = ["recentes", "7d", "30d", "90d"] as const;
+export type FeedPeriod = (typeof FEED_PERIODS)[number];
+const PERIOD_DAYS: Record<FeedPeriod, number | null> = { recentes: null, "7d": 7, "30d": 30, "90d": 90 };
+
+export type FeedQuery = { tab?: FeedTab; category?: AnnouncementCategory; period?: FeedPeriod; limit: number; exclude?: string[] };
+
+/** Mural completo: abas (todos, importantes, minha área), categoria, período e "ver mais". */
+export async function listAnnouncements(actor: AuthenticatedActor, { tab = "todos", category, period = "recentes", limit, exclude = [] }: FeedQuery) {
+  const days = PERIOD_DAYS[period];
   return withTenant(actor, async (tx) => {
-    const where = and(visibleNow(), category ? eq(s.announcements.category, category) : undefined);
+    const where = and(
+      visibleTo(actor),
+      tab === "importantes" ? eq(s.announcements.pinned, true) : undefined,
+      tab === "minha-area" ? audienceMineSql(s.announcements.audienceOrgUnitId, actor.userId) : undefined,
+      category ? eq(s.announcements.category, category) : undefined,
+      days ? gte(s.announcements.publishedAt, new Date(Date.now() - days * 86_400_000)) : undefined,
+      exclude.length ? notInArray(s.announcements.id, exclude) : undefined,
+    );
     const [items, [total]] = await Promise.all([
-      tx.select(feedColumns).from(s.announcements).where(where).orderBy(desc(s.announcements.pinned), desc(s.announcements.publishedAt)).limit(limit),
+      tx
+        .select({ ...feedColumns, ...engagementColumns(actor) })
+        .from(s.announcements)
+        .where(where)
+        .orderBy(desc(s.announcements.pinned), desc(s.announcements.publishedAt))
+        .limit(limit),
       tx.select({ n: sql<number>`count(*)::int` }).from(s.announcements).where(where),
     ]);
     return { items, total: total?.n ?? 0 };
   });
 }
 
-/** Comunicado publicado (colaborador). Rascunho, agendado ou arquivado → 404. */
+/** Destaques do mural (carrossel): comunicados fixados, do mais recente ao mais antigo. */
+export async function listFeaturedAnnouncements(actor: AuthenticatedActor, limit = 5) {
+  return withTenant(actor, (tx) =>
+    tx
+      .select(feedColumns)
+      .from(s.announcements)
+      .where(and(visibleTo(actor), eq(s.announcements.pinned, true)))
+      .orderBy(desc(s.announcements.publishedAt))
+      .limit(limit),
+  );
+}
+
+/**
+ * "Comunicado da semana": os mais engajados (curtidas + comentários) publicados
+ * nos últimos 7 dias. Semana sem publicações: os mais recentes.
+ */
+export async function listWeeklyHighlights(actor: AuthenticatedActor, limit = 3) {
+  const weekAgo = new Date(Date.now() - 7 * 86_400_000);
+  return withTenant(actor, async (tx) => {
+    const engagement = engagementColumns(actor);
+    const week = await tx
+      .select(feedColumns)
+      .from(s.announcements)
+      .where(and(visibleTo(actor), gte(s.announcements.publishedAt, weekAgo)))
+      .orderBy(desc(sql`${engagement.likes} + ${engagement.comments}`), desc(s.announcements.publishedAt))
+      .limit(limit);
+    if (week.length > 0) return week;
+    return tx.select(feedColumns).from(s.announcements).where(visibleTo(actor)).orderBy(desc(s.announcements.publishedAt)).limit(limit);
+  });
+}
+
+/** Comunicado visível para a pessoa (colaborador). Rascunho, agendado, arquivado ou de outra área → 404. */
 export async function getAnnouncement(actor: AuthenticatedActor, id: string) {
   return withTenant(actor, async (tx) => {
     const [row] = await tx
-      .select({ ...feedColumns, body: s.announcements.body })
+      .select({ ...feedColumns, ...engagementColumns(actor), body: s.announcements.body })
       .from(s.announcements)
-      .where(and(eq(s.announcements.id, id), visibleNow()));
+      .where(and(eq(s.announcements.id, id), visibleTo(actor)));
     if (!row) throw notFound("Comunicado não encontrado.");
-    return row;
+    const attachments = await tx
+      .select({ id: s.announcementAttachments.id, kind: s.announcementAttachments.kind, title: s.announcementAttachments.title, fileId: s.announcementAttachments.fileId, videoUrl: s.announcementAttachments.videoUrl, mimeType: s.files.mimeType, sizeBytes: s.files.sizeBytes })
+      .from(s.announcementAttachments)
+      .leftJoin(s.files, eq(s.files.id, s.announcementAttachments.fileId))
+      .where(eq(s.announcementAttachments.announcementId, id))
+      .orderBy(asc(s.announcementAttachments.position));
+    return { ...row, attachments: attachments.map((a) => ({ ...a, embedUrl: a.kind === "video" ? toEmbedUrl(a.videoUrl) : null })) };
   });
 }
 
@@ -103,16 +181,66 @@ export async function listManagedAnnouncements(actor: AuthenticatedActor, filter
 
 async function loadManaged(tx: Tx, id: string) {
   const [row] = await tx
-    .select({ ...feedColumns, body: s.announcements.body, status: s.announcements.status })
+    .select({ ...feedColumns, body: s.announcements.body, status: s.announcements.status, audienceOrgUnitId: s.announcements.audienceOrgUnitId })
     .from(s.announcements)
     .where(eq(s.announcements.id, id));
   if (!row) throw notFound("Comunicado não encontrado.");
   return { ...row, managedStatus: managedStatus(row.status, row.publishedAt) };
 }
 
+async function loadAttachments(tx: Tx, id: string) {
+  return tx
+    .select({ kind: s.announcementAttachments.kind, title: s.announcementAttachments.title, fileId: s.announcementAttachments.fileId, videoUrl: s.announcementAttachments.videoUrl, mimeType: s.files.mimeType })
+    .from(s.announcementAttachments)
+    .leftJoin(s.files, eq(s.files.id, s.announcementAttachments.fileId))
+    .where(eq(s.announcementAttachments.announcementId, id))
+    .orderBy(asc(s.announcementAttachments.position));
+}
+
+/** Público: a área precisa existir no tenant e estar ativa. */
+async function assertAudience(tx: Tx, orgUnitId: string | null) {
+  if (!orgUnitId) return;
+  const [unit] = await tx.select({ id: s.orgUnits.id }).from(s.orgUnits).where(and(eq(s.orgUnits.id, orgUnitId), isNull(s.orgUnits.archivedAt)));
+  if (!unit) throw badRequest("Área do público não encontrada.");
+}
+
+/** Substitui os anexos. Arquivos: só os enviados como anexo de comunicado, no próprio tenant. */
+async function replaceAttachments(tx: Tx, tenantId: string, announcementId: string, attachments: AnnouncementInput["attachments"]) {
+  const fileIds = attachments.flatMap((a) => (a.kind === "file" ? [a.fileId] : []));
+  if (fileIds.length) {
+    const found = await tx
+      .select({ id: s.files.id })
+      .from(s.files)
+      .where(and(inArray(s.files.id, fileIds), eq(s.files.purpose, "announcement_attachment"), isNull(s.files.deletedAt)));
+    if (found.length !== new Set(fileIds).size) throw badRequest("Um dos anexos não foi encontrado. Envie o arquivo novamente.");
+  }
+  await tx.delete(s.announcementAttachments).where(eq(s.announcementAttachments.announcementId, announcementId));
+  if (attachments.length) {
+    await tx.insert(s.announcementAttachments).values(
+      attachments.map((a, position) =>
+        a.kind === "file"
+          ? { tenantId, announcementId, kind: "file" as const, title: a.title, fileId: a.fileId, position }
+          : { tenantId, announcementId, kind: "video" as const, title: a.title, videoUrl: a.videoUrl, position },
+      ),
+    );
+  }
+}
+
+/** Áreas disponíveis como público de comunicado (nome e hierarquia; sem dados de pessoas). */
+export async function listAudienceOptions(actor: AuthenticatedActor) {
+  requireComms(actor, "comms.announcement.create");
+  return withTenant(actor, (tx) =>
+    tx
+      .select({ id: s.orgUnits.id, name: s.orgUnits.name, type: s.orgUnits.type, parentId: s.orgUnits.parentId })
+      .from(s.orgUnits)
+      .where(isNull(s.orgUnits.archivedAt))
+      .orderBy(asc(s.orgUnits.name)),
+  );
+}
+
 export async function getManagedAnnouncement(actor: AuthenticatedActor, id: string) {
   requireComms(actor, "comms.announcement.create");
-  return withTenant(actor, (tx) => loadManaged(tx, id));
+  return withTenant(actor, async (tx) => ({ ...(await loadManaged(tx, id)), attachments: await loadAttachments(tx, id) }));
 }
 
 /** A capa precisa ser uma imagem de comunicado do próprio tenant (RLS + finalidade). */
@@ -129,11 +257,14 @@ export async function createAnnouncement(actor: AuthenticatedActor, input: Annou
   requireComms(actor, "comms.announcement.create");
   if (input.pinned) requireComms(actor, "comms.announcement.publish");
   return withTenant(actor, async (tx) => {
+    const { attachments, ...fields } = input;
     await assertCover(tx, input.coverFileId);
+    await assertAudience(tx, input.audienceOrgUnitId);
     const [row] = await tx
       .insert(s.announcements)
-      .values({ tenantId: actor.tenantId, ...input, body: input.body || null, status: "draft", createdBy: actor.userId })
+      .values({ tenantId: actor.tenantId, ...fields, body: input.body || null, status: "draft", createdBy: actor.userId })
       .returning({ id: s.announcements.id });
+    await replaceAttachments(tx, actor.tenantId, row!.id, attachments);
     await recordAudit(tx, { tenantId: actor.tenantId, actorUserId: actor.userId, action: "comms.announcement_created", resourceType: "announcement", resourceId: row!.id, metadata: { title: input.title }, ...auditMeta(meta) });
     return { id: row!.id };
   });
@@ -145,11 +276,14 @@ export async function updateAnnouncement(actor: AuthenticatedActor, id: string, 
     const current = await loadManaged(tx, id);
     // O que já está no ar (ou agendado) e o destaque só mudam com permissão de publicação.
     if (current.managedStatus !== "draft" || input.pinned !== current.pinned) requireComms(actor, "comms.announcement.publish");
+    const { attachments, ...fields } = input;
     await assertCover(tx, input.coverFileId);
+    await assertAudience(tx, input.audienceOrgUnitId);
     await tx
       .update(s.announcements)
-      .set({ ...input, body: input.body || null })
+      .set({ ...fields, body: input.body || null })
       .where(eq(s.announcements.id, id));
+    await replaceAttachments(tx, actor.tenantId, id, attachments);
     await recordAudit(tx, { tenantId: actor.tenantId, actorUserId: actor.userId, action: "comms.announcement_updated", resourceType: "announcement", resourceId: id, metadata: { title: input.title }, ...auditMeta(meta) });
     return { id };
   });

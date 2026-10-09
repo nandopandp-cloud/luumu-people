@@ -27,7 +27,9 @@ export default function BannersPage() {
           </Link>
         </Button>
       </header>
-      <CommunicationTabs current="banners" canManageBanners />
+      <Suspense fallback={null}>
+        <Tabs />
+      </Suspense>
       <Suspense fallback={<Skeleton className="h-[320px] rounded-xl" />}>
         <List />
       </Suspense>
@@ -39,6 +41,10 @@ function period(startsAt: Date | null, endsAt: Date | null) {
   if (!startsAt && !endsAt) return null;
   if (startsAt && endsAt) return `De ${formatDateTime(startsAt)} até ${formatDateTime(endsAt)}`;
   return startsAt ? `A partir de ${formatDateTime(startsAt)}` : `Até ${formatDateTime(endsAt!)}`;
+}
+
+async function Tabs() {
+  return <CommunicationTabs current="banners" actor={await requirePermission("comms.announcement.publish")} />;
 }
 
 async function List() {

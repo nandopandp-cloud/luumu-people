@@ -1,6 +1,6 @@
 export const ANNOUNCEMENT_CATEGORY: Record<string, { label: string; tone: "purple" | "green" | "orange" | "blue" | "pink" }> = {
   institucional: { label: "Institucional", tone: "purple" },
-  gente_gestao: { label: "Gente e Gestão", tone: "green" },
+  gente_gestao: { label: "Pessoas", tone: "green" },
   desenvolvimento: { label: "Desenvolvimento", tone: "purple" },
   treinamento: { label: "Treinamento", tone: "blue" },
   evento: { label: "Evento", tone: "orange" },

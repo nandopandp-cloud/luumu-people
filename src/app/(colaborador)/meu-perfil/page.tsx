@@ -12,7 +12,7 @@ import { AvatarUploadButton, CoverUploadButton } from "@/features/profile/avatar
 import { ChangePasswordForm } from "@/features/profile/change-password-form";
 import { EditProfileDialog } from "@/features/profile/edit-profile-dialog";
 import { CONTRACT_LABELS, formatDate, formatLocation } from "@/lib/format";
-import { requireActor } from "@/server/dal";
+import { achievementsEnabled, requireActor } from "@/server/dal";
 import { getDevelopment } from "@/server/modules/development/service";
 import { getEnabledModules } from "@/server/modules/flags/modules";
 import { CompetencyBarsCard, GoalsCard, OverviewCards } from "@/features/development/sections";
@@ -42,8 +42,9 @@ export default function ProfilePage({ searchParams }: PageProps<"/meu-perfil">) 
 
 async function Profile({ searchParams }: { searchParams: PageProps<"/meu-perfil">["searchParams"] }) {
   const actor = await requireActor();
-  const [profile, params, modules] = await Promise.all([getMyProfile(actor), searchParams, getEnabledModules(actor)]);
-  const tabs = TABS.filter((t) => t.value !== "certificados" || modules.learning);
+  const [profile, params, modules, achievements] = await Promise.all([getMyProfile(actor), searchParams, getEnabledModules(actor), achievementsEnabled()]);
+  // Conquistas seguem a flag `gamification` (oculta por padrão), como no menu e na busca.
+  const tabs = TABS.filter((t) => (t.value !== "certificados" || modules.learning) && (t.value !== "conquistas" || achievements));
   const tab: Tab = tabs.some((t) => t.value === params.aba) ? (params.aba as Tab) : "visao-geral";
 
   return (
@@ -55,7 +56,7 @@ async function Profile({ searchParams }: { searchParams: PageProps<"/meu-perfil"
       {tab === "visao-geral" ? <Overview profile={profile} development={await getDevelopment(actor)} /> : null}
       {tab === "meus-dados" ? <MyData profile={profile} /> : null}
       {tab === "desenvolvimento" ? <ProfileDevelopment development={await getDevelopment(actor)} /> : null}
-      {tab === "conquistas" ? (
+      {tab === "conquistas" && achievements ? (
         <ComingSoon title="Suas conquistas vão aparecer aqui" description="Selos, níveis e marcos da sua jornada." phase="Chega na Fase 2 · Experiência do colaborador" />
       ) : null}
       {tab === "certificados" ? (

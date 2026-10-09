@@ -20,6 +20,7 @@ const UPLOAD_PERMISSION: Record<Exclude<FilePurpose, "avatar" | "profile_cover">
   announcement_cover: "comms.announcement.create",
   library_material: "content.library.manage",
   home_banner: "comms.announcement.publish",
+  announcement_attachment: "comms.announcement.create",
 };
 
 function storage() {
