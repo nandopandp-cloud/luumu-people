@@ -99,7 +99,7 @@ test.describe("Desenvolvimento", () => {
 test.describe("Perfil", () => {
   test("foto com editor (zoom, rotação) e capa personalizada", async ({ page }) => {
     test.setTimeout(120_000);
-    const image = path.join(process.cwd(), "public/images/login-scene.jpg");
+    const image = path.join(process.cwd(), "public/images/login-scene.webp");
     await signIn(page, "gabriel.rocha@aurora.example");
     await gotoHydrated(page, "/meu-perfil");
 
