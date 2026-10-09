@@ -28,6 +28,21 @@ test.describe("Fase 1 — fundação", () => {
     await expectAccessible(page);
   });
 
+  test("login com Google leva ao Google preservando o destino e mostra erros do retorno", async ({ page }) => {
+    // Não sai para a internet: o redirecionamento ao Google é interceptado.
+    await page.route("https://accounts.google.com/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<title>Google</title>" }));
+    await gotoHydrated(page, "/entrar?next=%2Fmeu-perfil");
+    await page.getByRole("button", { name: "Entrar com Google" }).click();
+    await page.waitForURL(/^https:\/\/accounts\.google\.com\//);
+    const google = new URL(page.url());
+    expect(google.searchParams.get("redirect_uri")).toMatch(/\/api\/auth\/callback\/google$/);
+    expect(google.searchParams.get("prompt")).toBe("select_account");
+
+    await gotoHydrated(page, "/entrar?error=signup_disabled");
+    await expect(page.getByText(/Não encontramos um acesso à Luumu People para esta conta Google/)).toBeVisible();
+    await expectAccessible(page);
+  });
+
   test("colaborador: início, perfil e edição do próprio perfil", async ({ page }) => {
     await signIn(page, "fernando.santos@aurora.example");
     await expect(page.getByText("Olá, Fernando!")).toBeVisible();

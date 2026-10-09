@@ -15,6 +15,8 @@ Validadas em `src/server/env.ts`: a aplicação falha alto se algo estiver errad
 | `SESSION_ABSOLUTE_HOURS` | todos | não (12) | duração máxima da sessão |
 | `EMAIL_FROM` | todos | não | remetente dos e-mails transacionais |
 | `RESEND_API_KEY` | produção | sim em produção | sem ela, em dev os e-mails vão para o terminal |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | todos | não | login com Google (OAuth client do tipo *Web application*; redirect URI `<APP_URL>/api/auth/callback/google`). Defina as duas juntas; sem elas, o botão avisa que o SSO não está ativo |
+| `GOOGLE_HOSTED_DOMAIN` | todos | não | restringe o login com Google a um domínio do Google Workspace (`empresa.com.br`) ou `*` (qualquer Workspace); conferido no `hd` do token |
 | `SEED_PASSWORD` | CLI | para `db:seed` | senha das contas demonstrativas |
 | `LUUMU_APP_LOGIN_PASSWORD`, `LUUMU_AUTH_LOGIN_PASSWORD` | CLI | para `db:provision-roles` | senhas dos logins de runtime (≥ 24 caracteres) |
 | `BLOB_READ_WRITE_TOKEN` | Vercel | para uploads | criado automaticamente ao conectar um **Blob store** ao projeto (Storage → Create → Blob). Sem ele, uploads respondem 503 |

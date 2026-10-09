@@ -13,7 +13,8 @@
 | Recuperação | token de uso único, guardado com **hash**, válido por 30 min |
 | MFA | **não faz parte do produto** (decisão de 2026-10-07). Tabela/coluna legadas `two_factors`/`two_factor_enabled` serão removidas na próxima release |
 | Cadastro | público desabilitado; endpoints `/sign-up`, `/update-user`, `/change-email`, `/delete-user` desligados |
-| SSO | Google Workspace / Microsoft Entra ID via OIDC (Fase 5) |
+| Login com Google | OAuth 2.0/OIDC com PKCE e `state` (Better Auth). **Só entra quem a empresa cadastrou**: nunca cria usuário; no primeiro acesso, vincula a conta Google ao usuário de mesmo e-mail **somente se o Google confirmar o e-mail** (`email_verified`). Nome e foto seguem o cadastro da empresa. Tokens do Google criptografados em `accounts`. Domínio do Workspace opcional (`GOOGLE_HOSTED_DOMAIN`, conferido no `hd`). Usuário/empresa inativos são barrados como no login por senha. Vínculo (`auth.sso_linked`) e login (`auth.login`, `method`) auditados |
+| SSO por empresa | Microsoft Entra ID e configuração do Google por tenant: Fase 5 |
 | Telemetria do Better Auth | desligada |
 
 ## Autorização
@@ -50,7 +51,7 @@ A CSP é estática e permite `'unsafe-inline'` em scripts. Nonces exigiriam rend
 
 ## Auditoria
 
-`audit_logs` é append-only: a role de runtime só tem `INSERT`/`SELECT`, e um trigger rejeita `UPDATE`, `DELETE` e `TRUNCATE`. A lista de ações é fechada (`AUDIT_ACTIONS`). Hoje registra login, logout, sessão revogada, redefinição de senha, concessão e revogação de papel, edição de perfil, criação/edição/publicação/arquivamento de comunicados e criação/edição/lançamento/encerramento de pesquisas. As ações de pessoas, estrutura, configurações e exportação entram com seus módulos. **Nunca** registra resposta de pesquisa anônima nem o vínculo entre pessoa e resposta.
+`audit_logs` é append-only: a role de runtime só tem `INSERT`/`SELECT`, e um trigger rejeita `UPDATE`, `DELETE` e `TRUNCATE`. A lista de ações é fechada (`AUDIT_ACTIONS`). Hoje registra login (com o método: senha ou Google), vínculo de login corporativo, logout, sessão revogada, redefinição de senha, concessão e revogação de papel, edição de perfil, criação/edição/publicação/arquivamento de comunicados e criação/edição/lançamento/encerramento de pesquisas. As ações de pessoas, estrutura, configurações e exportação entram com seus módulos. **Nunca** registra resposta de pesquisa anônima nem o vínculo entre pessoa e resposta.
 
 ## Uploads
 
@@ -69,4 +70,4 @@ A CSP é estática e permite `'unsafe-inline'` em scripts. Nonces exigiriam rend
 ## Riscos conhecidos e próximos passos
 
 - **Plano Hobby da Vercel:** os termos permitem apenas uso não comercial. Migre para o Pro antes de atender clientes.
-- SSO (Google Workspace / Microsoft Entra ID): Fase 5.
+- Login com Google configurado por ambiente (não por empresa) e Microsoft Entra ID: a configuração por tenant chega na Fase 5.

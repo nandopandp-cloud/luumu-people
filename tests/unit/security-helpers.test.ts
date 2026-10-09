@@ -4,6 +4,7 @@ import { checkRateLimit, memoryStore, setRateLimitStore } from "@/server/http/ra
 import { stripTenantKeys } from "@/server/http/route";
 import { evaluateFlags } from "@/server/modules/flags/service";
 import { safeNext } from "@/features/auth/safe-redirect";
+import { env, resetEnvCache } from "@/server/env";
 
 describe("stripTenantKeys — TESTE 8 (camada HTTP)", () => {
   it("remove tenant_id/tenantId em qualquer nível", () => {
@@ -76,5 +77,33 @@ describe("feature flags — precedência", () => {
   });
   it("sobrescritas de outro tenant são ignoradas", () => {
     expect(evaluateFlags(flags, [o({ tenantId: "t2", enabled: false })], ctx).gamification).toBe(true);
+  });
+});
+
+describe("env — login com Google", () => {
+  function withEnv(vars: Record<string, string | undefined>, fn: () => void) {
+    const saved = Object.fromEntries(Object.keys(vars).map((k) => [k, process.env[k]]));
+    Object.assign(process.env, vars);
+    for (const [k, v] of Object.entries(vars)) if (v === undefined) delete process.env[k];
+    resetEnvCache();
+    try {
+      fn();
+    } finally {
+      for (const [k, v] of Object.entries(saved)) if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+      resetEnvCache();
+    }
+  }
+
+  it("valores vazios (copiados do .env.example) contam como não configurado", () => {
+    withEnv({ GOOGLE_CLIENT_ID: "", GOOGLE_CLIENT_SECRET: "" }, () => {
+      expect(env().GOOGLE_CLIENT_ID).toBeUndefined();
+    });
+  });
+
+  it("exige client ID e secret juntos", () => {
+    withEnv({ GOOGLE_CLIENT_ID: "id.apps.googleusercontent.com", GOOGLE_CLIENT_SECRET: "" }, () => {
+      expect(() => env()).toThrow(/GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET juntos/);
+    });
   });
 });
