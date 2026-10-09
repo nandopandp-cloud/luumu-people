@@ -1,6 +1,7 @@
 import { Briefcase, Building2, CalendarDays, FileBadge, Hash, Mail, MapPin, Network, Phone, UserRound, UsersRound, type LucideIcon } from "lucide-react";
 import type { Metadata, Route } from "next";
 import { Suspense } from "react";
+import { cn } from "@/design-system/cn";
 import { Avatar } from "@/design-system/components/avatar";
 import { Mascot } from "@/design-system/components/brand";
 import { Card, CardHeader } from "@/design-system/components/card";
@@ -75,8 +76,8 @@ function ProfileHeader({ profile }: { profile: Profile }) {
         <>
           {/* eslint-disable-next-line @next/next/no-img-element -- arquivo privado servido pela própria API */}
           <img src={profile.profileCover} alt="" className="absolute inset-0 size-full object-cover" />
-          {/* Véu claro para manter o texto legível sobre qualquer imagem. */}
-          <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-white/90 via-white/75 to-white/20" />
+          {/* Véu leve sobre a imagem; a legibilidade vem do painel de vidro atrás dos textos. */}
+          <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-white/60 via-white/25 to-transparent" />
         </>
       ) : (
         <div aria-hidden className="absolute -right-8 -top-16 size-72 rounded-full bg-white/40 blur-2xl" />
@@ -84,7 +85,13 @@ function ProfileHeader({ profile }: { profile: Profile }) {
       <div className="absolute right-4 top-4 z-10">
         <CoverUploadButton hasCover={Boolean(profile.profileCover)} />
       </div>
-      <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center">
+      <div
+        className={cn(
+          "relative flex flex-col gap-6 sm:flex-row sm:items-center",
+          // Com capa: painel de vidro garante contraste dos textos sobre qualquer imagem.
+          profile.profileCover && "w-fit max-w-full rounded-2xl bg-white/85 p-5 shadow-md ring-1 ring-white/70 backdrop-blur-md sm:pr-8",
+        )}
+      >
         <div className="relative shrink-0 self-start">
           <Avatar name={profile.name} src={profile.image} size="xl" className="shadow-md ring-0" />
           {profile.editableFields.includes("image") ? <AvatarUploadButton /> : null}
