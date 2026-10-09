@@ -42,6 +42,9 @@ export default defineConfig({
       // Módulos de cursos/biblioteca ficam desligados; só estas pessoas os veem (specs de cursos).
       SEED_LEARNING_USERS: "natalia.cunha@aurora.example,fernando.santos@aurora.example",
       LOG_LEVEL: "warn",
+      // Login com Google ligado com credenciais fictícias; o spec intercepta o redirecionamento ao Google.
+      GOOGLE_CLIENT_ID: "e2e-client-id.apps.googleusercontent.com",
+      GOOGLE_CLIENT_SECRET: "e2e-google-client-secret",
     },
   },
 });

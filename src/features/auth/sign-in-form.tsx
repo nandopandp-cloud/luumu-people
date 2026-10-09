@@ -18,19 +18,58 @@ const MESSAGES: Record<number, string> = {
   429: "Muitas tentativas de acesso. Aguarde alguns minutos e tente novamente.",
 };
 
+/** Erros devolvidos pelo retorno do Google (`/entrar?error=…`). */
+const SSO_ERRORS: Record<string, string> = {
+  signup_disabled: "Não encontramos um acesso à Luumu People para esta conta Google. Use a conta do e-mail cadastrado pela sua empresa ou entre com e-mail e senha.",
+  account_not_linked: "Não foi possível vincular esta conta Google ao seu acesso: o Google não confirmou o e-mail. Entre com e-mail e senha.",
+  unable_to_link_account: "Não foi possível vincular esta conta Google ao seu acesso: o Google não confirmou o e-mail. Entre com e-mail e senha.",
+  email_not_found: "A conta Google não informou um e-mail. Entre com e-mail e senha.",
+  // Também cobre contas fora do domínio do Google Workspace permitido.
+  unable_to_get_user_info: "Não foi possível confirmar esta conta Google. Use a conta Google da sua empresa ou entre com e-mail e senha.",
+  unable_to_create_session: MESSAGES[403]!,
+  access_denied: "O login com Google foi cancelado. Tente de novo ou entre com e-mail e senha.",
+};
+
+function ssoError(code: string | null): string | null {
+  if (!code) return null;
+  return SSO_ERRORS[code] ?? "Não foi possível entrar com o Google agora. Tente novamente ou entre com e-mail e senha.";
+}
+
 function message(status: number | undefined, fallback?: string) {
   return (status && MESSAGES[status]) || fallback || "Não foi possível entrar agora. Tente novamente em instantes.";
 }
 
 export function SignInForm() {
   const router = useRouter();
-  const next = safeNext(useSearchParams().get("next"));
+  const params = useSearchParams();
+  const next = safeNext(params.get("next"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(() => ssoError(params.get("error")));
   const [ssoNotice, setSsoNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [googlePending, startGoogle] = useTransition();
+
+  function unavailable(name: string) {
+    setSsoNotice(`O acesso com ${name} fica disponível quando a sua empresa ativar o login corporativo (SSO). Por enquanto, entre com e-mail e senha.`);
+  }
+
+  function signInWithGoogle() {
+    setError(null);
+    setSsoNotice(null);
+    startGoogle(async () => {
+      const { error: err } = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: next,
+        errorCallbackURL: `/entrar?next=${encodeURIComponent(next)}`,
+      });
+      if (!err) return; // o cliente já redirecionou para o Google
+      // 404: provedor não configurado neste ambiente.
+      if (err.status === 404) return unavailable("Google");
+      setError(message(err.status, err.status === 429 ? err.message : undefined));
+    });
+  }
 
   function done() {
     router.replace(next as never);
@@ -118,22 +157,27 @@ export function SignInForm() {
         <span aria-hidden className="h-px flex-1 bg-line" />
       </div>
       <div className="space-y-3">
-        {[
-          { name: "Microsoft", Logo: MicrosoftLogo },
-          { name: "Google", Logo: GoogleLogo },
-        ].map(({ name, Logo }) => (
-          <Button
-            key={name}
-            type="button"
-            variant="ghost"
-            block
-            className="h-[52px] rounded-md! text-body font-medium"
-            aria-describedby={ssoNotice ? "sso-aviso" : undefined}
-            onClick={() => setSsoNotice(`O acesso com ${name} fica disponível quando a sua empresa ativar o login corporativo (SSO). Por enquanto, entre com e-mail e senha.`)}
-          >
-            <Logo className="size-5" /> Entrar com {name}
-          </Button>
-        ))}
+        <Button
+          type="button"
+          variant="ghost"
+          block
+          className="h-[52px] rounded-md! text-body font-medium"
+          aria-describedby={ssoNotice ? "sso-aviso" : undefined}
+          onClick={() => unavailable("Microsoft")}
+        >
+          <MicrosoftLogo className="size-5" /> Entrar com Microsoft
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          block
+          loading={googlePending}
+          className="h-[52px] rounded-md! text-body font-medium"
+          aria-describedby={ssoNotice ? "sso-aviso" : undefined}
+          onClick={signInWithGoogle}
+        >
+          <GoogleLogo className="size-5" /> Entrar com Google
+        </Button>
         {ssoNotice ? (
           <div id="sso-aviso">
             <Alert tone="info" title={ssoNotice} />

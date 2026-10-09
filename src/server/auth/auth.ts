@@ -64,6 +64,28 @@ function emailFrom(body: unknown): string | null {
   return null;
 }
 
+/**
+ * Login com Google. Só entra quem a empresa já cadastrou: nunca cria usuário
+ * (disableSignUp). No primeiro acesso, a conta Google é vinculada ao usuário
+ * de mesmo e-mail, desde que o Google confirme o e-mail (email_verified) —
+ * o Google NÃO está em trustedProviders, então e-mail não verificado é recusado.
+ */
+function socialProviders(config: ReturnType<typeof env>): BetterAuthOptions["socialProviders"] {
+  if (!config.GOOGLE_CLIENT_ID || !config.GOOGLE_CLIENT_SECRET) return {};
+  return {
+    google: {
+      clientId: config.GOOGLE_CLIENT_ID,
+      clientSecret: config.GOOGLE_CLIENT_SECRET,
+      hd: config.GOOGLE_HOSTED_DOMAIN,
+      prompt: "select_account",
+      disableSignUp: true,
+      disableImplicitSignUp: true,
+      // Nome e foto seguem o cadastro da empresa, não o perfil do Google.
+      overrideUserInfoOnSignIn: false,
+    },
+  };
+}
+
 function buildOptions(database: BetterAuthOptions["database"]): BetterAuthOptions {
   const config = env();
   const production = config.NODE_ENV === "production";
@@ -96,12 +118,15 @@ function buildOptions(database: BetterAuthOptions["database"]): BetterAuthOption
     account: {
       modelName: "accounts",
       encryptOAuthTokens: true,
-      accountLinking: { enabled: false },
+      // Vínculo implícito só para o login com Google (únicos provedores configurados);
+      // contas são criadas pela empresa, então o e-mail local não passa por verificação.
+      accountLinking: { enabled: true, requireLocalEmailVerified: false, allowDifferentEmails: false, updateUserInfoOnLink: false },
     },
     verification: {
       modelName: "verifications",
       storeIdentifier: "hashed",
     },
+    socialProviders: socialProviders(config),
     emailAndPassword: {
       enabled: true,
       disableSignUp: true,
@@ -133,6 +158,7 @@ function buildOptions(database: BetterAuthOptions["database"]): BetterAuthOption
       max: 100,
       customRules: {
         "/sign-in/email": { window: 60, max: config.AUTH_SIGNIN_RATE_LIMIT },
+        "/sign-in/social": { window: 60, max: config.AUTH_SIGNIN_RATE_LIMIT },
         "/request-password-reset": { window: 300, max: 3 },
         "/reset-password": { window: 300, max: 5 },
       },
@@ -142,6 +168,9 @@ function buildOptions(database: BetterAuthOptions["database"]): BetterAuthOption
       useSecureCookies: production,
       defaultCookieAttributes: { httpOnly: true, sameSite: "lax", secure: production, path: "/" },
       database: { generateId: "uuid" },
+      // Explícito: o Better Auth desliga a checagem de origem/callbackURL quando
+      // NODE_ENV=test; assim os testes validam o mesmo comportamento da produção.
+      disableOriginCheck: false,
       ipAddress: { ipAddressHeaders: ["x-forwarded-for", "x-real-ip"] },
     },
     // Endpoints que a plataforma não oferece: cadastro aberto, alteração de
@@ -183,13 +212,21 @@ function buildOptions(database: BetterAuthOptions["database"]): BetterAuthOption
       }),
     },
     databaseHooks: {
+      account: {
+        create: {
+          async after(account) {
+            if (account.providerId !== "credential") await audit(account.userId, "auth.sso_linked", { metadata: { provider: account.providerId } });
+          },
+        },
+      },
       session: {
         create: {
           async before(session) {
             if (!(await assertCanSignIn(session.userId))) return false;
           },
-          async after(session) {
-            await audit(session.userId, "auth.login", { ip: session.ipAddress, userAgent: session.userAgent });
+          async after(session, context) {
+            const method = context?.path?.startsWith("/callback/") ? context.params?.id : "password";
+            await audit(session.userId, "auth.login", { ip: session.ipAddress, userAgent: session.userAgent, metadata: method ? { method } : undefined });
           },
         },
         delete: {

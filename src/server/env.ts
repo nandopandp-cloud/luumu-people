@@ -32,6 +32,9 @@ export function trustedOrigins(): string[] {
   return [...new Set([env().APP_URL, ...hosts.filter(Boolean).map((h) => `https://${h}`)])];
 }
 
+/** Opcional em que vazio ("GOOGLE_CLIENT_ID=" copiado do .env.example) conta como ausente. */
+const optionalText = z.preprocess((v) => (v === "" ? undefined : v), z.string().min(1).optional());
+
 const schema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   APP_URL: z.url().default(defaultAppUrl),
@@ -44,6 +47,11 @@ const schema = z.object({
   SESSION_ABSOLUTE_HOURS: z.coerce.number().int().min(1).max(72).default(12),
   EMAIL_FROM: z.string().default("Luumu People <nao-responda@luumu.app>"),
   RESEND_API_KEY: z.string().optional(),
+  /** Login com Google (OAuth/OIDC). Sem as duas, o botão avisa que o SSO não está ativo. */
+  GOOGLE_CLIENT_ID: optionalText,
+  GOOGLE_CLIENT_SECRET: optionalText,
+  /** Restringe o login com Google a um domínio do Google Workspace (ex.: empresa.com.br) ou "*" (qualquer Workspace). */
+  GOOGLE_HOSTED_DOMAIN: optionalText,
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
 });
 
@@ -57,6 +65,9 @@ export function env(): Env {
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
     throw new Error(`Configuração de ambiente inválida: ${issues}`);
+  }
+  if (Boolean(parsed.data.GOOGLE_CLIENT_ID) !== Boolean(parsed.data.GOOGLE_CLIENT_SECRET)) {
+    throw new Error("Configuração de ambiente inválida: defina GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET juntos.");
   }
   if (parsed.data.NODE_ENV === "production" && parsed.data.DATABASE_URL.startsWith("pglite://")) {
     throw new Error("PGlite não é permitido em produção. Configure DATABASE_URL com o Neon.");
