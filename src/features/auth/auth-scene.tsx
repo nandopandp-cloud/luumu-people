@@ -20,26 +20,26 @@ const FEATURES = [
 export function AuthScene() {
   return (
     <div className="relative h-full overflow-hidden bg-gradient-to-br from-purple-50 via-purple-100 to-purple-50">
-      {/* Ilustração ocupando toda a altura do painel. O corte fica à direita (só os
-          livros), para o Luumu ficar ao lado dos textos; os cards nunca são cortados.
-          Um véu claro estreito à esquerda garante a leitura dos textos. */}
-      <Image
-        src="/images/login-scene.webp"
-        alt=""
+      {/* Ilustração encostada embaixo e à direita, no maior tamanho em que o Luumu
+          ainda começa depois da coluna de texto (300px). Só os livros são cortados à
+          direita; bordas esquerda e superior se dissolvem no gradiente. */}
+      <div
         aria-hidden
-        fill
-        priority
-        quality={90}
-        sizes="(min-width: 1280px) 75vw, 0px"
-        className="hidden object-cover object-[20%_top] xl:block"
-      />
+        className="absolute bottom-0 right-0 hidden aspect-[1374/1145] translate-x-[9%] xl:block"
+        style={{
+          width: "min(calc((100% - 300px) * 4 / 3), calc(100dvh * 1.2))",
+          maskImage: "linear-gradient(to right, transparent 0, #000 14%), linear-gradient(to bottom, transparent 0, #000 12%)",
+          maskComposite: "intersect",
+          WebkitMaskImage: "linear-gradient(to right, transparent 0, #000 14%), linear-gradient(to bottom, transparent 0, #000 12%)",
+          WebkitMaskComposite: "source-in",
+        }}
+      >
+        <Image src="/images/login-scene.webp" alt="" fill priority quality={90} sizes="(min-width: 1280px) 60vw, 0px" className="object-cover" />
+      </div>
       <div
         aria-hidden
         className="absolute inset-0 hidden xl:block"
-        style={{
-          background:
-            "linear-gradient(to right, var(--color-purple-50) 0, var(--color-purple-50) 215px, color-mix(in srgb, var(--color-purple-50) 65%, transparent) 285px, transparent 370px)",
-        }}
+        style={{ background: "linear-gradient(to right, var(--color-purple-50) 0, var(--color-purple-50) 200px, transparent 300px)" }}
       />
 
       <div className="relative flex h-full flex-col px-14 pb-8 pt-9 [@media(max-height:760px)]:pb-6 [@media(max-height:760px)]:pt-7">
