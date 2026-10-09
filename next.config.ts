@@ -36,6 +36,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Qualidade 90 só para a ilustração do login (padrão do Next é apenas 75).
+  images: { qualities: [75, 90] },
   cacheComponents: true,
   partialPrefetching: true,
   poweredByHeader: false,

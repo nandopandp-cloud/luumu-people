@@ -11,23 +11,28 @@ const FEATURES = [
 ];
 
 /**
- * Painel de marca das telas de acesso. Em telas largas, a cena ilustrada da
- * referência de design (public/images/login-scene.jpg, com as áreas de texto
- * limpas) é o fundo do painel; logo, título, recursos e rodapé são HTML real
- * por cima, nas mesmas posições. Abaixo de 1280 px, só o gradiente.
+ * Painel de marca das telas de acesso. Em telas largas (xl), a ilustração da
+ * marca (public/images/login-scene.webp) fica inteira no canto inferior direito
+ * do painel; logo, título, recursos e rodapé são HTML real à esquerda.
+ * Abaixo de 1280 px, só o gradiente.
  */
 export function AuthScene() {
   return (
     <div className="relative h-full overflow-hidden bg-gradient-to-br from-purple-50 via-purple-100 to-purple-50">
-      <Image
-        src="/images/login-scene.jpg"
-        alt=""
+      {/* Ilustração inteira (sem cortes), encostada no canto inferior direito; as bordas
+          esquerda e superior se dissolvem no gradiente do painel. */}
+      <div
         aria-hidden
-        fill
-        priority
-        sizes="(min-width: 1280px) 60vw, 0px"
-        className="hidden object-cover object-right-bottom xl:block"
-      />
+        className="absolute bottom-0 right-0 hidden aspect-[1374/1145] h-[60%] max-w-full xl:block"
+        style={{
+          maskImage: "linear-gradient(to right, transparent 0, #000 16%), linear-gradient(to bottom, transparent 0, #000 10%)",
+          maskComposite: "intersect",
+          WebkitMaskImage: "linear-gradient(to right, transparent 0, #000 16%), linear-gradient(to bottom, transparent 0, #000 10%)",
+          WebkitMaskComposite: "source-in",
+        }}
+      >
+        <Image src="/images/login-scene.webp" alt="" fill priority quality={90} sizes="(min-width: 1280px) 50vw, 0px" className="object-contain" />
+      </div>
 
       <div className="relative flex h-full flex-col px-14 pb-8 pt-9 [@media(max-height:760px)]:pb-6 [@media(max-height:760px)]:pt-7">
         <Wordmark className="h-auto w-[220px] max-w-full" />
