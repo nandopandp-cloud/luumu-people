@@ -1,0 +1,4 @@
+ALTER TABLE "home_banners" DROP CONSTRAINT "home_banners_cta_pair";--> statement-breakpoint
+ALTER TABLE "home_banners" ADD COLUMN "layout" text DEFAULT 'composed' NOT NULL;--> statement-breakpoint
+ALTER TABLE "home_banners" ADD CONSTRAINT "home_banners_image_layout" CHECK ("home_banners"."layout" <> 'image' or ("home_banners"."image_file_id" is not null and "home_banners"."cta_label" is null));--> statement-breakpoint
+ALTER TABLE "home_banners" ADD CONSTRAINT "home_banners_cta_pair" CHECK ("home_banners"."layout" = 'image' or ("home_banners"."cta_label" is null) = ("home_banners"."cta_url" is null));

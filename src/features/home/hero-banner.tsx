@@ -11,6 +11,8 @@ import { JourneySignpost } from "@/design-system/illustrations/journey-signpost"
 
 export type BannerSlide = {
   id: string;
+  /** "image": a arte inteira é a imagem enviada (title = texto alternativo). */
+  layout: "composed" | "image";
   title: string;
   subtitle: string | null;
   ctaLabel: string | null;
@@ -31,9 +33,38 @@ const BACKGROUND: Record<CoverTheme, string> = {
 
 const ROTATE_MS = 7000;
 
+/** Proporção do banner de imagem (1600 × 500 px recomendados). */
+export const IMAGE_BANNER_RATIO = "aspect-[16/5]";
+
+/** Banner só de imagem: toda a comunicação está na arte; o link, se houver, é o banner inteiro. */
+function ImageBannerView({ banner, image }: { banner: BannerSlide; image: string | null }) {
+  const art = image ? (
+    // eslint-disable-next-line @next/next/no-img-element -- arquivo privado servido pela própria API
+    <img src={image} alt={banner.title} className="size-full object-cover" />
+  ) : (
+    <div className="flex size-full items-center justify-center bg-neutral-100 text-body-sm text-neutral-500">Envie a imagem do banner</div>
+  );
+  const frame = cn("block overflow-hidden rounded-[28px] bg-neutral-100", IMAGE_BANNER_RATIO);
+  if (!banner.ctaUrl) return <div className={frame}>{art}</div>;
+  if (banner.ctaUrl.startsWith("https://")) {
+    return (
+      <a href={banner.ctaUrl} target="_blank" rel="noopener noreferrer" className={cn(frame, "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-500")}>
+        {art}
+        <span className="sr-only"> (abre em nova aba)</span>
+      </a>
+    );
+  }
+  return (
+    <Link href={banner.ctaUrl as Route} className={cn(frame, "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-500")}>
+      {art}
+    </Link>
+  );
+}
+
 /** Um banner da home. Também usado na prévia ao vivo do editor. */
-export function BannerView({ banner, greeting, imagePreviewUrl }: { banner: BannerSlide; greeting?: string; imagePreviewUrl?: string | null }) {
+export function BannerView({ banner, imagePreviewUrl }: { banner: BannerSlide; imagePreviewUrl?: string | null }) {
   const image = imagePreviewUrl ?? (banner.imageFileId ? `/api/v1/files/${banner.imageFileId}` : null);
+  if (banner.layout === "image") return <ImageBannerView banner={banner} image={image} />;
   const external = banner.ctaUrl?.startsWith("https://");
   return (
     <div className={cn("relative h-full overflow-hidden rounded-[28px] bg-gradient-to-br", BACKGROUND[banner.theme])}>
@@ -42,12 +73,7 @@ export function BannerView({ banner, greeting, imagePreviewUrl }: { banner: Bann
       </svg>
       <div className="relative grid h-full items-end md:grid-cols-[minmax(0,1.12fr)_minmax(240px,0.88fr)]">
         <div className="px-7 py-8 sm:px-9">
-          {greeting ? (
-            <p className="text-[17px] font-semibold text-neutral-800">
-              {greeting} <span aria-hidden>👋</span>
-            </p>
-          ) : null}
-          <h2 className="mt-3 max-w-[28rem] text-balance text-[1.9rem] font-extrabold leading-[1.08] tracking-[-0.035em] text-neutral-900 sm:text-[2.1rem]">{banner.title}</h2>
+          <h2 className="max-w-[28rem] text-balance text-[1.9rem] font-extrabold leading-[1.08] tracking-[-0.035em] text-neutral-900 sm:text-[2.1rem]">{banner.title}</h2>
           {banner.subtitle ? <p className="mt-4 max-w-[28rem] text-[15px] leading-relaxed text-neutral-700">{banner.subtitle}</p> : null}
           {banner.ctaLabel && banner.ctaUrl ? (
             <Button asChild size="lg" className="mt-6 h-11 px-7">
@@ -84,7 +110,7 @@ export function BannerView({ banner, greeting, imagePreviewUrl }: { banner: Bann
  * mouse ou focar, tem pausa explícita (WCAG 2.2.2) e não gira com
  * "reduzir movimento".
  */
-export function HeroCarousel({ slides, greeting }: { slides: BannerSlide[]; greeting: string }) {
+export function HeroCarousel({ slides }: { slides: BannerSlide[] }) {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const [hovering, setHovering] = useState(false);
@@ -130,11 +156,11 @@ export function HeroCarousel({ slides, greeting }: { slides: BannerSlide[]; gree
         if (e.key === "ArrowLeft") go(index - 1);
       }}
     >
-      <div key={slide.id} role="group" aria-roledescription="slide" aria-label={`${index + 1} de ${count}`} className={cn("min-h-[300px]", rotated && "animate-fade-in")}>
-        <BannerView banner={slide} greeting={greeting} />
+      <div key={slide.id} role="group" aria-roledescription="slide" aria-label={`${index + 1} de ${count}`} className={cn(slide.layout === "composed" && "min-h-[300px]", rotated && "animate-fade-in")}>
+        <BannerView banner={slide} />
       </div>
       {count > 1 ? (
-        <div className="absolute bottom-4 right-4 flex items-center gap-1.5 rounded-full bg-white/85 px-2 py-1.5 shadow-sm backdrop-blur">
+        <div className="absolute bottom-3 right-3 flex sm:bottom-4 sm:right-4 items-center gap-1.5 rounded-full bg-white/85 px-2 py-1.5 shadow-sm backdrop-blur">
           <button type="button" onClick={() => go(index - 1)} aria-label="Banner anterior" className="flex size-7 items-center justify-center rounded-full text-neutral-700 hover:bg-purple-50 hover:text-purple-600">
             <ChevronLeft aria-hidden className="size-4" />
           </button>

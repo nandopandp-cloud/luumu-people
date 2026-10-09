@@ -148,6 +148,20 @@
       "when": 1791502982467,
       "tag": "0020_profile_cover_security",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791570587041,
+      "tag": "0021_banner_image_layout",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791570598509,
+      "tag": "0022_banner_image_layout_security",
+      "breakpoints": true
     }
   ]
 }

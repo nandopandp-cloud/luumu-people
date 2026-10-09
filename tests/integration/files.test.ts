@@ -8,6 +8,7 @@ import * as filesRoute from "@/app/api/v1/files/route";
 import * as avatarRoute from "@/app/api/v1/me/avatar/route";
 import * as coverRoute from "@/app/api/v1/me/cover/route";
 import * as announcementsRoute from "@/app/api/v1/announcements/route";
+import * as bannerItemRoute from "@/app/api/v1/banners/[id]/route";
 import * as bannersRoute from "@/app/api/v1/banners/route";
 import { call } from "../support/http";
 import * as s from "@/server/db/schema";
@@ -122,5 +123,20 @@ describe("arquivos", () => {
     const banner = { title: "Banner", theme: "purple", active: false };
     expect((await call(bannersRoute.POST, { path: "/api/v1/banners", method: "POST", cookie: rafael.cookie, body: { ...banner, imageFileId: cover.json.id } })).status).toBe(400);
     expect((await call(bannersRoute.POST, { path: "/api/v1/banners", method: "POST", cookie: rafael.cookie, body: { ...banner, imageFileId: bannerImage.json.id } })).status).toBe(200);
+
+    // Banner só de imagem: exige a imagem; o link vale sem texto de botão e textos sobrepostos são descartados.
+    const imageOnly = { ...banner, layout: "image", title: "Inscrições abertas para a mentoria" };
+    expect((await call(bannersRoute.POST, { path: "/api/v1/banners", method: "POST", cookie: rafael.cookie, body: imageOnly })).status).toBe(400);
+    const imageBanner = await call(bannersRoute.POST, {
+      path: "/api/v1/banners",
+      method: "POST",
+      cookie: rafael.cookie,
+      body: { ...imageOnly, imageFileId: bannerImage.json.id, ctaUrl: "/comunicados", subtitle: "ignorado", ctaLabel: "ignorado" },
+    });
+    expect(imageBanner.status).toBe(200);
+    const saved = await call(bannerItemRoute.GET, { path: "/x", cookie: rafael.cookie, params: { id: imageBanner.json.id } });
+    expect(saved.json).toMatchObject({ layout: "image", ctaUrl: "/comunicados", subtitle: null, ctaLabel: null });
+    const toComposed = await call(bannerItemRoute.PUT, { path: "/x", method: "PUT", cookie: rafael.cookie, params: { id: imageBanner.json.id }, body: { ...imageOnly, layout: "composed", ctaUrl: null } });
+    expect(toComposed.status).toBe(200);
   });
 });

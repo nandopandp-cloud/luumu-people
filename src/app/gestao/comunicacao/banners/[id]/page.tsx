@@ -40,6 +40,7 @@ async function Editor({ params }: { params: PageProps<"/gestao/comunicacao/banne
       <BannerEditor
         banner={{
           id: b.id,
+          layout: b.layout,
           title: b.title,
           subtitle: b.subtitle ?? "",
           ctaLabel: b.ctaLabel ?? "",

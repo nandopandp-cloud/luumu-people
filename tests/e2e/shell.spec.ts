@@ -75,6 +75,9 @@ test.describe("Banners da home", () => {
     await page.getByRole("link", { name: "Novo banner" }).first().click();
     await page.waitForURL("**/banners/novo");
     await page.waitForLoadState("networkidle");
+    // Novo banner começa no formato só de imagem; este teste usa o montado.
+    await expect(page.getByLabel("Descrição da imagem")).toBeVisible();
+    await page.getByRole("radio", { name: /Montado/ }).click();
     await page.getByLabel("Título").fill("Hackathon de inovação");
     await page.getByLabel("Texto de apoio").fill("Inscrições abertas até sexta.");
     await page.getByLabel("Texto do botão").fill("Ver comunicados");
@@ -90,6 +93,8 @@ test.describe("Banners da home", () => {
     await page.context().clearCookies();
     await signIn(page, "fernando.santos@aurora.example");
     await gotoHydrated(page, "/inicio");
+    // A saudação fica acima do carrossel.
+    await expect(page.getByRole("heading", { level: 1, name: "Olá, Fernando!" })).toBeVisible();
     const carousel = page.getByRole("region", { name: "Destaques" });
     await expect(carousel).toBeVisible();
     await carousel.getByRole("button", { name: /Ir para o banner 2: Hackathon de inovação/ }).click();

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BANNER_LAYOUTS } from "@/server/db/schema/banners";
 import { ILLUSTRATIONS, THEMES } from "@/server/db/schema/learning";
 
 const optionalText = (max: number) => z.string().trim().max(max, `Use no máximo ${max} caracteres.`).nullish().transform((v) => v || null);
@@ -14,6 +15,7 @@ const dateTime = z.iso.datetime({ offset: true }).nullish().transform((v) => (v 
 
 export const bannerInputSchema = z
   .strictObject({
+    layout: z.enum(BANNER_LAYOUTS).default("composed"),
     title: z.string().trim().min(1, "Campo obrigatório.").max(90, "Use no máximo 90 caracteres."),
     subtitle: optionalText(200),
     ctaLabel: optionalText(30),
@@ -25,7 +27,10 @@ export const bannerInputSchema = z
     startsAt: dateTime,
     endsAt: dateTime,
   })
-  .refine((b) => Boolean(b.ctaLabel) === Boolean(b.ctaUrl), { message: "Preencha o texto e o destino do botão (ou deixe os dois vazios).", path: ["ctaUrl"] })
+  // Banner de imagem: sem botão (o link, se houver, é o banner inteiro) e sem textos sobrepostos.
+  .transform((b) => (b.layout === "image" ? { ...b, subtitle: null, ctaLabel: null } : b))
+  .refine((b) => b.layout === "image" || Boolean(b.ctaLabel) === Boolean(b.ctaUrl), { message: "Preencha o texto e o destino do botão (ou deixe os dois vazios).", path: ["ctaUrl"] })
+  .refine((b) => b.layout !== "image" || Boolean(b.imageFileId), { message: "Envie a imagem do banner.", path: ["imageFileId"] })
   .refine((b) => !b.startsAt || !b.endsAt || b.endsAt > b.startsAt, { message: "O fim precisa ser depois do início.", path: ["endsAt"] });
 export type BannerInput = z.infer<typeof bannerInputSchema>;
 

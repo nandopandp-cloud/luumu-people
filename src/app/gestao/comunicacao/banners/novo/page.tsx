@@ -25,7 +25,7 @@ async function Editor() {
   await requirePermission("comms.announcement.publish");
   return (
     <BannerEditor
-      banner={{ title: "", subtitle: "", ctaLabel: "", ctaUrl: "", theme: "purple", illustration: "", imageFileId: null, active: true, startsAt: "", endsAt: "" }}
+      banner={{ layout: "image", title: "", subtitle: "", ctaLabel: "", ctaUrl: "", theme: "purple", illustration: "", imageFileId: null, active: true, startsAt: "", endsAt: "" }}
     />
   );
 }

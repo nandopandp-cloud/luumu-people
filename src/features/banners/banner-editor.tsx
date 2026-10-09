@@ -5,7 +5,7 @@ import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/design-system/components/button";
-import { Switch } from "@/design-system/components/choice";
+import { RadioGroup, Switch } from "@/design-system/components/choice";
 import { Alert } from "@/design-system/components/feedback";
 import { Field, Input, Textarea } from "@/design-system/components/field";
 import { Select } from "@/design-system/components/select";
@@ -13,12 +13,13 @@ import { useToast } from "@/design-system/components/toast";
 import type { CoverIllustration, CoverTheme } from "@/design-system/illustrations/cover-art";
 import { ILLUSTRATION_LABEL, THEME_LABEL } from "@/features/announcements/labels";
 import { ImageUploadField } from "@/features/files/image-upload-field";
-import { BannerView } from "@/features/home/hero-banner";
+import { BannerView, type BannerSlide } from "@/features/home/hero-banner";
 import { api, ApiError } from "@/lib/api-client";
 import { fromLocalInput } from "./format";
 
 export type EditableBanner = {
   id?: string;
+  layout: BannerSlide["layout"];
   title: string;
   subtitle: string;
   ctaLabel: string;
@@ -48,6 +49,7 @@ export function BannerEditor({ banner }: { banner: EditableBanner }) {
     setError(null);
     setErrors({});
     const body = {
+      layout: values.layout,
       title: values.title,
       subtitle: values.subtitle || null,
       ctaLabel: values.ctaLabel || null,
@@ -95,12 +97,16 @@ export function BannerEditor({ banner }: { banner: EditableBanner }) {
         <h2 id="previa" className="text-body-sm font-semibold text-neutral-700">
           Prévia na home
         </h2>
-        <div className="min-h-[300px]" inert>
+        <div className="space-y-4" inert>
+          <p className="text-h2 font-extrabold tracking-[-0.02em] text-neutral-900">
+            Olá, Ana! <span aria-hidden>👋</span>
+          </p>
+          <div className={values.layout === "composed" ? "min-h-[300px]" : undefined}>
           <BannerView
-            greeting="Olá, Ana!"
             imagePreviewUrl={preview}
             banner={{
               id: "preview",
+              layout: values.layout,
               title: values.title || "Título do banner",
               subtitle: values.subtitle || null,
               ctaLabel: values.ctaLabel || null,
@@ -110,63 +116,101 @@ export function BannerEditor({ banner }: { banner: EditableBanner }) {
               imageFileId: values.imageFileId,
             }}
           />
+          </div>
         </div>
-        <p className="text-caption text-neutral-600">A saudação usa o primeiro nome de cada pessoa.</p>
+        <p className="text-caption text-neutral-600">A saudação fica acima do banner e usa o primeiro nome de cada pessoa.</p>
       </section>
 
       <form onSubmit={save} className="card space-y-5 p-6" noValidate>
         <fieldset disabled={pending} className="space-y-5">
-          <Field label="Título" error={errors.title}>
-            {(f) => <Input id={f.id} aria-describedby={f.describedBy} invalid={f.invalid} value={values.title} maxLength={90} onChange={(e) => set("title", e.target.value)} required />}
-          </Field>
-          <Field label="Texto de apoio" hint="Opcional, até 200 caracteres." error={errors.subtitle}>
-            {(f) => <Textarea id={f.id} aria-describedby={f.describedBy} invalid={f.invalid} value={values.subtitle} maxLength={200} rows={2} onChange={(e) => set("subtitle", e.target.value)} />}
-          </Field>
-          <div className="grid gap-4 sm:grid-cols-[1fr_2fr]">
-            <Field label="Texto do botão" hint="Opcional." error={errors.ctaLabel}>
-              {(f) => <Input id={f.id} aria-describedby={f.describedBy} invalid={f.invalid} value={values.ctaLabel} maxLength={30} placeholder="Ex.: Ver trilha" onChange={(e) => set("ctaLabel", e.target.value)} />}
-            </Field>
-            <Field label="Destino do botão" hint="Página da plataforma (ex.: /trilhas) ou endereço https://." error={errors.ctaUrl}>
-              {(f) => <Input id={f.id} aria-describedby={f.describedBy} invalid={f.invalid} value={values.ctaUrl} maxLength={500} placeholder="/meus-cursos" onChange={(e) => set("ctaUrl", e.target.value)} />}
-            </Field>
-          </div>
+          <fieldset className="space-y-2">
+            <legend className="text-body-sm font-semibold text-neutral-800">Formato</legend>
+            <RadioGroup
+              className="sm:flex-row sm:gap-6"
+              value={values.layout}
+              onValueChange={(v) => set("layout", v as EditableBanner["layout"])}
+              options={[
+                { value: "image", label: "Imagem (a arte já traz toda a comunicação)" },
+                { value: "composed", label: "Montado (textos e botão sobre fundo da plataforma)" },
+              ]}
+            />
+          </fieldset>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Cor de fundo">
-              {(f) => (
-                <Select id={f.id} value={values.theme} onChange={(e) => set("theme", e.target.value as CoverTheme)}>
-                  {Object.entries(THEME_LABEL).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </Select>
-              )}
+          {values.layout === "image" ? (
+            <>
+              <ImageUploadField
+                label="Imagem do banner"
+                purpose="home_banner"
+                value={values.imageFileId}
+                hint="PNG, JPG ou WEBP até 3 MB. Use 1600 × 500 px: a arte é exibida inteira, nessa proporção. Deixe textos importantes longe das bordas."
+                onChange={(fileId, previewUrl) => {
+                  set("imageFileId", fileId);
+                  setPreview(previewUrl);
+                }}
+              />
+              {errors.imageFileId ? <p className="text-caption text-red-600">{errors.imageFileId}</p> : null}
+              <Field label="Descrição da imagem" hint="Lida por leitores de tela e usada para identificar o banner na lista. Ex.: Inscrições abertas para o programa de mentoria." error={errors.title}>
+                {(f) => <Input id={f.id} aria-describedby={f.describedBy} invalid={f.invalid} value={values.title} maxLength={90} onChange={(e) => set("title", e.target.value)} required />}
+              </Field>
+              <Field label="Link ao clicar (opcional)" hint="Página da plataforma (ex.: /comunicados) ou endereço https://. Vazio: o banner não é clicável." error={errors.ctaUrl}>
+                {(f) => <Input id={f.id} aria-describedby={f.describedBy} invalid={f.invalid} value={values.ctaUrl} maxLength={500} placeholder="/comunicados" onChange={(e) => set("ctaUrl", e.target.value)} />}
+              </Field>
+            </>
+          ) : (
+            <>
+            <Field label="Título" error={errors.title}>
+              {(f) => <Input id={f.id} aria-describedby={f.describedBy} invalid={f.invalid} value={values.title} maxLength={90} onChange={(e) => set("title", e.target.value)} required />}
             </Field>
-            <Field label="Ilustração" hint={values.imageFileId ? "A imagem enviada tem prioridade sobre a ilustração." : undefined}>
-              {(f) => (
-                <Select id={f.id} aria-describedby={f.describedBy} value={values.illustration} onChange={(e) => set("illustration", e.target.value as CoverIllustration | "")}>
-                  <option value="">Jornada (padrão da home)</option>
-                  {Object.entries(ILLUSTRATION_LABEL).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </Select>
-              )}
+            <Field label="Texto de apoio" hint="Opcional, até 200 caracteres." error={errors.subtitle}>
+              {(f) => <Textarea id={f.id} aria-describedby={f.describedBy} invalid={f.invalid} value={values.subtitle} maxLength={200} rows={2} onChange={(e) => set("subtitle", e.target.value)} />}
             </Field>
-          </div>
+            <div className="grid gap-4 sm:grid-cols-[1fr_2fr]">
+              <Field label="Texto do botão" hint="Opcional." error={errors.ctaLabel}>
+                {(f) => <Input id={f.id} aria-describedby={f.describedBy} invalid={f.invalid} value={values.ctaLabel} maxLength={30} placeholder="Ex.: Ver trilha" onChange={(e) => set("ctaLabel", e.target.value)} />}
+              </Field>
+              <Field label="Destino do botão" hint="Página da plataforma (ex.: /trilhas) ou endereço https://." error={errors.ctaUrl}>
+                {(f) => <Input id={f.id} aria-describedby={f.describedBy} invalid={f.invalid} value={values.ctaUrl} maxLength={500} placeholder="/meus-cursos" onChange={(e) => set("ctaUrl", e.target.value)} />}
+              </Field>
+            </div>
 
-          <ImageUploadField
-            label="Imagem (opcional)"
-            purpose="home_banner"
-            value={values.imageFileId}
-            hint="PNG, JPG ou WEBP até 3 MB. Recomendado: 900 × 600 px."
-            onChange={(fileId, previewUrl) => {
-              set("imageFileId", fileId);
-              setPreview(previewUrl);
-            }}
-          />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Cor de fundo">
+                {(f) => (
+                  <Select id={f.id} value={values.theme} onChange={(e) => set("theme", e.target.value as CoverTheme)}>
+                    {Object.entries(THEME_LABEL).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
+              <Field label="Ilustração" hint={values.imageFileId ? "A imagem enviada tem prioridade sobre a ilustração." : undefined}>
+                {(f) => (
+                  <Select id={f.id} aria-describedby={f.describedBy} value={values.illustration} onChange={(e) => set("illustration", e.target.value as CoverIllustration | "")}>
+                    <option value="">Jornada (padrão da home)</option>
+                    {Object.entries(ILLUSTRATION_LABEL).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
+            </div>
+
+            <ImageUploadField
+              label="Imagem (opcional)"
+              purpose="home_banner"
+              value={values.imageFileId}
+              hint="PNG, JPG ou WEBP até 3 MB. Recomendado: 900 × 600 px."
+              onChange={(fileId, previewUrl) => {
+                set("imageFileId", fileId);
+                setPreview(previewUrl);
+              }}
+            />
+            </>
+          )}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Exibir a partir de (horário de Brasília)" hint="Vazio: imediatamente." error={errors.startsAt}>

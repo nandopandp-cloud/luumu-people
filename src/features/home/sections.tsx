@@ -62,10 +62,12 @@ export async function HomeHero({ actor }: { actor: AuthenticatedActor }) {
   const firstName = (profile.preferredName || profile.name).split(" ")[0];
   if (banners.length > 0) {
     return (
-      <>
-        <h1 className="sr-only">Início</h1>
-        <HeroCarousel greeting={`Olá, ${firstName}!`} slides={banners.map(({ id, title, subtitle, ctaLabel, ctaUrl, theme, illustration, imageFileId }) => ({ id, title, subtitle, ctaLabel, ctaUrl, theme, illustration, imageFileId }))} />
-      </>
+      <div className="space-y-4">
+        <h1 className="text-h2 font-extrabold tracking-[-0.02em] text-neutral-900">
+          Olá, {firstName}! <span aria-hidden>👋</span>
+        </h1>
+        <HeroCarousel slides={banners.map(({ id, layout, title, subtitle, ctaLabel, ctaUrl, theme, illustration, imageFileId }) => ({ id, layout, title, subtitle, ctaLabel, ctaUrl, theme, illustration, imageFileId }))} />
+      </div>
     );
   }
   // Sem banner ativo: boas-vindas padrão.

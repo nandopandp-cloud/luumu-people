@@ -19,6 +19,7 @@ const auditMeta = (meta: Meta) => ({ ipAddress: meta.ip, userAgent: meta.userAge
 
 const columns = {
   id: s.homeBanners.id,
+  layout: s.homeBanners.layout,
   title: s.homeBanners.title,
   subtitle: s.homeBanners.subtitle,
   ctaLabel: s.homeBanners.ctaLabel,
@@ -34,6 +35,7 @@ const columns = {
 
 export type Banner = {
   id: string;
+  layout: s.BannerLayout;
   title: string;
   subtitle: string | null;
   ctaLabel: string | null;

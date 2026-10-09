@@ -45,7 +45,7 @@ test.describe("Fase 1 — fundação", () => {
 
   test("colaborador: início, perfil e edição do próprio perfil", async ({ page }) => {
     await signIn(page, "fernando.santos@aurora.example");
-    await expect(page.getByText("Olá, Fernando!")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Olá, Fernando!" })).toBeVisible();
     await expectAccessible(page);
 
     await page.getByRole("link", { name: "Meu perfil" }).first().click();
