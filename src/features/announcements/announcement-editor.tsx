@@ -211,8 +211,12 @@ export function AnnouncementEditor({ announcement, canPublish, audienceOptions }
         toast({ tone: "success", title: success });
       } catch (e) {
         if (e instanceof ApiError && e.fieldErrors.length) {
-          setErrors(Object.fromEntries(e.fieldErrors.map((f) => [f.path, f.message])));
-          setError({ title: "Alguns dados de envio são inválidos.", detail: "Verifique os campos em destaque para continuar." });
+          const mapped = Object.fromEntries(e.fieldErrors.map((f) => [f.path, f.message]));
+          setErrors(mapped);
+          // Erro sem campo na tela: mostra a mensagem em vez de pedir para procurar um destaque inexistente.
+          const shown = /^(title|summary|body|audienceOrgUnitId|attachments\.\d+\.(title|videoUrl))$/;
+          const orphan = e.fieldErrors.find((f) => !shown.test(f.path));
+          setError(orphan ? { title: "Não foi possível salvar.", detail: orphan.message } : { title: "Alguns dados de envio são inválidos.", detail: "Verifique os campos em destaque para continuar." });
         } else setError({ title: e instanceof ApiError ? e.message : "Não foi possível concluir. Tente novamente." });
       }
     });
@@ -220,8 +224,15 @@ export function AnnouncementEditor({ announcement, canPublish, audienceOptions }
 
   /** Salva (cria ou atualiza) e devolve o id. */
   async function save(): Promise<string> {
+    // Só os campos do formulário: a API recusa chaves extras (id, status, contadores…).
     const body = {
-      ...values,
+      title: values.title,
+      summary: values.summary,
+      category: values.category,
+      theme: values.theme,
+      illustration: values.illustration,
+      pinned: values.pinned,
+      coverFileId: values.coverFileId,
       body: values.body.trim() || null,
       audienceOrgUnitId: values.audienceOrgUnitId || null,
       attachments: values.attachments.map((a) => (a.kind === "file" ? { kind: a.kind, title: a.title, fileId: a.fileId } : { kind: a.kind, title: a.title, videoUrl: a.videoUrl })),

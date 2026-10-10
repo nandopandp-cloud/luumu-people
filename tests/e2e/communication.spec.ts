@@ -149,6 +149,15 @@ test.describe("Mural de comunicados", () => {
     await page.getByRole("button", { name: "Publicar agora" }).click();
     await page.waitForURL("**/gestao/comunicacao");
 
+    // Editar um comunicado existente e salvar (regressão: a API recusava chaves extras).
+    await page.getByRole("link", { name: "Guia do trabalho híbrido" }).first().click();
+    await page.waitForURL(/comunicacao\/[0-9a-f-]{36}/);
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("textbox", { name: "Resumo", exact: true }).fill("Tudo o que muda a partir de novembro, ponto a ponto.");
+    await page.getByRole("button", { name: "Salvar alterações" }).click();
+    await expect(page.getByText("Alterações salvas").first()).toBeVisible();
+    await expect(page.getByText("Alguns dados de envio são inválidos.")).toHaveCount(0);
+
     await gotoHydrated(page, "/comunicados");
     await page.getByRole("link", { name: "Guia do trabalho híbrido" }).first().click();
     await expect(page.getByRole("heading", { level: 1, name: "Guia do trabalho híbrido" })).toBeVisible();
