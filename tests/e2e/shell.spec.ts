@@ -139,4 +139,39 @@ test.describe("Banners da home", () => {
     await expect(carousel.getByRole("link", { name: /Semana da inovação/ })).toHaveAttribute("href", "/comunicados");
     expect((await greeting.boundingBox())!.y).toBeLessThan((await art.boundingBox())!.y);
   });
+
+  test("lista: arrastar para reordenar, ativar e excluir pelo menu", async ({ page }) => {
+    test.setTimeout(120_000);
+    await signIn(page, "rafael.lima@aurora.example");
+    await gotoHydrated(page, "/gestao/comunicacao/banners");
+    await expect(page.getByRole("heading", { level: 1, name: "Banners da home" })).toBeVisible();
+    await expectAccessible(page);
+    const list = page.getByRole("list", { name: "Banners na ordem do carrossel" });
+    const titles = () => list.getByRole("listitem").getByRole("heading").or(list.locator("li a.text-h4")).allInnerTexts();
+    const before = await titles();
+    expect(before.length).toBeGreaterThan(1);
+
+    // Arrasta o último para o topo.
+    const items = list.getByRole("listitem");
+    const saved = page.waitForResponse((r) => r.url().endsWith("/api/v1/banners/order") && r.request().method() === "PUT");
+    await items.last().dragTo(items.first());
+    await expect.poll(titles).toEqual([before.at(-1)!, ...before.slice(0, -1)]);
+    expect((await saved).status()).toBe(204);
+    await page.reload();
+    await expect.poll(titles).toEqual([before.at(-1)!, ...before.slice(0, -1)]);
+
+    // Ativa o que está inativo.
+    const inactive = list.getByRole("listitem").filter({ hasText: "Inativo" }).first();
+    const name = (await inactive.locator("a.text-h4").innerText()).trim();
+    await inactive.getByRole("switch").click();
+    await expect(page.getByText("Banner ativado").first()).toBeVisible();
+    await expect(list.getByRole("listitem").filter({ hasText: name }).getByText("Ativo")).toBeVisible();
+
+    // Exclui pelo menu.
+    await page.getByRole("button", { name: `Mais ações de “${name}”` }).click();
+    page.once("dialog", (d) => d.accept());
+    await page.getByRole("menuitem", { name: "Excluir" }).click();
+    await expect(page.getByText("Banner excluído").first()).toBeVisible();
+    await expect(list.getByText(name)).toHaveCount(0);
+  });
 });
