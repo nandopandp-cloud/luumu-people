@@ -1,5 +1,5 @@
 import "server-only";
-import { sql, type SQL } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import type { AuthenticatedActor } from "@/server/auth/session";
 import { hasPermissionAnywhere, hasTenantWide } from "@/server/authz/policy";
 import { withTenant } from "@/server/db/tenant";
@@ -8,6 +8,9 @@ import { MODULE_FLAGS, type ModuleKey } from "@/server/modules/flags/modules";
 import { effectiveFlags } from "@/server/modules/flags/service";
 import { listPeople } from "@/server/modules/people/service";
 import { audienceVisibleSql } from "@/server/modules/announcements/audience";
+import { containsText as matches, normalize } from "@/server/db/text-search";
+
+export { normalize };
 
 /**
  * Busca unificada da paleta (⌘K). Cada grupo respeita exatamente o que a
@@ -33,23 +36,6 @@ const GROUP_LABEL: Record<SearchKind, string> = {
 };
 
 const PER_GROUP = 5;
-const ACCENTS = "áàâãäåéèêëíìîïóòôõöúùûüçñ";
-const PLAIN = "aaaaaaeeeeiiiiooooouuuucn";
-
-export function normalize(text: string) {
-  return text
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .trim();
-}
-
-/** Coluna "contém" o termo, ignorando acentos e caixa (parametrizado). */
-function matches(column: SQL, term: string): SQL {
-  const escaped = `%${normalize(term).replace(/[%_\\]/g, "\\$&")}%`;
-  return sql`translate(lower(coalesce(${column}, '')), ${ACCENTS}, ${PLAIN}) like ${escaped}`;
-}
-
 type Rows<T> = { rows: T[] };
 const rows = <T>(result: unknown) => (result as Rows<T>).rows;
 

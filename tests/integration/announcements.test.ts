@@ -72,8 +72,8 @@ describe("comunicados", () => {
     const scheduled = await call(publishRoute.POST, { path: "/x", method: "POST", cookie, params: { id: later.json.id }, body: { publishAt: tomorrow } });
     expect(scheduled.json).toMatchObject({ status: "scheduled" });
     await expect(getAnnouncement(reader, later.json.id)).rejects.toMatchObject({ status: 404 });
-    const managed = await listManagedAnnouncements(await actorFor("rafael"), "agendados");
-    expect(managed.map((m) => m.title)).toContain("Agendado para amanhã");
+    const managed = await listManagedAnnouncements(await actorFor("rafael"), { filter: "agendados" });
+    expect(managed.items.map((m) => m.title)).toContain("Agendado para amanhã");
 
     const { db } = await testDatabase();
     const actions = await db.select({ action: s.auditLogs.action }).from(s.auditLogs).where(eq(s.auditLogs.resourceId, id));
@@ -85,7 +85,7 @@ describe("comunicados", () => {
       const { cookie } = await signIn("aurora", key);
       expect((await call(createRoute.POST, { path: "/api/v1/announcements", method: "POST", cookie, body: draft })).status, key).toBe(403);
     }
-    await expect(listManagedAnnouncements(await actorFor("fernando"), "todos")).rejects.toMatchObject({ status: 403 });
+    await expect(listManagedAnnouncements(await actorFor("fernando"), { filter: "todos" })).rejects.toMatchObject({ status: 403 });
   });
 
   it("validação: campos obrigatórios e agendamento fora da janela", async () => {

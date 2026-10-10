@@ -115,7 +115,7 @@ test.describe("Mural de comunicados", () => {
     await gotoHydrated(page, "/gestao/comunicacao/novo");
     await expect(page.getByRole("heading", { level: 1, name: "Novo comunicado" })).toBeVisible();
     await page.getByLabel("Título").fill("Guia do trabalho híbrido");
-    await page.getByLabel("Resumo").fill("Tudo o que muda a partir de novembro.");
+    await page.getByRole("textbox", { name: "Resumo", exact: true }).fill("Tudo o que muda a partir de novembro.");
 
     const body = page.getByLabel("Texto completo");
     await body.fill("Olá, time!");

@@ -2,9 +2,9 @@
 
 export const MANAGED_STATUS: Record<string, { label: string; tone: "neutral" | "blue" | "green" | "orange" }> = {
   draft: { label: "Rascunho", tone: "neutral" },
-  scheduled: { label: "Agendado", tone: "blue" },
+  scheduled: { label: "Agendado", tone: "orange" },
   published: { label: "Publicado", tone: "green" },
-  archived: { label: "Arquivado", tone: "orange" },
+  archived: { label: "Arquivado", tone: "neutral" },
 };
 
 export const THEME_LABEL: Record<string, string> = {

@@ -1,9 +1,10 @@
 import "server-only";
-import { and, asc, desc, eq, gt, gte, inArray, isNull, lte, notInArray, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNull, lte, notInArray, or, sql, type SQL } from "drizzle-orm";
 import { recordAudit } from "@/server/audit/audit";
 import type { AuthenticatedActor } from "@/server/auth/session";
 import { hasTenantWide } from "@/server/authz/policy";
 import * as s from "@/server/db/schema";
+import { containsText } from "@/server/db/text-search";
 import { withTenant, type Tx } from "@/server/db/tenant";
 import { badRequest, conflict, forbidden, notFound } from "@/server/http/errors";
 import { toEmbedUrl } from "@/server/modules/courses/video";
@@ -165,17 +166,81 @@ const FILTERS: Record<ManagedFilter, () => SQL | undefined> = {
   arquivados: () => eq(s.announcements.status, "archived"),
 };
 
-export async function listManagedAnnouncements(actor: AuthenticatedActor, filter: ManagedFilter) {
+export type ManagedQuery = { filter: ManagedFilter; q?: string; category?: AnnouncementCategory; page?: number; pageSize?: number };
+
+/** Lista da gestão: filtro por situação, busca (sem acento/caixa), categoria e paginação. */
+export async function listManagedAnnouncements(actor: AuthenticatedActor, query: ManagedQuery) {
+  requireComms(actor, "comms.announcement.create");
+  const { filter, q, category, page = 1, pageSize = 200 } = query;
+  const where = and(
+    FILTERS[filter](),
+    category ? eq(s.announcements.category, category) : undefined,
+    q?.trim() ? or(containsText(sql`${s.announcements.title}`, q), containsText(sql`${s.announcements.summary}`, q)) : undefined,
+  );
+  return withTenant(actor, async (tx) => {
+    const [rows, [total]] = await Promise.all([
+      tx
+        .select({ ...feedColumns, status: s.announcements.status, updatedAt: s.announcements.updatedAt, author: s.users.name })
+        .from(s.announcements)
+        .leftJoin(s.users, eq(s.users.id, s.announcements.createdBy))
+        .where(where)
+        .orderBy(desc(s.announcements.updatedAt))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      tx.select({ n: sql<number>`count(*)::int` }).from(s.announcements).where(where),
+    ]);
+    return { items: rows.map((r) => ({ ...r, managedStatus: managedStatus(r.status, r.publishedAt) })), total: total?.n ?? 0 };
+  });
+}
+
+export type StatusTrend = { count: number; thisMonth: number; lastMonth: number };
+
+/**
+ * Indicadores da gestão: quantos comunicados há em cada situação e quantos
+ * entraram nela neste mês e no anterior (publicação para publicados; última
+ * atualização para arquivados; criação para os demais).
+ */
+export async function managedSummary(actor: AuthenticatedActor) {
   requireComms(actor, "comms.announcement.create");
   return withTenant(actor, async (tx) => {
-    const rows = await tx
-      .select({ ...feedColumns, status: s.announcements.status, updatedAt: s.announcements.updatedAt, author: s.users.name })
-      .from(s.announcements)
-      .leftJoin(s.users, eq(s.users.id, s.announcements.createdBy))
-      .where(FILTERS[filter]())
-      .orderBy(desc(s.announcements.updatedAt))
-      .limit(200);
-    return rows.map((r) => ({ ...r, managedStatus: managedStatus(r.status, r.publishedAt) }));
+    const result = await tx.execute(sql`
+      with base as (
+        select
+          case
+            when status = 'published' and published_at > now() then 'scheduled'
+            when status = 'published' then 'published'
+            when status = 'archived' then 'archived'
+            else 'draft'
+          end as bucket,
+          created_at,
+          case when status = 'published' and published_at <= now() then published_at when status = 'archived' then updated_at else created_at end as entered_at
+        from announcements
+      ),
+      months as (
+        select (date_trunc('month', now() at time zone 'America/Sao_Paulo')) at time zone 'America/Sao_Paulo' as this_month,
+               (date_trunc('month', now() at time zone 'America/Sao_Paulo') - interval '1 month') at time zone 'America/Sao_Paulo' as last_month
+      )
+      select bucket,
+             count(*)::int as count,
+             count(*) filter (where entered_at >= m.this_month)::int as this_month,
+             count(*) filter (where entered_at >= m.last_month and entered_at < m.this_month)::int as last_month,
+             count(*) filter (where created_at >= m.this_month)::int as created_this_month,
+             count(*) filter (where created_at >= m.last_month and created_at < m.this_month)::int as created_last_month
+      from base, months m
+      group by bucket`);
+    const rows = (result as unknown as { rows: { bucket: string; count: number; this_month: number; last_month: number; created_this_month: number; created_last_month: number }[] }).rows;
+    const pick = (bucket: string): StatusTrend => {
+      const r = rows.find((x) => x.bucket === bucket);
+      return { count: r?.count ?? 0, thisMonth: r?.this_month ?? 0, lastMonth: r?.last_month ?? 0 };
+    };
+    const sum = (key: "count" | "created_this_month" | "created_last_month") => rows.reduce((n, r) => n + r[key], 0);
+    return {
+      total: { count: sum("count"), thisMonth: sum("created_this_month"), lastMonth: sum("created_last_month") },
+      published: pick("published"),
+      scheduled: pick("scheduled"),
+      draft: pick("draft"),
+      archived: pick("archived"),
+    };
   });
 }
 
