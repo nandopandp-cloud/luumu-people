@@ -23,7 +23,8 @@ export function Progress({ value, label, tone = "purple", showValue = true, clas
   );
 }
 
-export function CircularProgress({ value, label, size = 112, stroke = 12, className }: { value: number; label: string; size?: number; stroke?: number; className?: string }) {
+/** `hideValue`: só o anel (o valor fica no rótulo acessível e num texto ao lado). */
+export function CircularProgress({ value, label, size = 112, stroke = 12, className, hideValue }: { value: number; label: string; size?: number; stroke?: number; className?: string; hideValue?: boolean }) {
   const clamped = Math.max(0, Math.min(100, Math.round(value)));
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -50,7 +51,7 @@ export function CircularProgress({ value, label, size = 112, stroke = 12, classN
           strokeDashoffset={circumference * (1 - clamped / 100)}
         />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-h2 font-bold tabular-nums text-neutral-900">{clamped}%</span>
+      {hideValue ? null : <span className="absolute inset-0 flex items-center justify-center text-h2 font-bold tabular-nums text-neutral-900">{clamped}%</span>}
     </div>
   );
 }

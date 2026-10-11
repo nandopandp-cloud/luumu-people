@@ -6,7 +6,12 @@ test.describe("Pesquisas", () => {
     test.setTimeout(120_000);
     await signIn(page, "fernando.santos@aurora.example");
     await gotoHydrated(page, "/pesquisas");
-    await expect(page.getByRole("heading", { name: "Para responder (1)" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Sua opinião importa!" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Pesquisa em andamento 1" })).toBeVisible();
+    const card = page.getByRole("article", { name: "Pesquisa de Clima 2026" });
+    await expect(card.getByText("Tempo estimado: 3 min")).toBeVisible();
+    await expect(card.getByText("100% anônima")).toBeVisible();
+    await expect(card.getByRole("progressbar", { name: /Prazo da pesquisa: \d+ dias? restantes?|Encerra hoje/ })).toBeVisible();
     await expectAccessible(page);
 
     await page.getByRole("link", { name: "Responder pesquisa" }).click();
@@ -28,8 +33,12 @@ test.describe("Pesquisas", () => {
     await expect(page.getByRole("heading", { name: "Obrigado por participar!" })).toBeVisible();
 
     await gotoHydrated(page, "/pesquisas");
-    await expect(page.getByRole("heading", { name: "Para responder (0)" })).toBeVisible();
-    await expect(page.getByText("Respondida").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Pesquisas em andamento 0" })).toBeVisible();
+    const answered = page.getByRole("region", { name: /Pesquisas? respondidas? \d/ });
+    const row = answered.getByRole("link", { name: /Pesquisa de Clima 2026/ });
+    await expect(row).toContainText("Respondida em");
+    await expect(row).toContainText("Respondida");
+    await expectAccessible(page);
   });
 
   test("G&G vê resultados agregados, segmentados sem expor grupos pequenos", async ({ page }) => {
@@ -64,5 +73,15 @@ test.describe("Pesquisas", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Editar pesquisa" })).toBeVisible();
     // A página anterior (nova) continua montada, oculta, após a navegação.
     await expect(page.getByLabel("Título", { exact: true }).filter({ visible: true })).toHaveValue("Pulso de onboarding");
+  });
+
+  test("pesquisas no celular @mobile", async ({ page }) => {
+    await signIn(page, "natalia.cunha@aurora.example");
+    await gotoHydrated(page, "/pesquisas");
+    await expect(page.getByRole("heading", { level: 1, name: "Sua opinião importa!" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Responder pesquisa/ })).toBeVisible();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+    await expectAccessible(page);
   });
 });

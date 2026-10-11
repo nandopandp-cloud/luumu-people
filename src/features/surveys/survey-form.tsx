@@ -174,7 +174,7 @@ function QuestionField({ index, question: q, value, onChange, invalid }: { index
             >
               <input type="radio" name={`${id}-${q.id}`} value={String(o.value)} checked={checked} onChange={() => onChange(o.value)} className="sr-only" aria-label={q.type === "choice" ? undefined : o.description} />
               <span>{o.label}</span>
-              {q.type === "scale" ? <span className={cn("text-[11px] font-normal", checked ? "text-white/90" : "text-neutral-500")}>{o.description}</span> : null}
+              {q.type === "scale" ? <span className={cn("text-[11px] font-normal", checked ? "text-white/90" : "text-neutral-600")}>{o.description}</span> : null}
             </label>
           );
         })}

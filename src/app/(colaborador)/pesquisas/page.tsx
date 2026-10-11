@@ -1,75 +1,88 @@
-import { CalendarClock, CircleCheck, ListChecks, Lock } from "lucide-react";
-import type { Metadata, Route } from "next";
-import Link from "next/link";
+import { Lock } from "lucide-react";
+import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Badge } from "@/design-system/components/badge";
-import { Button } from "@/design-system/components/button";
 import { EmptyState } from "@/design-system/components/empty-state";
 import { Skeleton } from "@/design-system/components/feedback";
-import { PageHero } from "@/features/page/page-hero";
-import { formatDay, SURVEY_KIND } from "@/features/surveys/labels";
+import { CountedHeading, OpenSurveyCard, PastSurveyRow, SurveysHero } from "@/features/surveys/my-surveys";
+import { SortSelect } from "@/features/surveys/sort-select";
 import { requireActor } from "@/server/dal";
-import { listMySurveys, type MySurvey } from "@/server/modules/surveys/service";
+import { listMySurveys } from "@/server/modules/surveys/service";
 
 export const metadata: Metadata = { title: "Pesquisas" };
 
-export default function SurveysPage() {
+type SP = PageProps<"/pesquisas">["searchParams"];
+
+export default function SurveysPage({ searchParams }: PageProps<"/pesquisas">) {
   return (
     <>
-      <PageHero title="Pesquisas" description="Sua opinião importa! Ajude a construir um ambiente cada vez melhor para todos." bubble="Sua voz faz a diferença!" />
-      <Suspense fallback={<Skeleton className="h-[260px] rounded-xl" />}>
-        <Surveys />
+      <SurveysHero />
+      <Suspense fallback={<SurveysSkeleton />}>
+        <Surveys searchParams={searchParams} />
       </Suspense>
     </>
   );
 }
 
-async function Surveys() {
-  const actor = await requireActor();
+async function Surveys({ searchParams }: { searchParams: SP }) {
+  const [actor, raw] = await Promise.all([requireActor(), searchParams]);
+  const order = raw.ordem === "antigas" ? "antigas" : "recentes";
   const all = await listMySurveys(actor);
-  const open = all.filter((s) => s.state === "open");
-  const past = all.filter((s) => s.state !== "open");
+  const open = all.filter((s) => s.state === "open").sort((a, b) => a.closesAt.getTime() - b.closesAt.getTime());
+  // Respondidas pela data da resposta (só a data é guardada); empate: prazo mais recente primeiro.
+  const answered = all
+    .filter((s) => s.state === "answered")
+    .sort((a, b) => (b.completedOn ?? "").localeCompare(a.completedOn ?? "") || b.closesAt.getTime() - a.closesAt.getTime());
+  if (order === "antigas") answered.reverse();
+  const missed = all.filter((s) => s.state === "closed");
 
   return (
-    <div className="space-y-8">
-      <section aria-labelledby="para-responder">
-        <h2 id="para-responder" className="mb-3.5 text-[19px] font-bold tracking-[-0.01em] text-neutral-900">
-          Para responder <span className="font-semibold text-neutral-600">({open.length})</span>
-        </h2>
+    <div className="space-y-9">
+      <section aria-labelledby="em-andamento" className="space-y-4">
+        <CountedHeading id="em-andamento" count={open.length}>
+          {open.length === 1 ? "Pesquisa em andamento" : "Pesquisas em andamento"}
+        </CountedHeading>
         {open.length === 0 ? (
           <div className="card p-6">
             <EmptyState compact title="Nenhuma pesquisa aberta para você" description="Quando houver uma nova pesquisa, ela aparece aqui. Obrigado por participar!" />
           </div>
         ) : (
-          <ul className="grid gap-4 md:grid-cols-2">
+          <ul className="space-y-4">
             {open.map((s) => (
               <li key={s.id}>
-                <SurveyCard survey={s} />
+                <OpenSurveyCard survey={s} />
               </li>
             ))}
           </ul>
         )}
       </section>
 
-      {past.length ? (
-        <section aria-labelledby="historico">
-          <h2 id="historico" className="mb-3.5 text-[19px] font-bold tracking-[-0.01em] text-neutral-900">
-            Respondidas e encerradas
-          </h2>
-          <ul className="divide-y divide-line rounded-xl border border-line bg-white">
-            {past.map((s) => (
-              <li key={s.id} className="flex flex-wrap items-center gap-3 px-5 py-4">
-                <div className="min-w-0 flex-1">
-                  <p className="text-body-sm font-semibold text-neutral-900">{s.title}</p>
-                  <p className="text-caption text-neutral-500">Encerramento: {formatDay(s.closesAt)}</p>
-                </div>
-                {s.state === "answered" ? (
-                  <Badge tone="green">
-                    <CircleCheck aria-hidden /> Respondida
-                  </Badge>
-                ) : (
-                  <Badge tone="neutral">Encerrada</Badge>
-                )}
+      {answered.length ? (
+        <section aria-labelledby="respondidas" className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CountedHeading id="respondidas" count={answered.length}>
+              {answered.length === 1 ? "Pesquisa respondida" : "Pesquisas respondidas"}
+            </CountedHeading>
+            {answered.length > 1 ? <SortSelect value={order} /> : null}
+          </div>
+          <ul className="card divide-y divide-line overflow-hidden p-0">
+            {answered.map((s) => (
+              <li key={s.id}>
+                <PastSurveyRow survey={s} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {missed.length ? (
+        <section aria-labelledby="encerradas" className="space-y-4">
+          <CountedHeading id="encerradas" count={missed.length}>
+            {missed.length === 1 ? "Pesquisa encerrada" : "Pesquisas encerradas"}
+          </CountedHeading>
+          <ul className="card divide-y divide-line overflow-hidden p-0">
+            {missed.map((s) => (
+              <li key={s.id}>
+                <PastSurveyRow survey={s} />
               </li>
             ))}
           </ul>
@@ -84,29 +97,13 @@ async function Surveys() {
   );
 }
 
-function SurveyCard({ survey: s }: { survey: MySurvey }) {
-  const kind = SURVEY_KIND[s.kind] ?? SURVEY_KIND.custom!;
+function SurveysSkeleton() {
   return (
-    <article className="flex h-full flex-col rounded-xl border border-line bg-white p-5 shadow-sm">
-      <div className="flex flex-wrap gap-1.5">
-        <Badge tone={kind.tone}>{kind.label}</Badge>
-        <Badge tone="purple">
-          <Lock aria-hidden /> Anônima
-        </Badge>
-      </div>
-      <h3 className="mt-3 text-[17px] font-semibold leading-snug text-neutral-900">{s.title}</h3>
-      {s.description ? <p className="mt-1 line-clamp-2 text-body-sm text-neutral-600">{s.description}</p> : null}
-      <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-caption text-neutral-500">
-        <span className="flex items-center gap-1">
-          <ListChecks aria-hidden className="size-3.5" /> {s.questions} {s.questions === 1 ? "pergunta" : "perguntas"}
-        </span>
-        <span className="flex items-center gap-1">
-          <CalendarClock aria-hidden className="size-3.5" /> Responda até {formatDay(s.closesAt)}
-        </span>
-      </p>
-      <Button asChild className="mt-4 self-start">
-        <Link href={`/pesquisas/${s.id}` as Route}>Responder pesquisa</Link>
-      </Button>
-    </article>
+    <div aria-hidden className="space-y-4">
+      <Skeleton className="h-7 w-64 rounded-md" />
+      <Skeleton className="h-[260px] rounded-xl" />
+      <Skeleton className="h-7 w-64 rounded-md" />
+      <Skeleton className="h-[180px] rounded-xl" />
+    </div>
   );
 }

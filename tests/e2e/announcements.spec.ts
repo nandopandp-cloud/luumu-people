@@ -6,14 +6,16 @@ test.describe("Comunicados", () => {
     await signIn(page, "fernando.santos@aurora.example");
     await gotoHydrated(page, "/comunicados");
     await expect(page.getByRole("heading", { level: 1, name: "Comunicados" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Nova política de trabalho híbrido" })).toBeVisible();
+    // Fixado: abre o carrossel de destaques (pode também ser o "Comunicado da semana").
+    await expect(page.getByRole("region", { name: "Comunicados em destaque" }).getByRole("heading", { name: "Nova política de trabalho híbrido" })).toBeVisible();
     await expect(page.getByText("Festa de fim de ano")).toHaveCount(0);
     await expectAccessible(page);
 
     await page.getByRole("region", { name: "Filtrar comunicados" }).getByLabel("Categoria").selectOption("seguranca");
     await expect(page).toHaveURL(/categoria=seguranca/);
-    await expect(page.getByRole("heading", { name: "Simulado de evacuação do prédio" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Nova política de trabalho híbrido" })).toHaveCount(0);
+    const mural = page.getByRole("region", { name: "Mural de comunicados" });
+    await expect(mural.getByRole("heading", { name: "Simulado de evacuação do prédio" })).toBeVisible();
+    await expect(mural.getByRole("heading", { name: "Nova política de trabalho híbrido" })).toHaveCount(0);
 
     await page.getByRole("link", { name: "Simulado de evacuação do prédio" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Simulado de evacuação do prédio" })).toBeVisible();

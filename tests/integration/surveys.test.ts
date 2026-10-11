@@ -93,6 +93,20 @@ describe("pesquisas anônimas", () => {
     expect(mine.find((m) => m.title === "Pesquisa de Clima 2026")?.state).toBe("open");
     expect(mine.find((m) => m.title.startsWith("eNPS"))?.state).toBe("closed");
     expect(mine.some((m) => m.title === "Pulso de bem-estar")).toBe(false);
+
+    const open = mine.find((m) => m.title === "Pesquisa de Clima 2026")!;
+    expect(open).toMatchObject({ anonymous: true, estimatedMinutes: 3, completedOn: null });
+    expect(open.daysLeft).toBeGreaterThan(0);
+    expect(open.timeLeftPercent).toBeGreaterThan(0);
+    expect(open.timeLeftPercent).toBeLessThanOrEqual(100);
+
+    // Quem respondeu vê só a DATA da própria resposta (o convite não guarda hora).
+    const { db } = await testDatabase();
+    const [done] = await db.select({ userId: s.surveyInvitations.userId }).from(s.surveyInvitations).where(eq(s.surveyInvitations.status, "completed")).limit(1);
+    const respondent = [...(await tenantOf("aurora")).users.entries()].find(([, u]) => u.id === done!.userId)![0];
+    const answered = (await listMySurveys((await session(respondent)).actor)).filter((m) => m.state === "answered");
+    expect(answered.length).toBeGreaterThan(0);
+    for (const m of answered) expect(m.completedOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
   it("TESTE 1 — ninguém lê resposta individual: catálogo, API e SQL da aplicação", async () => {

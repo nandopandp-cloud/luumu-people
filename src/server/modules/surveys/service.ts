@@ -286,31 +286,71 @@ export type MySurvey = {
   title: string;
   description: string | null;
   kind: s.SurveyKind;
+  anonymous: boolean;
   closesAt: Date;
   questions: number;
+  /** Tempo estimado para responder, em minutos (≈15 s por pergunta fechada, 45 s por texto livre). */
+  estimatedMinutes: number;
+  /** Dias de calendário (Brasília) até o dia do encerramento: 0 = encerra hoje. */
+  daysLeft: number;
+  /** Parte do prazo (lançamento → encerramento) que ainda resta, de 0 a 100. */
+  timeLeftPercent: number;
+  /** Data (aaaa-mm-dd) em que a PRÓPRIA pessoa respondeu — o convite guarda só a data. */
+  completedOn: string | null;
   state: "open" | "answered" | "closed";
 };
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** Dia (aaaa-mm-dd) no fuso de Brasília. */
+const brDay = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(d);
+
 export async function listMySurveys(actor: AuthenticatedActor): Promise<MySurvey[]> {
   return withTenant(actor, async (tx) => {
-    const result = rows<{ id: string; title: string; description: string | null; kind: s.SurveyKind; closesAt: string; status: string; invitation: string; questions: number }>(
+    const result = rows<{
+      id: string;
+      title: string;
+      description: string | null;
+      kind: s.SurveyKind;
+      anonymityMode: string;
+      closesAt: string;
+      launchedAt: string | null;
+      status: string;
+      invitation: string;
+      completedOn: string | null;
+      questions: number;
+      textQuestions: number;
+    }>(
       await tx.execute(sql`
-        select s.id, s.title, s.description, s.kind, s.closes_at as "closesAt", s.status, i.status as invitation,
-               (select count(*)::int from survey_questions q where q.survey_id = s.id) as questions
+        select s.id, s.title, s.description, s.kind, s.anonymity_mode as "anonymityMode", s.closes_at as "closesAt", s.launched_at as "launchedAt",
+               s.status, i.status as invitation, i.completed_on::text as "completedOn",
+               (select count(*)::int from survey_questions q where q.survey_id = s.id) as questions,
+               (select count(*)::int from survey_questions q where q.survey_id = s.id and q.type = 'text') as "textQuestions"
         from survey_invitations i join surveys s on s.id = i.survey_id
         where i.user_id = ${actor.userId} and s.status <> 'draft'
         order by s.closes_at desc`),
     );
     const now = Date.now();
-    return result.map((r) => ({
-      id: r.id,
-      title: r.title,
-      description: r.description,
-      kind: r.kind,
-      closesAt: new Date(r.closesAt),
-      questions: r.questions,
-      state: r.invitation === "completed" ? "answered" : r.status === "active" && new Date(r.closesAt).getTime() > now ? "open" : "closed",
-    }));
+    return result.map((r) => {
+      const closesAt = new Date(r.closesAt);
+      const launchedAt = r.launchedAt ? new Date(r.launchedAt) : null;
+      const left = Math.max(0, closesAt.getTime() - now);
+      const span = launchedAt ? closesAt.getTime() - launchedAt.getTime() : 0;
+      const closedQuestions = r.questions - r.textQuestions;
+      return {
+        id: r.id,
+        title: r.title,
+        description: r.description,
+        kind: r.kind,
+        anonymous: r.anonymityMode === "anonymous",
+        closesAt,
+        questions: r.questions,
+        estimatedMinutes: Math.max(1, Math.ceil((closedQuestions * 15 + r.textQuestions * 45) / 60)),
+        daysLeft: Math.max(0, Math.round((Date.parse(brDay(closesAt)) - Date.parse(brDay(new Date(now)))) / DAY_MS)),
+        timeLeftPercent: span > 0 ? Math.round((left / span) * 100) : 0,
+        completedOn: r.invitation === "completed" ? r.completedOn : null,
+        state: r.invitation === "completed" ? "answered" : r.status === "active" && closesAt.getTime() > now ? "open" : "closed",
+      };
+    });
   });
 }
 
