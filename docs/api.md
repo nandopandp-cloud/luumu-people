@@ -65,6 +65,14 @@ Paginação por cursor: `?cursor=…&limit=…` → `{ items, nextCursor }`.
 | POST / DELETE | `/api/v1/me/cover` | autenticado | troca (multipart `file`, imagem até 3 MB) ou remove a capa do próprio perfil |
 | GET / PUT | `/api/v1/me/mood` | autenticado | check-in de humor do dia `{ mood: 1..5 }` — somente o próprio registro |
 | GET | `/api/v1/audit-logs` | `audit.read` (TENANT) | trilha de auditoria (`action`, `actorUserId`, `cursor`) |
+| GET / POST | `/api/v1/announcements/:id/comments` | autenticado (quem vê o comunicado) | lista / cria comentário `{ body, parentId? }` — resposta de um nível; menções `@[Nome](user:id)` só de quem vê o comunicado (as demais viram texto) |
+| POST / DELETE | `/api/v1/announcements/:id/comments/:commentId/like` | autenticado (quem vê o comunicado) | curte/descurte comentário em nome próprio; avisa quem escreveu |
+| GET | `/api/v1/announcements/:id/mentionable?q=` | autenticado (quem vê o comunicado) | sugestões de menção: até 8 pessoas do público, só `{ id, name, image }` |
+| GET | `/api/v1/me/notifications?aba=&tipos=&limite=` | autenticado | notificações da própria pessoa (`todas`, `nao-lidas`, `mencoes`; categorias) + contadores |
+| GET | `/api/v1/me/notifications/unread-count` | autenticado | não lidas (sino) |
+| POST | `/api/v1/me/notifications/read` | autenticado | `{ keys[], read? }` marca como lida/não lida (só as próprias) |
+| POST | `/api/v1/me/notifications/read-all` | autenticado | marca todas como lidas |
+| GET / PUT | `/api/v1/me/notifications/preferences` | autenticado | categorias silenciadas `{ muted[] }` |
 | GET | `/api/v1/feature-flags` | autenticado | flags efetivas do usuário |
 | POST | `/api/v1/announcements` | `comms.announcement.create` (TENANT) | cria rascunho de comunicado |
 | GET / PUT / DELETE | `/api/v1/announcements/:id` | `comms.announcement.create` | lê, edita (no ar ou fixado: exige `comms.announcement.publish`) e exclui (só rascunho) |

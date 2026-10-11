@@ -69,7 +69,7 @@ describe("mural de comunicados", () => {
     expect(old.items.map((a) => a.title)).not.toContain("Simulado de evacuação do prédio"); // 9 dias atrás
     const withCounts = (await listAnnouncements(actor, { limit: 50 })).items.find((a) => a.title === "Semana da Diversidade")!;
     expect(withCounts.videos).toBe(1);
-    expect(withCounts.comments).toBe(1);
+    expect(withCounts.comments).toBe(2); // comentário da Camila + menção do Rafael (seed)
   });
 
   it("curtir: uma vez por pessoa, só em nome próprio (API e banco)", async () => {
@@ -104,8 +104,8 @@ describe("mural de comunicados", () => {
     const created = await call(commentsRoute.POST, { path: "/x", method: "POST", cookie: author.cookie, params: { id }, body: { body: "  Participarei do encontro!  " } });
     expect(created.status).toBe(200);
     const list = await call(commentsRoute.GET, { path: "/x", cookie: author.cookie, params: { id } });
-    const mine = (list.json.items as { id: string; body: string; canDelete: boolean }[]).find((c) => c.id === created.json.id)!;
-    expect(mine).toMatchObject({ body: "Participarei do encontro!", canDelete: true });
+    const mine = (list.json.items as { id: string; parts: unknown[]; canDelete: boolean }[]).find((c) => c.id === created.json.id)!;
+    expect(mine).toMatchObject({ parts: [{ type: "text", value: "Participarei do encontro!" }], canDelete: true });
     expect((await call(commentsRoute.POST, { path: "/x", method: "POST", cookie: author.cookie, params: { id }, body: { body: "x".repeat(1001) } })).status).toBe(400);
 
     const other = await signIn("aurora", "isabela");

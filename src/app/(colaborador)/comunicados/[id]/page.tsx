@@ -9,6 +9,7 @@ import { Breadcrumb } from "@/design-system/components/navigation";
 import { Comments } from "@/features/announcements/mural/comments";
 import { LikeButton } from "@/features/announcements/mural/like-button";
 import { RichText } from "@/features/announcements/rich-text";
+import { MarkSeen } from "@/features/notifications/mark-seen";
 import { CourseCover } from "@/features/courses/course-cover";
 import { ANNOUNCEMENT_CATEGORY } from "@/features/home/labels";
 import { formatDateTime } from "@/lib/format";
@@ -130,10 +131,11 @@ async function Announcement({ params }: { params: PageProps<"/comunicados/[id]">
             </a>
           </div>
 
+          <MarkSeen keys={[`announcement:${a.id}`]} />
           <div className="mt-6">
             <Comments
               announcementId={a.id}
-              initial={comments.map((c) => ({ id: c.id, body: c.body, createdAt: c.createdAt.toISOString(), author: { name: c.author.name, image: c.author.image }, canDelete: c.canDelete }))}
+              initial={comments.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() }))}
             />
           </div>
         </div>

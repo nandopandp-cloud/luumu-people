@@ -9,6 +9,7 @@ export type NavIcon =
   | "development"
   | "surveys"
   | "announcements"
+  | "notifications"
   | "library"
   | "profile"
   | "achievements"
@@ -30,6 +31,8 @@ export type NavItem = {
   exact?: boolean;
   /** Módulo opcional (feature flag); item oculto quando o módulo está desligado. */
   module?: ModuleKey;
+  /** Contador exibido à direita (ex.: notificações não lidas). */
+  badge?: number;
 };
 
 /** Navegação do colaborador — briefing §47 e mockups. */
@@ -40,6 +43,7 @@ export const EMPLOYEE_NAV: NavItem[] = [
   { href: "/desenvolvimento", label: "Desenvolvimento", icon: "development" },
   { href: "/pesquisas", label: "Pesquisas", icon: "surveys" },
   { href: "/comunicados", label: "Comunicados", icon: "announcements" },
+  { href: "/notificacoes", label: "Notificações", icon: "notifications" },
   { href: "/biblioteca", label: "Biblioteca", icon: "library", module: "library" },
 ];
 

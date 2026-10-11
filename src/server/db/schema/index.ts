@@ -9,3 +9,4 @@ export * from "./surveys";
 export * from "./banners";
 export * from "./development";
 export * from "./communication";
+export * from "./notifications";

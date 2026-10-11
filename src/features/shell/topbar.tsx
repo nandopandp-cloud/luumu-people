@@ -2,8 +2,9 @@ import { Bell } from "lucide-react";
 import { Suspense, type ReactNode } from "react";
 import { Skeleton } from "@/design-system/components/feedback";
 import { hasPermissionAnywhere } from "@/server/authz/policy";
-import { getCurrentActor } from "@/server/dal";
+import { getCurrentActor, getUnreadNotificationCount } from "@/server/dal";
 import { getMyProfile } from "@/server/modules/people/service";
+import { NotificationBell } from "@/features/notifications/bell";
 import { CommandPalette } from "@/features/search/command-palette";
 import { MobileMenuButton } from "./mobile-menu";
 import { UserMenu } from "./user-menu";
@@ -27,19 +28,30 @@ export function Topbar({
       {mobileNav ? <MobileMenuButton>{mobileNav}</MobileMenuButton> : null}
       <CommandPalette placeholder={searchPlaceholder} context={environment} />
       <div className="ml-auto flex items-center gap-3 sm:gap-5">
-        <button
-          type="button"
-          aria-label="Notificações"
-          className="relative flex size-12 items-center justify-center rounded-full border border-line bg-white text-neutral-700 shadow-sm transition-colors hover:text-purple-600 focus-visible:outline-2 focus-visible:outline-purple-500"
-        >
-          <Bell aria-hidden className="size-5" />
-        </button>
+        <Suspense fallback={<BellPlaceholder />}>
+          <TopbarBell />
+        </Suspense>
         <span aria-hidden className="hidden h-10 w-px bg-line sm:block" />
         <Suspense fallback={<UserMenuSkeleton />}>
           <TopbarUser environment={environment} />
         </Suspense>
       </div>
     </header>
+  );
+}
+
+/** Sino com o contador de não lidas (a lista é carregada ao abrir). */
+async function TopbarBell() {
+  const actor = await getCurrentActor();
+  if (!actor) return <BellPlaceholder />;
+  return <NotificationBell initialUnread={await getUnreadNotificationCount()} />;
+}
+
+function BellPlaceholder() {
+  return (
+    <span aria-hidden className="flex size-12 items-center justify-center rounded-full border border-line bg-white text-neutral-700 shadow-sm">
+      <Bell className="size-5" />
+    </span>
   );
 }
 

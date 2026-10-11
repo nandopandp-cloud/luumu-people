@@ -31,6 +31,17 @@ export function NavLinkView({ item, nested, active = false }: { item: NavItem; n
     >
       {nested ? null : <Icon aria-hidden className={cn("size-[22px] shrink-0", active ? "text-purple-500" : "text-neutral-600 group-hover:text-purple-500")} strokeWidth={active ? 2.2 : 1.8} />}
       <span className="truncate sidebar-collapsed:sr-only">{item.label}</span>
+      {item.badge ? (
+        <>
+          <span aria-hidden className="ml-auto inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-purple-500 px-1.5 text-caption font-bold text-white sidebar-collapsed:absolute sidebar-collapsed:right-3 sidebar-collapsed:top-2 sidebar-collapsed:h-2.5 sidebar-collapsed:min-w-2.5 sidebar-collapsed:rounded-full sidebar-collapsed:p-0 sidebar-collapsed:text-[0px]">
+            {item.badge > 99 ? "99+" : item.badge}
+          </span>
+          <span className="sr-only">
+            {" "}
+            ({item.badge} {item.badge === 1 ? "não lida" : "não lidas"})
+          </span>
+        </>
+      ) : null}
       {/* Dica com o nome do item quando a sidebar está recolhida. */}
       <span
         aria-hidden

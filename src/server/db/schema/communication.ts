@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, foreignKey, index, integer, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, foreignKey, index, integer, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { createdAt, id, tenantId, timestamps } from "./_columns";
 import { users } from "./auth";
 import { files } from "./files";
@@ -28,7 +28,11 @@ export const announcementReactions = pgTable(
   ],
 );
 
-/** Comentário. Removido = `deleted_at` (pelo autor ou por moderação); o texto some do mural. */
+/**
+ * Comentário. Removido = `deleted_at` (pelo autor ou por moderação); o texto some do mural.
+ * Resposta: `parent_id` aponta para um comentário de primeiro nível (um nível só).
+ * Menções ficam no texto como `@[Nome](user:<uuid>)` (ver src/lib/mentions.ts).
+ */
 export const announcementComments = pgTable(
   "announcement_comments",
   {
@@ -36,18 +40,39 @@ export const announcementComments = pgTable(
     tenantId: tenantId().references(() => organizations.id),
     announcementId: uuid("announcement_id").notNull(),
     authorId: uuid("author_id").notNull(),
+    parentId: uuid("parent_id"),
     body: text("body").notNull(),
     createdAt: createdAt(),
     deletedAt: timestamp("deleted_at", { withTimezone: true, mode: "date" }),
     deletedBy: uuid("deleted_by"),
   },
   (t) => [
+    unique("announcement_comments_tenant_id_id_key").on(t.tenantId, t.id),
+    foreignKey({ name: "announcement_comments_parent_fk", columns: [t.tenantId, t.parentId], foreignColumns: [t.tenantId, t.id] }).onDelete("cascade"),
+    check("announcement_comments_not_self_parent", sql`${t.parentId} is distinct from ${t.id}`),
     foreignKey({ name: "announcement_comments_announcement_fk", columns: [t.tenantId, t.announcementId], foreignColumns: [announcements.tenantId, announcements.id] }).onDelete("cascade"),
     foreignKey({ name: "announcement_comments_author_fk", columns: [t.tenantId, t.authorId], foreignColumns: [users.tenantId, users.id] }),
     foreignKey({ name: "announcement_comments_deleted_by_fk", columns: [t.tenantId, t.deletedBy], foreignColumns: [users.tenantId, users.id] }),
     index("announcement_comments_feed_idx").on(t.tenantId, t.announcementId, t.createdAt),
-    check("announcement_comments_body_len", sql`char_length(${t.body}) between 1 and 1000`),
+    // Até 1.000 caracteres visíveis; a margem cobre os marcadores de menção.
+    check("announcement_comments_body_len", sql`char_length(${t.body}) between 1 and 2000`),
     check("announcement_comments_deleted_pair", sql`(${t.deletedAt} is null) = (${t.deletedBy} is null)`),
+  ],
+);
+
+/** Curtida em comentário: uma por pessoa e comentário. */
+export const commentReactions = pgTable(
+  "comment_reactions",
+  {
+    tenantId: tenantId().references(() => organizations.id),
+    commentId: uuid("comment_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    primaryKey({ name: "comment_reactions_pk", columns: [t.tenantId, t.commentId, t.userId] }),
+    foreignKey({ name: "comment_reactions_comment_fk", columns: [t.tenantId, t.commentId], foreignColumns: [announcementComments.tenantId, announcementComments.id] }).onDelete("cascade"),
+    foreignKey({ name: "comment_reactions_user_fk", columns: [t.tenantId, t.userId], foreignColumns: [users.tenantId, users.id] }),
   ],
 );
 

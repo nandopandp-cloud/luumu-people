@@ -1,5 +1,6 @@
 import {
   Award,
+  Bell,
   Box,
   ChartColumn,
   ClipboardCheck,
@@ -28,6 +29,7 @@ export const NAV_ICONS: Record<NavIcon, LucideIcon> = {
   development: TrendingUp,
   surveys: SquareCheckBig,
   announcements: Megaphone,
+  notifications: Bell,
   library: Library,
   profile: UserRound,
   achievements: Award,

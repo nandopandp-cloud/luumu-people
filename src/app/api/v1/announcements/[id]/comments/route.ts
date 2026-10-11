@@ -14,5 +14,5 @@ export const POST = defineRoute({
   params: announcementParamsSchema,
   body: commentInputSchema,
   rateLimit: SENSITIVE_RATE_LIMIT,
-  handler: ({ actor, params, body }) => addComment(actor, params.id, body.body),
+  handler: ({ actor, params, body }) => addComment(actor, params.id, body),
 });

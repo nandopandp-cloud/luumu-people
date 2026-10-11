@@ -49,6 +49,12 @@ A CSP é estática e permite `'unsafe-inline'` em scripts. Nonces exigiriam rend
 - Não há analytics de terceiros. As páginas de pesquisa nunca terão nenhum ([anonymous-surveys.md](anonymous-surveys.md)).
 - Segredos ficam só em variáveis de ambiente do servidor. Não existe variável `NEXT_PUBLIC_*`.
 
+## Notificações e menções
+
+- Notificações gravadas só são lidas e marcadas por quem recebe; ninguém cria notificação em nome de outra pessoa (policies `RESTRICTIVE` sobre `app.current_user_id()`). Quem gerou uma curtida enxerga só a notificação dela, para poder desfazê-la.
+- "Novo comunicado" e "Nova pesquisa" são calculadas na leitura com as mesmas regras de visibilidade do mural e do convite: público por área, agendamento e arquivamento valem automaticamente. As de pesquisa usam **só o convite da própria pessoa** (nunca respostas).
+- Menções: a sugestão de nomes lista só quem vê o comunicado e devolve apenas nome e foto. No envio, o servidor descarta menções a quem não vê o comunicado ou não está ativo; na tela, o nome exibido é sempre o atual da pessoa (o texto gravado no marcador não é confiável).
+
 ## Auditoria
 
 `audit_logs` é append-only: a role de runtime só tem `INSERT`/`SELECT`, e um trigger rejeita `UPDATE`, `DELETE` e `TRUNCATE`. A lista de ações é fechada (`AUDIT_ACTIONS`). Hoje registra login (com o método: senha ou Google), vínculo de login corporativo, logout, sessão revogada, redefinição de senha, concessão e revogação de papel, edição de perfil, criação/edição/publicação/arquivamento de comunicados, remoção de comentário por moderação (sem o texto), criação/edição/exclusão de eventos e links rápidos e criação/edição/lançamento/encerramento de pesquisas. As ações de pessoas, estrutura, configurações e exportação entram com seus módulos. **Nunca** registra resposta de pesquisa anônima nem o vínculo entre pessoa e resposta.

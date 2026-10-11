@@ -176,6 +176,20 @@
       "when": 1791585505391,
       "tag": "0024_communication_security",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791683805958,
+      "tag": "0025_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791683822894,
+      "tag": "0026_notifications_security",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,7 @@
 import { and, asc, eq } from "drizzle-orm";
 import type { Database } from "../client";
 import * as s from "../schema";
+import { mentionToken } from "@/lib/mentions";
 
 /**
  * Dados de EXEMPLO do mural de comunicados: agenda de eventos, links rápidos,
@@ -145,9 +146,51 @@ export async function seedCommunication(db: Database, tenantId: string): Promise
   });
   if (comments.length) await db.insert(s.announcementComments).values(comments);
 
+  await seedInteractions(db, tenantId, byTitle, userByKey);
+
   if (diversity) {
     await db.insert(s.announcementAttachments).values({ tenantId, announcementId: diversity, kind: "video", title: "Convite da Semana da Diversidade", videoUrl: "https://vimeo.com/76979871" });
   }
   return true;
+}
+
+const HOUR_MS = 60 * 60 * 1000;
+const hoursAgo = (n: number) => new Date(Date.now() - n * HOUR_MS);
+
+/**
+ * Interações de EXEMPLO que geram notificações para Fernando Santos: uma
+ * menção, uma resposta a um comentário dele e curtidas em outro comentário.
+ */
+async function seedInteractions(db: Database, tenantId: string, byTitle: Map<string, string>, userByKey: Map<string, string>) {
+  const id = (key: string) => userByKey.get(key);
+  const fernando = id("fernando.santos");
+  const rafael = id("rafael.lima");
+  const carla = id("carla.mendes");
+  const policy = byTitle.get("Nova política de trabalho híbrido");
+  const diversity = byTitle.get("Semana da Diversidade");
+  const wellbeing = byTitle.get("Programa de Saúde Mental");
+  if (!fernando || !rafael || !carla || !policy || !diversity || !wellbeing) return;
+
+  const comment = async (announcementId: string, authorId: string, body: string, at: Date, parentId: string | null = null) => {
+    const [row] = await db.insert(s.announcementComments).values({ tenantId, announcementId, authorId, body, parentId, createdAt: at }).returning({ id: s.announcementComments.id });
+    return row!.id;
+  };
+
+  // Menção do Rafael ao Fernando.
+  const mention = await comment(diversity, rafael, `${mentionToken("Fernando Santos", fernando)} o que você acha dessa sugestão para o próximo ciclo? 🚀`, hoursAgo(3));
+  await db.insert(s.notifications).values({ tenantId, recipientId: fernando, actorId: rafael, type: "mention", announcementId: diversity, commentId: mention, createdAt: hoursAgo(3) });
+
+  // Resposta da Carla a um comentário do Fernando.
+  const question = await comment(policy, fernando, "Os dias presenciais valem também para quem está em outra cidade?", hoursAgo(14));
+  const reply = await comment(policy, carla, "Boa pergunta! Para quem é remoto, combinamos encontros trimestrais na sede.", hoursAgo(12), question);
+  await db.insert(s.notifications).values({ tenantId, recipientId: fernando, actorId: carla, type: "comment_reply", announcementId: policy, commentId: reply, createdAt: hoursAgo(12) });
+
+  // Curtidas num comentário do Fernando (já lidas, para mostrar os dois estados).
+  const liked = await comment(wellbeing, fernando, "Iniciativa muito importante. Obrigado por cuidarem da gente!", hoursAgo(30));
+  const likers = ["juliana.mendes", "rafael.lima", "camila.oliveira", "gabriel.rocha", "bruno.martins"].flatMap((k) => (id(k) ? [id(k)!] : []));
+  await db.insert(s.commentReactions).values(likers.map((userId, i) => ({ tenantId, commentId: liked, userId, createdAt: hoursAgo(5 + i) })));
+  await db.insert(s.notifications).values(
+    likers.map((actorId, i) => ({ tenantId, recipientId: fernando, actorId, type: "comment_like" as const, announcementId: wellbeing, commentId: liked, createdAt: hoursAgo(5 + i), readAt: hoursAgo(4) })),
+  );
 }
 

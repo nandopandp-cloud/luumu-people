@@ -46,7 +46,13 @@ export const announcementParamsSchema = z.strictObject({ id: z.uuid() });
 export const MANAGED_FILTERS = ["todos", "rascunhos", "agendados", "publicados", "arquivados"] as const;
 export type ManagedFilter = (typeof MANAGED_FILTERS)[number];
 
+/** Texto com marcadores de menção (`@[Nome](user:id)`); os 1.000 caracteres VISÍVEIS são conferidos no serviço. */
 export const commentInputSchema = z.strictObject({
-  body: z.string().trim().min(1, "Escreva um comentário.").max(1000, "Use no máximo 1.000 caracteres."),
+  body: z.string().trim().min(1, "Escreva um comentário.").max(2000, "Use no máximo 1.000 caracteres."),
+  parentId: z.uuid().nullish(),
+});
+
+export const mentionableQuerySchema = z.strictObject({
+  q: z.string().trim().min(1).max(40),
 });
 export const commentParamsSchema = z.strictObject({ id: z.uuid(), commentId: z.uuid() });
