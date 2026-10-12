@@ -1,14 +1,14 @@
 import { expect, test } from "@playwright/test";
 import { expectAccessible, gotoHydrated, signIn } from "./helpers";
 
-test.describe("Amigos", () => {
+test.describe("Conversas e amigos", () => {
   test("conversa privada em tempo real, pedidos, busca de pessoas e grupo", async ({ page, browser }) => {
     test.setTimeout(180_000);
     await signIn(page, "fernando.santos@aurora.example");
-    await page.getByRole("navigation", { name: "Navegação principal" }).first().getByRole("link", { name: /^Amigos/ }).click();
-    await page.waitForURL("**/amigos");
+    await page.getByRole("navigation", { name: "Navegação principal" }).first().getByRole("link", { name: /^Conversas/ }).click();
+    await page.waitForURL("**/conversas");
     await page.waitForLoadState("networkidle");
-    await expect(page.getByRole("heading", { level: 1, name: "Amigos" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Conversas" })).toBeVisible();
     await expect(page.getByRole("tab", { name: /Solicitações 2/ })).toBeVisible();
     await expectAccessible(page);
 
@@ -57,7 +57,7 @@ test.describe("Amigos", () => {
     const carlaContext = await browser.newContext();
     const carla = await carlaContext.newPage();
     await signIn(carla, "carla.mendes@aurora.example");
-    await gotoHydrated(carla, "/amigos");
+    await gotoHydrated(carla, "/conversas");
     await carla.getByRole("list", { name: "Conversas" }).getByRole("button", { name: /Fernando Santos/ }).click();
     const carlaChat = carla.getByRole("region", { name: "Fernando Santos" });
     await expect(carlaChat.getByText("Combinado! Começo amanhã cedo 🚀")).toBeVisible();
@@ -105,7 +105,7 @@ test.describe("Amigos", () => {
 
   test("perfil do colega", async ({ page }) => {
     await signIn(page, "fernando.santos@aurora.example");
-    await gotoHydrated(page, "/amigos?aba=pessoas");
+    await gotoHydrated(page, "/conversas?aba=pessoas");
     await page.getByRole("searchbox", { name: "Buscar pessoas" }).fill("Rafael");
     await page.getByRole("button", { name: /Rafael Lima/ }).first().click();
     await page.getByRole("complementary", { name: "Perfil" }).getByRole("link", { name: "Ver perfil" }).click();
@@ -116,12 +116,50 @@ test.describe("Amigos", () => {
 
   test("@mobile lista, conversa e volta", async ({ page }) => {
     await signIn(page, "fernando.santos@aurora.example");
-    await gotoHydrated(page, "/amigos");
+    await gotoHydrated(page, "/conversas");
     await page.getByRole("list", { name: "Conversas" }).getByRole("button", { name: /Rafael Lima/ }).click();
     const chat = page.getByRole("region", { name: "Rafael Lima" });
     await expect(chat.getByText("Te mando o material aqui")).toBeVisible();
     await expectAccessible(page);
     await chat.getByRole("button", { name: "Voltar para a lista" }).click();
-    await expect(page.getByRole("heading", { level: 1, name: "Amigos" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Conversas" })).toBeVisible();
+  });
+
+  test("chat flutuante: acompanha a navegação, minimiza e sai da página de conversas", async ({ page }) => {
+    test.setTimeout(120_000);
+    await signIn(page, "fernando.santos@aurora.example");
+    const dock = page.getByRole("region", { name: "Conversas rápidas" });
+    await dock.getByRole("button", { name: /^Conversas/ }).click();
+    await dock.getByRole("list", { name: "Conversas" }).getByRole("button", { name: /Juliana Mendes/ }).click();
+    const window = dock.getByRole("region", { name: /Juliana Mendes/ });
+    await expect(window.getByText("Perfeito! Obrigada 🙏")).toBeVisible();
+    await expectAccessible(page);
+
+    // Navega pela plataforma com a conversa aberta.
+    await page.getByRole("navigation", { name: "Navegação principal" }).first().getByRole("link", { name: "Comunicados" }).click();
+    await page.waitForURL("**/comunicados");
+    await window.getByRole("textbox", { name: "Mensagem" }).fill("Respondendo enquanto leio os comunicados 📣");
+    await window.getByRole("textbox", { name: "Mensagem" }).press("Enter");
+    await expect(window.getByText("Respondendo enquanto leio os comunicados 📣")).toBeVisible();
+
+    // Minimizar e restaurar.
+    await window.getByRole("button", { name: "Minimizar", exact: true }).click();
+    await expect(window).toHaveCount(0);
+    await dock.getByRole("button", { name: /^Abrir conversa com Juliana Mendes/ }).click();
+    await expect(dock.getByRole("region", { name: /Juliana Mendes/ }).getByText("Respondendo enquanto leio os comunicados 📣")).toBeVisible();
+    await dock.getByRole("button", { name: "Fechar conversa", exact: true }).click();
+    await expect(dock.getByRole("region", { name: /Juliana Mendes/ })).toHaveCount(0);
+
+    // Da página de conversas para a janela flutuante.
+    await gotoHydrated(page, "/conversas");
+    await expect(page.getByRole("region", { name: "Conversas rápidas" }).getByRole("button", { name: /^Conversas/ })).toHaveCount(0);
+    // Repete o clique se a página ainda estiver hidratando.
+    await expect(async () => {
+      await page.getByRole("list", { name: "Conversas" }).getByRole("button", { name: /Rafael Lima/ }).click();
+      await expect(page.getByRole("button", { name: "Abrir em janela flutuante" })).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 20_000 });
+    await page.getByRole("button", { name: "Abrir em janela flutuante" }).click();
+    await expect(page.getByRole("region", { name: "Conversas rápidas" }).getByRole("region", { name: /Rafael Lima/ }).getByText("Te mando o material aqui")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Nenhuma conversa aberta" })).toBeVisible();
   });
 });

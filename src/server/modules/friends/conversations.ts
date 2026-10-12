@@ -552,7 +552,7 @@ export async function listSharedMedia(actor: AuthenticatedActor, conversationId:
   });
 }
 
-/** Contador do menu "Amigos": conversas com mensagens não lidas + pedidos de amizade recebidos. */
+/** Contador do menu "Conversas": conversas com mensagens não lidas + pedidos de amizade recebidos. */
 export async function friendsBadgeCount(actor: AuthenticatedActor): Promise<number> {
   return withTenant(actor, async (tx) => {
     const result = await tx.execute(sql`

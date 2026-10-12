@@ -1,3 +1,4 @@
+import { CHAT_SYNC_RATE_LIMIT } from "@/server/http/rate-limit";
 import { defineRoute } from "@/server/http/route";
 import { listConversations, openConversation } from "@/server/modules/friends/conversations";
 import { newConversationSchema } from "@/server/modules/friends/schemas";
@@ -5,6 +6,7 @@ import { newConversationSchema } from "@/server/modules/friends/schemas";
 /** Conversas da própria pessoa (privadas e grupos). */
 export const GET = defineRoute({
   permission: "authenticated",
+  rateLimit: CHAT_SYNC_RATE_LIMIT,
   handler: async ({ actor }) => ({ items: await listConversations(actor) }),
 });
 

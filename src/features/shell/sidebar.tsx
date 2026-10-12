@@ -4,7 +4,7 @@ import { Suspense, type ReactNode } from "react";
 import { Logo, Mascot } from "@/design-system/components/brand";
 import { Skeleton } from "@/design-system/components/feedback";
 import { hasPermissionAnywhere } from "@/server/authz/policy";
-import { achievementsEnabled, getCurrentActor, getFriendsBadgeCount, getMyMoodToday, getUnreadNotificationCount } from "@/server/dal";
+import { achievementsEnabled, getCurrentActor, getFriendsBadgeCount, getMyMoodToday } from "@/server/dal";
 import { toMoodView } from "@/features/wellbeing/events";
 import { MoodSidebarCard } from "@/features/wellbeing/mood-indicators";
 import { EMPLOYEE_MOBILE_NAV, EMPLOYEE_NAV, EMPLOYEE_NAV_SECONDARY, MANAGEMENT_NAV, type NavItem } from "./nav-config";
@@ -47,7 +47,7 @@ async function SidebarMood() {
 const visible = (items: NavItem[], modules: EnabledModules) => items.filter((item) => !item.module || modules[item.module]);
 const NO_MODULES: EnabledModules = { learning: false, library: false };
 
-function EmployeeNavItems({ live, modules, achievements = false, unread = 0, friends = 0 }: { live: boolean; modules: EnabledModules; achievements?: boolean; unread?: number; friends?: number }) {
+function EmployeeNavItems({ live, modules, achievements = false, conversations = 0 }: { live: boolean; modules: EnabledModules; achievements?: boolean; conversations?: number }) {
   const Item = live ? NavLink : NavLinkView;
   const secondary = EMPLOYEE_NAV_SECONDARY.filter((item) => achievements || item.href !== "/minhas-conquistas");
   return (
@@ -55,7 +55,7 @@ function EmployeeNavItems({ live, modules, achievements = false, unread = 0, fri
       <ul className="space-y-1">
         {visible(EMPLOYEE_NAV, modules).map((item) => (
           <li key={item.href}>
-            <Item item={item.href === "/notificacoes" ? { ...item, badge: unread } : item.href === "/amigos" ? { ...item, badge: friends, badgeLabel: ["novidade", "novidades"] } : item} />
+            <Item item={item.href === "/conversas" ? { ...item, badge: conversations, badgeLabel: ["novidade", "novidades"] } : item} />
           </li>
         ))}
       </ul>
@@ -78,8 +78,8 @@ function EmployeeNavItems({ live, modules, achievements = false, unread = 0, fri
 /** Itens dependem dos módulos ligados (flags), da flag `gamification` e da URL: ficam atrás de <Suspense>. */
 async function LiveEmployeeNavItems() {
   const actor = await getCurrentActor();
-  const [modules, achievements, unread, friends] = await Promise.all([actor ? getEnabledModules(actor) : NO_MODULES, achievementsEnabled(), getUnreadNotificationCount(), getFriendsBadgeCount()]);
-  return <EmployeeNavItems live modules={modules} achievements={achievements} unread={unread} friends={friends} />;
+  const [modules, achievements, conversations] = await Promise.all([actor ? getEnabledModules(actor) : NO_MODULES, achievementsEnabled(), getFriendsBadgeCount()]);
+  return <EmployeeNavItems live modules={modules} achievements={achievements} conversations={conversations} />;
 }
 
 export function EmployeeNavList() {

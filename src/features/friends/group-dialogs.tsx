@@ -66,7 +66,7 @@ function FriendPicker({ exclude, selected, onChange }: { exclude: string[]; sele
         Amigos <span className="font-normal text-neutral-600">({selected.length} selecionados)</span>
       </legend>
       <Input type="search" aria-label="Buscar amigos" placeholder="Buscar amigos…" value={search} onChange={(e) => setSearch(e.target.value)} leading={<Search />} />
-      <ul className="mt-3 max-h-64 space-y-1 overflow-y-auto pr-1">
+      <ul className="relative mt-3 max-h-64 space-y-1 overflow-y-auto pr-1">
         {visible.map((f) => (
           <li key={f.id} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-neutral-50">
             <Avatar name={f.name} src={f.image} size="sm" className="ring-0" />

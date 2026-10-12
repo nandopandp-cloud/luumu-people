@@ -46,6 +46,12 @@ export type RateLimitRule = { limit: number; windowMs: number };
 
 export const DEFAULT_RATE_LIMIT: RateLimitRule = { limit: 120, windowMs: 60_000 };
 export const SENSITIVE_RATE_LIMIT: RateLimitRule = { limit: 20, windowMs: 60_000 };
+/**
+ * Atualização periódica do chat (mensagens, lista, lido, digitando, presença):
+ * contador próprio (a chave inclui o limite), para que janelas de conversa
+ * abertas não consumam a cota do restante da plataforma.
+ */
+export const CHAT_SYNC_RATE_LIMIT: RateLimitRule = { limit: 300, windowMs: 60_000 };
 
 let store: RateLimitStore = postgresStore;
 

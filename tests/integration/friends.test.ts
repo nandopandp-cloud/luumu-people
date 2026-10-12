@@ -360,12 +360,12 @@ describe("amigos e conversas", () => {
     const actorOf = async (key: string) => (await resolveActor(headersWith(await cookie(key))))!;
     const inbox = await listNotifications(await actorOf("otavio"));
     const request = inbox.items.find((n) => n.category === "friends")!;
-    expect(request).toMatchObject({ title: "Novo pedido de amizade", lead: "Simone Batista", href: "/amigos?aba=solicitacoes", unread: true });
+    expect(request).toMatchObject({ title: "Novo pedido de amizade", lead: "Simone Batista", href: "/conversas?aba=solicitacoes", unread: true });
 
     await call(acceptRoute.POST, { path: "/x", method: "POST", cookie: await cookie("otavio"), params: { userId: simone } });
     expect((await listNotifications(await actorOf("otavio"))).items.some((n) => n.key === request.key)).toBe(false);
     const accepted = (await listNotifications(await actorOf("simone"))).items.find((n) => n.category === "friends")!;
-    expect(accepted).toMatchObject({ title: "Pedido de amizade aceito", lead: "Otávio Ferraz", href: `/amigos/${otavio}` });
+    expect(accepted).toMatchObject({ title: "Pedido de amizade aceito", lead: "Otávio Ferraz", href: `/pessoas/${otavio}` });
 
     // Recusado: some do sino de quem recebeu.
     const caio = await idOf("caio");

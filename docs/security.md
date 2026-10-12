@@ -32,7 +32,7 @@ Toda autorização acontece no servidor (ver [rbac.md](rbac.md)). Esconder um bo
 - **CSRF:** mutações exigem mesma origem (`Origin` + `Sec-Fetch-Site`); cookie `SameSite=Lax`.
 - **Validação:** Zod estrito em toda entrada (campos extras → 400); corpo limitado a 64 KB; somente JSON.
 - **Erros:** `application/problem+json` com mensagem humana e `requestId`; nunca stack ou SQL.
-- **Rate limit da API:** por usuário, mais rígido em rotas sensíveis, **compartilhado entre todas as instâncias**: contador no Postgres (`app.rate_limit_buckets`), acessível somente pela função atômica `app.rate_limit_hit` (`SECURITY DEFINER`); a aplicação não lê nem altera contadores diretamente.
+- **Rate limit da API:** por usuário, mais rígido em rotas sensíveis (a atualização periódica do chat — mensagens, lista, lido, digitando, presença — tem contador próprio de 300/min, para não esgotar a cota do restante da plataforma), **compartilhado entre todas as instâncias**: contador no Postgres (`app.rate_limit_buckets`), acessível somente pela função atômica `app.rate_limit_hit` (`SECURITY DEFINER`); a aplicação não lê nem altera contadores diretamente.
 - **Cabeçalhos:** CSP, HSTS, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, COOP; `Cache-Control: no-store` em `/api`.
 - **SQL injection:** queries parametrizadas (Drizzle). `sql.raw` só com constantes do código.
 - **XSS:** React escapa a saída; nenhum `dangerouslySetInnerHTML`; e-mails escapam o HTML.

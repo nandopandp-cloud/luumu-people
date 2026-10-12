@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Suspense } from "react";
 import { Logo } from "@/design-system/components/brand";
+import { ChatDock, ChatDockSpacer } from "@/features/friends/chat-dock";
 import { PresenceBeacon } from "@/features/friends/presence-beacon";
 import { EmployeeBottomNav, EmployeeSidebar, ManagementNavList, ManagementSidebar, NavSkeleton } from "./sidebar";
 import { Topbar } from "./topbar";
@@ -26,10 +27,17 @@ export function EmployeeShell({ children }: { children: ReactNode }) {
           <main id="conteudo" tabIndex={-1} className="focus:outline-none">
             {children}
           </main>
+          <Suspense fallback={null}>
+            <ChatDockSpacer />
+          </Suspense>
         </div>
       </div>
       <EmployeeBottomNav />
       <PresenceBeacon />
+      {/* Lê a URL (usePathname): fica atrás de <Suspense> para não sair do static shell. */}
+      <Suspense fallback={null}>
+        <ChatDock environment="employee" />
+      </Suspense>
     </>
   );
 }
@@ -54,8 +62,16 @@ export function ManagementShell({ children }: { children: ReactNode }) {
           <main id="conteudo" tabIndex={-1} className="focus:outline-none">
             {children}
           </main>
+          <Suspense fallback={null}>
+            <ChatDockSpacer />
+          </Suspense>
         </div>
       </div>
+      <PresenceBeacon />
+      {/* Lê a URL (usePathname): fica atrás de <Suspense> para não sair do static shell. */}
+      <Suspense fallback={null}>
+        <ChatDock environment="management" />
+      </Suspense>
     </>
   );
 }

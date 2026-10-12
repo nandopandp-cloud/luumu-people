@@ -56,7 +56,7 @@ export const getUnreadNotificationCount = cache(async (): Promise<number> => {
   return actor ? countUnread(actor) : 0;
 });
 
-/** Conversas com mensagens não lidas + pedidos de amizade recebidos (menu "Amigos"). */
+/** Conversas com mensagens não lidas + pedidos de amizade recebidos (menu "Conversas"). */
 export const getFriendsBadgeCount = cache(async (): Promise<number> => {
   const actor = await getCurrentActor();
   return actor ? friendsBadgeCount(actor) : 0;

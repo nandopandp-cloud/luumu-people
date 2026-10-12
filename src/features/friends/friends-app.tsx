@@ -13,6 +13,7 @@ import { useToast } from "@/design-system/components/toast";
 import { cn } from "@/design-system/cn";
 import { NOTIFICATIONS_CHANGED } from "@/features/notifications/labels";
 import { ChatPanel } from "./chat-panel";
+import { chatDock } from "./dock-store";
 import { errorMessage, friendsApi } from "./client";
 import { AddMembersDialog, ConfirmDialog, NewGroupDialog, RenameGroupDialog } from "./group-dialogs";
 import { MoodMark, PresenceAvatar, shortWhen } from "./person-bits";
@@ -138,6 +139,12 @@ export function FriendsApp({ meId, initial }: { meId: string; initial: Initial }
     setUrl({ conversa: id, pessoa: null }, true);
     setDrawerOpen(false);
   }, []);
+
+  // Abrir uma conversa na página a tira do chat flutuante (sem duas janelas da mesma conversa).
+  // Só reage à troca de conversa: "Abrir em janela flutuante" limpa a URL antes de abrir a janela.
+  useEffect(() => {
+    if (activeId) chatDock.close(activeId);
+  }, [activeId]);
 
   const afterRelationChange = useCallback(async () => {
     // O sino recalcula: pedido aceito/recusado sai das notificações.
@@ -289,16 +296,16 @@ export function FriendsApp({ meId, initial }: { meId: string; initial: Initial }
       <section aria-labelledby="amigos-titulo" className={cn("card flex min-h-0 flex-col overflow-hidden p-0 max-lg:min-h-[70dvh]", activeId && "max-lg:hidden")}>
         <header className="flex items-center justify-between gap-3 px-5 pb-1 pt-6 sm:px-6">
           <h1 id="amigos-titulo" className="text-h1 font-extrabold tracking-[-0.02em] text-neutral-900">
-            Amigos
+            Conversas
           </h1>
           <IconButton label="Nova conversa em grupo" variant="soft" size="lg" onClick={() => setNewGroup(true)}>
             <UsersRound />
           </IconButton>
         </header>
-        <div role="tablist" aria-label="Seções de amigos" className="mt-3 flex gap-1 border-b border-line px-3 sm:px-4">
+        <div role="tablist" aria-label="Seções de conversas" className="mt-3 flex gap-1 border-b border-line px-3 sm:px-4">
           {(
             [
-              { value: "conversas", label: "Conversas" },
+              { value: "conversas", label: "Mensagens" },
               { value: "pessoas", label: "Pessoas" },
               { value: "solicitacoes", label: "Solicitações", count: requests.received.length },
             ] as { value: FriendsTab; label: string; count?: number }[]
@@ -351,6 +358,10 @@ export function FriendsApp({ meId, initial }: { meId: string; initial: Initial }
             onLeave={leave}
             onUnfriend={actions.unfriend}
             onRequestFriend={(userId) => void actions.request(userId)}
+            onPopOut={() => {
+              setUrl({ conversa: null }, true);
+              chatDock.open(detail.id);
+            }}
           />
         ) : activeId ? (
           <div className="card flex h-full min-h-[60dvh] items-center justify-center p-0" aria-busy="true">
@@ -363,7 +374,7 @@ export function FriendsApp({ meId, initial }: { meId: string; initial: Initial }
 
       {/* Perfil ou detalhes do grupo */}
       {showPanel ? (
-        <aside aria-label={detail?.kind === "group" ? "Detalhes do grupo" : "Perfil"} className="card hidden min-h-0 overflow-y-auto p-0 xl:block">
+        <aside aria-label={detail?.kind === "group" ? "Detalhes do grupo" : "Perfil"} className="card relative hidden min-h-0 overflow-y-auto p-0 xl:block">
           {panelContent}
         </aside>
       ) : null}
@@ -480,7 +491,7 @@ function ConversationsTab({ conversations, activeId, unread, onOpen, onFindPeopl
           </button>
         ))}
       </div>
-      <ul aria-label="Conversas" className="min-h-0 flex-1 overflow-y-auto pb-3">
+      <ul aria-label="Conversas" className="relative min-h-0 flex-1 overflow-y-auto pb-3">
         {visible.map((c) => (
           <li key={c.id}>
             <ConversationRow conversation={c} active={c.id === activeId} onOpen={onOpen} />
@@ -502,7 +513,8 @@ function ConversationsTab({ conversations, activeId, unread, onOpen, onFindPeopl
   );
 }
 
-function ConversationRow({ conversation: c, active, onOpen }: { conversation: ConversationSummary; active: boolean; onOpen: (id: string) => void }) {
+/** Linha da lista de conversas (`compact`: lista do chat flutuante). */
+export function ConversationRow({ conversation: c, active, onOpen, compact = false }: { conversation: ConversationSummary; active: boolean; onOpen: (id: string) => void; compact?: boolean }) {
   const preview = c.lastMessage ? (c.lastMessage.mine ? `Você: ${c.lastMessage.preview}` : c.kind === "group" ? `${c.lastMessage.senderName}: ${c.lastMessage.preview}` : c.lastMessage.preview) : c.kind === "group" ? "Grupo criado" : "Comece a conversa";
   return (
     <button
@@ -510,16 +522,17 @@ function ConversationRow({ conversation: c, active, onOpen }: { conversation: Co
       onClick={() => onOpen(c.id)}
       aria-current={active ? "true" : undefined}
       className={cn(
-        "flex w-full items-center gap-3 px-5 py-3 text-left transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-purple-500 sm:px-6",
+        "flex w-full items-center gap-3 text-left transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-purple-500",
+        compact ? "px-4 py-2.5" : "px-5 py-3 sm:px-6",
         active ? "bg-purple-50" : "hover:bg-neutral-50",
       )}
     >
       {c.kind === "group" ? (
-        <span aria-hidden className="flex size-12 shrink-0 items-center justify-center rounded-full bg-purple-100 text-purple-600">
-          <UsersRound className="size-6" />
+        <span aria-hidden className={cn("flex shrink-0 items-center justify-center rounded-full bg-purple-100 text-purple-600", compact ? "size-10" : "size-12")}>
+          <UsersRound className={compact ? "size-5" : "size-6"} />
         </span>
       ) : (
-        <PresenceAvatar name={c.title} image={c.image} online={c.other?.online} />
+        <PresenceAvatar name={c.title} image={c.image} online={c.other?.online} size={compact ? "md" : "lg"} />
       )}
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
@@ -617,7 +630,7 @@ function PeopleTab({ selectedId, onSelect, actions, version }: { selectedId: str
           setLimit(PEOPLE_PAGE);
         }}
       />
-      <div className="min-h-0 flex-1 overflow-y-auto py-3" aria-busy={!data}>
+      <div className="relative min-h-0 flex-1 overflow-y-auto py-3" aria-busy={!data}>
         {error ? <p className="px-6 py-6 text-body-sm text-neutral-600">Não foi possível carregar as pessoas. Tente novamente.</p> : null}
         {!data && !error ? (
           <div aria-hidden className="space-y-3 px-6">
@@ -676,7 +689,7 @@ function RequestsTab({ requests, selectedId, onSelect, actions }: { requests: Fr
     </section>
   );
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto py-3">
+    <div className="relative min-h-0 flex-1 overflow-y-auto py-3">
       {section("Recebidas", requests.received, "Nenhum pedido de amizade no momento.")}
       {section("Enviadas", requests.sent, "Você não tem pedidos aguardando resposta.")}
     </div>

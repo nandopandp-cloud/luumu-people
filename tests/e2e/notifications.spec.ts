@@ -22,7 +22,8 @@ test.describe("Notificações", () => {
 
     // Central.
     await expect(page.getByRole("heading", { level: 1, name: "Notificações" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Navegação principal" }).getByRole("link", { name: /Notificações.*não lidas?/ })).toBeVisible();
+    // A central fica só no sino do topo: nada de "Notificações" na sidebar.
+    await expect(page.getByRole("navigation", { name: "Navegação principal" }).getByRole("link", { name: /Notificações/ })).toHaveCount(0);
     await expectAccessible(page);
     const unreadTab = () => page.getByRole("link", { name: /^Não lidas \(\d+\)$/ });
     const unreadCount = async () => Number(/\((\d+)\)/.exec((await unreadTab().innerText()).trim())![1]);

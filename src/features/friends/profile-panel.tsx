@@ -318,7 +318,7 @@ export function PersonPanel({ userId, conversationId, actions, onClose, version 
         ) : null}
         <div className="mt-4 flex w-full flex-col gap-2">
           <Button asChild variant="secondary" block>
-            <Link href={`/amigos/${p.id}` as Route}>Ver perfil</Link>
+            <Link href={`/pessoas/${p.id}` as Route}>Ver perfil</Link>
           </Button>
           {p.relation !== "friends" || !conversationId ? (
             <div className="flex justify-center [&>*]:w-full [&_button]:w-full">
@@ -460,7 +460,7 @@ export function GroupPanel({
                     </MenuTrigger>
                     <MenuContent>
                       <MenuItem asChild>
-                        <Link href={`/amigos/${m.id}` as Route}>Ver perfil</Link>
+                        <Link href={`/pessoas/${m.id}` as Route}>Ver perfil</Link>
                       </MenuItem>
                       <MenuItem onSelect={() => onRemove(m.id, m.name)} className="text-red-700 data-[highlighted]:bg-red-50 data-[highlighted]:text-red-700">
                         <UserMinus aria-hidden /> Remover do grupo

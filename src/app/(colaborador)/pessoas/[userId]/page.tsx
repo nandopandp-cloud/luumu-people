@@ -17,7 +17,7 @@ export const metadata: Metadata = { title: "Perfil" };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default function ColleaguePage({ params }: PageProps<"/amigos/[userId]">) {
+export default function ColleaguePage({ params }: PageProps<"/pessoas/[userId]">) {
   return (
     <Suspense fallback={<ProfileSkeleton />}>
       <Colleague params={params} />
@@ -25,7 +25,7 @@ export default function ColleaguePage({ params }: PageProps<"/amigos/[userId]">)
   );
 }
 
-async function Colleague({ params }: { params: PageProps<"/amigos/[userId]">["params"] }) {
+async function Colleague({ params }: { params: PageProps<"/pessoas/[userId]">["params"] }) {
   const [actor, { userId }] = await Promise.all([requireActor(), params]);
   if (!UUID.test(userId)) notFound();
   const profile = await getColleagueProfile(actor, userId).catch((error) => {
@@ -88,7 +88,7 @@ async function Colleague({ params }: { params: PageProps<"/amigos/[userId]">["pa
             <ul className="space-y-2">
               {p.mutualFriends.map((f) => (
                 <li key={f.id}>
-                  <Link href={`/amigos/${f.id}` as Route} className="flex items-center gap-3 rounded-lg p-1.5 hover:bg-purple-50 focus-visible:outline-2 focus-visible:outline-purple-500">
+                  <Link href={`/pessoas/${f.id}` as Route} className="flex items-center gap-3 rounded-lg p-1.5 hover:bg-purple-50 focus-visible:outline-2 focus-visible:outline-purple-500">
                     <Avatar name={f.name} src={f.image} size="md" className="ring-0" />
                     <span className="text-body-sm font-medium text-neutral-900">{f.name}</span>
                   </Link>
@@ -105,7 +105,7 @@ async function Colleague({ params }: { params: PageProps<"/amigos/[userId]">["pa
             <ul className="space-y-1">
               {p.groupsInCommon.map((g) => (
                 <li key={g.id}>
-                  <Link href={`/amigos?conversa=${g.id}` as Route} className="flex items-center gap-3 rounded-lg p-2 hover:bg-purple-50 focus-visible:outline-2 focus-visible:outline-purple-500">
+                  <Link href={`/conversas?conversa=${g.id}` as Route} className="flex items-center gap-3 rounded-lg p-2 hover:bg-purple-50 focus-visible:outline-2 focus-visible:outline-purple-500">
                     <span aria-hidden className="flex size-10 items-center justify-center rounded-full bg-purple-100 text-purple-600">
                       <UsersRound className="size-5" />
                     </span>

@@ -6,11 +6,11 @@ import { getConversation, listConversations, listMessages } from "@/server/modul
 import { listRequests } from "@/server/modules/friends/service";
 import { HttpError } from "@/server/http/errors";
 
-export const metadata: Metadata = { title: "Amigos" };
+export const metadata: Metadata = { title: "Conversas" };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default function FriendsPage({ searchParams }: PageProps<"/amigos">) {
+export default function FriendsPage({ searchParams }: PageProps<"/conversas">) {
   return (
     <Suspense fallback={<FriendsSkeleton />}>
       <Friends searchParams={searchParams} />
@@ -19,7 +19,7 @@ export default function FriendsPage({ searchParams }: PageProps<"/amigos">) {
 }
 
 /** Conversas, pedidos e (se houver) a conversa aberta na URL, já com as mensagens. */
-async function Friends({ searchParams }: { searchParams: PageProps<"/amigos">["searchParams"] }) {
+async function Friends({ searchParams }: { searchParams: PageProps<"/conversas">["searchParams"] }) {
   const [actor, raw] = await Promise.all([requireActor(), searchParams]);
   const conversa = typeof raw.conversa === "string" && UUID.test(raw.conversa) ? raw.conversa : null;
   const [conversations, requests, open] = await Promise.all([

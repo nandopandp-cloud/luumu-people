@@ -1,13 +1,13 @@
 "use client";
 
 import { ArrowLeft, UserMinus } from "lucide-react";
-import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/design-system/components/button";
 import { useToast } from "@/design-system/components/toast";
 import { errorMessage, friendsApi } from "./client";
+import { chatDock } from "./dock-store";
 import { ConfirmDialog } from "./group-dialogs";
 import { RelationActions, type FriendActions } from "./profile-panel";
 import type { Relation } from "./types";
@@ -33,13 +33,14 @@ export function ProfileActions({ person }: { person: { id: string; name: string;
     unfriend: () => setConfirm(true),
     async message(id) {
       try {
+        // Abre no chat flutuante: a pessoa continua no perfil.
         const { id: conversation } = await friendsApi.open({ kind: "direct", userId: id });
-        router.push(`/amigos?conversa=${conversation}` as Route);
+        chatDock.open(conversation);
       } catch (error) {
         toast({ tone: "error", title: "Não foi possível abrir a conversa.", description: errorMessage(error) });
       }
     },
-    openConversation: (id) => router.push(`/amigos?conversa=${id}` as Route),
+    openConversation: (id) => chatDock.open(id),
   };
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -64,8 +65,8 @@ export function ProfileActions({ person }: { person: { id: string; name: string;
 export function BackToFriends() {
   return (
     <Button asChild variant="ghost" size="sm">
-      <Link href="/amigos">
-        <ArrowLeft aria-hidden /> Amigos
+      <Link href="/conversas">
+        <ArrowLeft aria-hidden /> Conversas
       </Link>
     </Button>
   );

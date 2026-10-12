@@ -1,9 +1,9 @@
 "use client";
 
-import { ArrowLeft, Check, CheckCheck, FileText, Heart, Image as ImageIcon, Info, LogOut, MoreHorizontal, MoreVertical, Paperclip, Pencil, Plus, SendHorizontal, Trash2, UserMinus, UserPlus, UserRound, UsersRound, X } from "lucide-react";
+import { ArrowLeft, Check, CheckCheck, FileText, Heart, Image as ImageIcon, Info, LogOut, Maximize2, Minus, MoreHorizontal, MoreVertical, Paperclip, Pencil, PictureInPicture2, Plus, SendHorizontal, Trash2, UserMinus, UserPlus, UserRound, UsersRound, X } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Avatar } from "@/design-system/components/avatar";
 import { Button, IconButton } from "@/design-system/components/button";
 import { Modal } from "@/design-system/components/dialog";
@@ -18,6 +18,7 @@ import { errorMessage, fileSize, friendsApi } from "./client";
 import { dayLabel, MoodMark, PresenceAvatar, sameDay, timeOf } from "./person-bits";
 import type { ChatFile, ChatMessage, ConversationDetail, MessagesPage } from "./types";
 
+/** Atualização periódica da conversa em foco; janelas flutuantes em segundo plano usam `pollMs` maior. */
 const POLL_MS = 3_000;
 const TYPING_EVERY_MS = 3_000;
 const ACCEPT = "image/png,image/jpeg,image/webp,application/pdf";
@@ -26,16 +27,26 @@ type Props = {
   detail: ConversationDetail;
   meId: string;
   initial?: MessagesPage | null;
-  panelOpen: boolean;
-  onTogglePanel: () => void;
-  onBack: () => void;
+  /** "page": coluna central de /conversas. "dock": janela flutuante, compacta, disponível em toda a plataforma. */
+  variant?: "page" | "dock";
   onRead: (id: string) => void;
   onActivity: () => void;
-  onAddMembers: () => void;
-  onRename: () => void;
-  onLeave: () => void;
-  onUnfriend: (userId: string) => void;
-  onRequestFriend: (userId: string) => void;
+  // Página
+  panelOpen?: boolean;
+  onTogglePanel?: () => void;
+  onBack?: () => void;
+  onAddMembers?: () => void;
+  onRename?: () => void;
+  onLeave?: () => void;
+  onUnfriend?: (userId: string) => void;
+  onRequestFriend?: (userId: string) => void;
+  /** Leva a conversa para uma janela flutuante (e libera a página). */
+  onPopOut?: () => void;
+  // Janela flutuante
+  onMinimize?: () => void;
+  onClose?: () => void;
+  /** Intervalo da atualização periódica (padrão: 3 s). */
+  pollMs?: number;
 };
 
 function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]) {
@@ -93,7 +104,9 @@ function Attachment({ file, mine, onOpen }: { file: ChatFile; mine: boolean; onO
 }
 
 export function ChatPanel(props: Props) {
-  const { detail, meId, initial, onRead, onActivity } = props;
+  const { detail, meId, initial, onRead, onActivity, variant = "page", pollMs = POLL_MS } = props;
+  const dock = variant === "dock";
+  const titleId = useId();
   const toast = useToast();
   const [messages, setMessages] = useState<ChatMessage[]>(initial?.items ?? []);
   const [hasMore, setHasMore] = useState(initial?.hasMore ?? false);
@@ -175,7 +188,7 @@ export function ChatPanel(props: Props) {
         /* silencioso: tenta de novo no próximo ciclo */
       }
     };
-    const timer = window.setInterval(tick, POLL_MS);
+    const timer = window.setInterval(tick, pollMs);
     const onFocus = () => {
       void tick();
       markRead();
@@ -186,7 +199,7 @@ export function ChatPanel(props: Props) {
       window.clearInterval(timer);
       window.removeEventListener("focus", onFocus);
     };
-  }, [id, markRead, onActivity]);
+  }, [id, markRead, onActivity, pollMs]);
 
   // Rola até o fim ao abrir e quando chegam mensagens (se a pessoa já estava no fim).
   useLayoutEffect(() => {
@@ -263,10 +276,20 @@ export function ChatPanel(props: Props) {
   const readAt = othersReadAt ? new Date(othersReadAt).getTime() : 0;
 
   return (
-    <section aria-labelledby="conversa-titulo" className="card flex h-full min-h-0 flex-col overflow-hidden p-0">
-      <ChatHeader {...props} other={other ?? null} otherOnline={otherOnline} typing={typing} />
+    <section aria-labelledby={titleId} className={cn("flex h-full min-h-0 flex-col overflow-hidden", dock ? "bg-white" : "card p-0")}>
+      {dock ? (
+        <DockHeader {...props} titleId={titleId} other={other ?? null} otherOnline={otherOnline} typing={typing} />
+      ) : (
+        <ChatHeader {...props} titleId={titleId} other={other ?? null} otherOnline={otherOnline} typing={typing} />
+      )}
 
-      <div ref={scroller} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6" aria-live="polite" aria-relevant="additions">
+      <div
+        ref={scroller}
+        onScroll={onScroll}
+        className={cn("relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain", dock ? "px-3 py-4" : "px-4 py-5 sm:px-6")}
+        aria-live="polite"
+        aria-relevant="additions"
+      >
         {loading ? (
           <div className="flex h-full items-center justify-center">
             <Spinner className="size-6 text-purple-500" />
@@ -327,7 +350,19 @@ export function ChatPanel(props: Props) {
         <div className="border-t border-line bg-neutral-50 px-5 py-4 text-center">
           <p className="text-body-sm text-neutral-700">{detail.blocked}</p>
           {detail.otherId && detail.blocked.includes("amigos") ? (
-            <Button variant="soft" size="sm" className="mt-3" onClick={() => props.onRequestFriend(detail.otherId!)}>
+            <Button
+              variant="soft"
+              size="sm"
+              className="mt-3"
+              onClick={() =>
+                props.onRequestFriend
+                  ? props.onRequestFriend(detail.otherId!)
+                  : friendsApi
+                      .request(detail.otherId!)
+                      .then(() => toast({ tone: "success", title: "Pedido de amizade enviado." }))
+                      .catch((error) => toast({ tone: "error", title: "Não foi possível enviar o pedido.", description: errorMessage(error) }))
+              }
+            >
               <UserPlus aria-hidden /> Enviar pedido de amizade
             </Button>
           ) : null}
@@ -335,6 +370,7 @@ export function ChatPanel(props: Props) {
       ) : (
         <Composer
           conversationId={id}
+          compact={dock}
           editing={editing}
           onCancelEdit={() => setEditing(null)}
           onSent={(message) => {
@@ -374,51 +410,99 @@ export function ChatPanel(props: Props) {
   );
 }
 
-function ChatHeader({
-  detail,
-  other,
-  otherOnline,
-  typing,
-  panelOpen,
-  onTogglePanel,
-  onBack,
-  onAddMembers,
-  onRename,
-  onLeave,
-  onUnfriend,
-}: Props & { other: ConversationDetail["members"][number] | null; otherOnline: boolean; typing: string[] }) {
+type HeaderProps = Props & { titleId: string; other: ConversationDetail["members"][number] | null; otherOnline: boolean; typing: string[] };
+
+/** Linha de status: digitando, participantes do grupo, online agora ou o cargo. */
+function statusOf({ detail, other, otherOnline, typing }: HeaderProps): ReactNode {
   const isGroup = detail.kind === "group";
-  const admin = detail.myRole === "admin";
-  let status: ReactNode;
-  if (typing.length) status = <span className="text-purple-600">{isGroup ? `${typing.join(", ")} ${typing.length > 1 ? "estão" : "está"} digitando…` : "digitando…"}</span>;
-  else if (isGroup) status = `${detail.members.length} ${detail.members.length === 1 ? "pessoa" : "pessoas"}`;
-  else if (otherOnline)
-    status = (
+  if (typing.length) return <span className="text-purple-600">{isGroup ? `${typing.join(", ")} ${typing.length > 1 ? "estão" : "está"} digitando…` : "digitando…"}</span>;
+  if (isGroup) return `${detail.members.length} ${detail.members.length === 1 ? "pessoa" : "pessoas"}`;
+  if (otherOnline)
+    return (
       <span className="inline-flex items-center gap-1.5">
         <span aria-hidden className="size-2.5 rounded-full bg-green-500" /> Online agora
       </span>
     );
-  else status = other?.position ?? "";
+  return other?.position ?? "";
+}
+
+function ConversationAvatar({ detail, other, otherOnline, size = "lg" }: { detail: ConversationDetail; other: HeaderProps["other"]; otherOnline: boolean; size?: "md" | "lg" }) {
+  if (detail.kind === "group") {
+    return (
+      <span aria-hidden className={cn("flex shrink-0 items-center justify-center rounded-full bg-purple-100 text-purple-600", size === "lg" ? "size-12" : "size-10")}>
+        <UsersRound className={size === "lg" ? "size-6" : "size-5"} />
+      </span>
+    );
+  }
+  return <PresenceAvatar name={other?.name ?? detail.title} image={other?.image ?? null} online={otherOnline} size={size} />;
+}
+
+/** Cabeçalho da janela flutuante: quem é, status e minimizar / abrir na página / fechar. */
+function DockHeader(props: HeaderProps) {
+  const { detail, other, otherOnline, titleId, onMinimize, onClose } = props;
+  return (
+    <header className="flex items-center gap-2.5 border-b border-line bg-gradient-to-r from-purple-50 to-white py-2.5 pl-3 pr-2">
+      <button
+        type="button"
+        onClick={onMinimize}
+        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-500"
+        aria-label={`Minimizar conversa com ${detail.title}`}
+      >
+        <ConversationAvatar detail={detail} other={other} otherOnline={otherOnline} size="md" />
+        <span className="min-w-0 flex-1">
+          <span id={titleId} className="flex items-center gap-1 text-body-sm font-bold text-neutral-900">
+            <span className="truncate">{detail.title}</span>
+            {other ? <MoodMark mood={other.mood} inline className="size-5" /> : null}
+          </span>
+          <span className="block truncate text-caption text-neutral-600">{statusOf(props)}</span>
+        </span>
+      </button>
+      <Tooltip content="Abrir na página de conversas">
+        <Link
+          href={`/conversas?conversa=${detail.id}` as Route}
+          onClick={onClose}
+          aria-label="Abrir na página de conversas"
+          className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-neutral-700 hover:bg-purple-100 hover:text-purple-700 focus-visible:outline-2 focus-visible:outline-purple-500 [&_svg]:size-4"
+        >
+          <Maximize2 />
+        </Link>
+      </Tooltip>
+      <IconButton label="Minimizar" variant="plain" size="sm" onClick={onMinimize}>
+        <Minus />
+      </IconButton>
+      <IconButton label="Fechar conversa" variant="plain" size="sm" onClick={onClose}>
+        <X />
+      </IconButton>
+    </header>
+  );
+}
+
+function ChatHeader(props: HeaderProps) {
+  const { detail, other, otherOnline, titleId, panelOpen, onTogglePanel, onBack, onAddMembers, onRename, onLeave, onUnfriend, onPopOut } = props;
+  const isGroup = detail.kind === "group";
+  const admin = detail.myRole === "admin";
+  const status = statusOf(props);
 
   return (
     <header className="flex items-center gap-3 border-b border-line px-4 py-3.5 sm:px-6">
       <IconButton label="Voltar para a lista" variant="plain" className="xl:hidden" onClick={onBack}>
         <ArrowLeft />
       </IconButton>
-      {isGroup ? (
-        <span aria-hidden className="flex size-12 shrink-0 items-center justify-center rounded-full bg-purple-100 text-purple-600">
-          <UsersRound className="size-6" />
-        </span>
-      ) : (
-        <PresenceAvatar name={other?.name ?? detail.title} image={other?.image ?? null} online={otherOnline} />
-      )}
+      <ConversationAvatar detail={detail} other={other} otherOnline={otherOnline} />
       <div className="min-w-0 flex-1">
-        <h2 id="conversa-titulo" className="flex items-center gap-1.5 text-h4 font-bold text-neutral-900">
+        <h2 id={titleId} className="flex items-center gap-1.5 text-h4 font-bold text-neutral-900">
           <span className="truncate">{detail.title}</span>
           {other ? <MoodMark mood={other.mood} /> : null}
         </h2>
         <p className="truncate text-caption text-neutral-600">{status}</p>
       </div>
+      {onPopOut ? (
+        <Tooltip content="Continuar em janela flutuante e navegar pela plataforma">
+          <IconButton label="Abrir em janela flutuante" onClick={onPopOut} className="max-lg:hidden">
+            <PictureInPicture2 />
+          </IconButton>
+        </Tooltip>
+      ) : null}
       <IconButton label={panelOpen ? "Ocultar detalhes" : isGroup ? "Detalhes do grupo" : "Ver perfil ao lado"} aria-pressed={panelOpen} onClick={onTogglePanel} className="max-xl:hidden">
         <Info />
       </IconButton>
@@ -432,9 +516,14 @@ function ChatHeader({
           <MenuItem onSelect={onTogglePanel}>
             <Info aria-hidden /> {isGroup ? "Detalhes do grupo" : "Detalhes da conversa"}
           </MenuItem>
+          {onPopOut ? (
+            <MenuItem onSelect={onPopOut}>
+              <PictureInPicture2 aria-hidden /> Abrir em janela flutuante
+            </MenuItem>
+          ) : null}
           {other ? (
             <MenuItem asChild>
-              <Link href={`/amigos/${other.id}` as Route}>
+              <Link href={`/pessoas/${other.id}` as Route}>
                 <UserRound aria-hidden /> Ver perfil
               </Link>
             </MenuItem>
@@ -454,7 +543,7 @@ function ChatHeader({
             <MenuItem onSelect={onLeave} className="text-red-700 data-[highlighted]:bg-red-50 data-[highlighted]:text-red-700">
               <LogOut aria-hidden /> Sair do grupo
             </MenuItem>
-          ) : other && !detail.blocked ? (
+          ) : other && !detail.blocked && onUnfriend ? (
             <MenuItem onSelect={() => onUnfriend(other.id)} className="text-red-700 data-[highlighted]:bg-red-50 data-[highlighted]:text-red-700">
               <UserMinus aria-hidden /> Desfazer amizade
             </MenuItem>
@@ -612,12 +701,15 @@ function MessageRow({ message: m, showAvatar, showName, read, canEdit, onDelete,
  */
 function Composer({
   conversationId,
+  compact = false,
   editing,
   onCancelEdit,
   onSent,
   onEdited,
 }: {
   conversationId: string;
+  /** Janela flutuante: sem o botão "+" (o clipe anexa) e espaçamentos menores. */
+  compact?: boolean;
   editing: ChatMessage | null;
   onCancelEdit: () => void;
   onSent: (message: ChatMessage) => void;
@@ -641,6 +733,7 @@ function Composer({
   const [uploading, setUploading] = useState(false);
   const [sending, setSending] = useState(false);
   const field = useRef<HTMLTextAreaElement>(null);
+  const fieldId = useId();
   const picker = useRef<HTMLInputElement>(null);
   const lastTyping = useRef(0);
 
@@ -737,7 +830,7 @@ function Composer({
   };
 
   return (
-    <div className="border-t border-line px-4 py-3.5 sm:px-6">
+    <div className={cn("border-t border-line", compact ? "px-3 py-2.5" : "px-4 py-3.5 sm:px-6")}>
       {editing ? (
         <div className="mb-2.5 flex items-center gap-3 rounded-lg border-l-4 border-purple-500 bg-purple-50 px-3 py-2">
           <Pencil aria-hidden className="size-4 shrink-0 text-purple-600" />
@@ -767,27 +860,34 @@ function Composer({
         </div>
       ) : null}
       <div className="flex items-end gap-3">
-        <Menu>
-          <MenuTrigger asChild>
-            <IconButton label="Anexar" size="lg" className="mb-0.5 shrink-0" disabled={uploading || Boolean(editing)}>
-              <Plus />
-            </IconButton>
-          </MenuTrigger>
-          <MenuContent align="start" side="top">
-            <MenuItem onSelect={() => openPicker("image/png,image/jpeg,image/webp")}>
-              <ImageIcon aria-hidden /> Foto ou imagem
-            </MenuItem>
-            <MenuItem onSelect={() => openPicker("application/pdf")}>
-              <FileText aria-hidden /> Documento PDF
-            </MenuItem>
-          </MenuContent>
-        </Menu>
-        <div className="flex min-h-[52px] min-w-0 flex-1 items-end rounded-[26px] border border-line bg-white pl-5 pr-1.5 transition-colors focus-within:border-purple-400 focus-within:ring-4 focus-within:ring-purple-100">
-          <label htmlFor={`mensagem-${conversationId}`} className="sr-only">
+        {compact ? null : (
+          <Menu>
+            <MenuTrigger asChild>
+              <IconButton label="Anexar" size="lg" className="mb-0.5 shrink-0" disabled={uploading || Boolean(editing)}>
+                <Plus />
+              </IconButton>
+            </MenuTrigger>
+            <MenuContent align="start" side="top">
+              <MenuItem onSelect={() => openPicker("image/png,image/jpeg,image/webp")}>
+                <ImageIcon aria-hidden /> Foto ou imagem
+              </MenuItem>
+              <MenuItem onSelect={() => openPicker("application/pdf")}>
+                <FileText aria-hidden /> Documento PDF
+              </MenuItem>
+            </MenuContent>
+          </Menu>
+        )}
+        <div
+          className={cn(
+            "flex min-w-0 flex-1 items-end rounded-[26px] border border-line bg-white pr-1.5 transition-colors focus-within:border-purple-400 focus-within:ring-4 focus-within:ring-purple-100",
+            compact ? "min-h-11 pl-4" : "min-h-[52px] pl-5",
+          )}
+        >
+          <label htmlFor={fieldId} className="sr-only">
             Mensagem
           </label>
           <textarea
-            id={`mensagem-${conversationId}`}
+            id={fieldId}
             ref={field}
             rows={1}
             value={text}
@@ -797,17 +897,18 @@ function Composer({
               if (e.target.value.trim()) signalTyping();
             }}
             onKeyDown={onKeyDown}
-            placeholder="Digite uma mensagem…"
-            className="max-h-[132px] min-w-0 flex-1 resize-none bg-transparent py-[13px] text-body-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none"
+            placeholder={compact ? "Mensagem…" : "Digite uma mensagem…"}
+            className={cn("max-h-[132px] min-w-0 flex-1 resize-none bg-transparent text-body-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none", compact ? "py-[11px]" : "py-[13px]")}
           />
           <div className="flex items-center gap-0.5 py-1.5">
             <EmojiPicker label="Inserir emoji" onPick={(emoji) => field.current && insertAtCaret(field.current, emoji)} />
-            <IconButton label="Anexar arquivo" variant="plain" onClick={() => openPicker(ACCEPT)} disabled={uploading || Boolean(editing)} className="max-sm:hidden">
+            <IconButton label="Anexar arquivo" variant="plain" size={compact ? "sm" : "md"} onClick={() => openPicker(ACCEPT)} disabled={uploading || Boolean(editing)} className={compact ? undefined : "max-sm:hidden"}>
               <Paperclip />
             </IconButton>
             <IconButton
               label={editing ? "Salvar edição" : "Enviar mensagem"}
               variant="soft"
+              size={compact ? "sm" : "md"}
               onClick={() => void send()}
               disabled={sending || uploading || (!editing && !text.trim() && !file)}
               className="bg-purple-500 text-white shadow-md hover:bg-purple-600 disabled:opacity-100 disabled:bg-purple-200"

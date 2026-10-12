@@ -9,7 +9,7 @@ export type NavIcon =
   | "development"
   | "surveys"
   | "announcements"
-  | "friends"
+  | "chat"
   | "notifications"
   | "library"
   | "profile"
@@ -46,22 +46,27 @@ export const EMPLOYEE_NAV: NavItem[] = [
   { href: "/desenvolvimento", label: "Desenvolvimento", icon: "development" },
   { href: "/pesquisas", label: "Pesquisas", icon: "surveys" },
   { href: "/comunicados", label: "Comunicados", icon: "announcements" },
-  { href: "/amigos", label: "Amigos", icon: "friends" },
-  { href: "/notificacoes", label: "Notificações", icon: "notifications" },
+  { href: "/conversas", label: "Conversas", icon: "chat" },
   { href: "/biblioteca", label: "Biblioteca", icon: "library", module: "library" },
 ];
 
 export const EMPLOYEE_NAV_SECONDARY: NavItem[] = [{ href: "/minhas-conquistas", label: "Minhas conquistas", icon: "achievements" }];
 
-/** Páginas da conta: ficam no menu da conta (avatar no topo), fora da sidebar; continuam na busca. */
-export const EMPLOYEE_ACCOUNT_PAGES: NavItem[] = [{ href: "/meu-perfil", label: "Meu perfil", icon: "profile" }];
+/**
+ * Páginas fora da sidebar que continuam na busca ⌘K: o perfil (menu da conta,
+ * no avatar) e a central de notificações (sino no topo).
+ */
+export const EMPLOYEE_ACCOUNT_PAGES: NavItem[] = [
+  { href: "/meu-perfil", label: "Meu perfil", icon: "profile" },
+  { href: "/notificacoes", label: "Notificações", icon: "notifications" },
+];
 
 /** Barra inferior no mobile (styleguide "Navegação mobile"). O perfil fica no menu da conta (avatar no topo). */
 export const EMPLOYEE_MOBILE_NAV: NavItem[] = [
   { href: "/inicio", label: "Início", icon: "home" },
   { href: "/desenvolvimento", label: "Desenvolver", icon: "development" },
   { href: "/comunicados", label: "Comunicados", icon: "announcements" },
-  { href: "/amigos", label: "Amigos", icon: "friends" },
+  { href: "/conversas", label: "Conversas", icon: "chat" },
   { href: "/pesquisas", label: "Pesquisas", icon: "surveys" },
 ];
 
