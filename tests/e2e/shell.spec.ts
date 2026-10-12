@@ -56,7 +56,8 @@ test.describe("Shell", () => {
   test("conquistas ficam ocultas", async ({ page }) => {
     await signIn(page, "fernando.santos@aurora.example");
     await gotoHydrated(page, "/inicio");
-    await expect(page.locator("#sidebar-colaborador").getByRole("link", { name: "Meu perfil" })).toBeVisible();
+    // "Meu perfil" fica só no menu da conta (avatar), não na sidebar.
+    await expect(page.locator("#sidebar-colaborador").getByRole("link", { name: "Meu perfil" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Minhas conquistas" })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Minhas conquistas" })).toHaveCount(0);
     // Com streaming, o status já saiu como 200; o conteúdo é o "não encontrado".

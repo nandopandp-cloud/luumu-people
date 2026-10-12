@@ -79,7 +79,8 @@ test.describe("Fase 1 — fundação", () => {
     await expect(page.getByRole("heading", { level: 1, name: /^(Bom dia|Boa tarde|Boa noite), Fernando!/ })).toBeVisible();
     await expectAccessible(page);
 
-    await page.getByRole("link", { name: "Meu perfil" }).first().click();
+    await page.getByRole("button", { name: /^Menu da conta de / }).click();
+    await page.getByRole("menuitem", { name: "Meu perfil" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Fernando Santos" })).toBeVisible();
     await expect(page.getByText("Carla Mendes").first()).toBeVisible();
     await expectAccessible(page);

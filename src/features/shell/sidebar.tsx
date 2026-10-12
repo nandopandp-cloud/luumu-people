@@ -59,14 +59,18 @@ function EmployeeNavItems({ live, modules, achievements = false, unread = 0, fri
           </li>
         ))}
       </ul>
-      <hr className="mx-3 my-5 border-line sidebar-collapsed:mx-1" />
-      <ul className="space-y-1">
-        {secondary.map((item) => (
-          <li key={item.href}>
-            <Item item={item} />
-          </li>
-        ))}
-      </ul>
+      {secondary.length ? (
+        <>
+          <hr className="mx-3 my-5 border-line sidebar-collapsed:mx-1" />
+          <ul className="space-y-1">
+            {secondary.map((item) => (
+              <li key={item.href}>
+                <Item item={item} />
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
     </>
   );
 }

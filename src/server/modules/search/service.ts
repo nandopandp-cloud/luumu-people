@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import type { AuthenticatedActor } from "@/server/auth/session";
 import { hasPermissionAnywhere, hasTenantWide } from "@/server/authz/policy";
 import { withTenant } from "@/server/db/tenant";
-import { EMPLOYEE_NAV, EMPLOYEE_NAV_SECONDARY, MANAGEMENT_NAV, type NavIcon } from "@/features/shell/nav-config";
+import { EMPLOYEE_ACCOUNT_PAGES, EMPLOYEE_NAV, EMPLOYEE_NAV_SECONDARY, MANAGEMENT_NAV, type NavIcon } from "@/features/shell/nav-config";
 import { MODULE_FLAGS, type ModuleKey } from "@/server/modules/flags/modules";
 import { effectiveFlags } from "@/server/modules/flags/service";
 import { listPeople } from "@/server/modules/people/service";
@@ -47,7 +47,7 @@ function pages(actor: AuthenticatedActor, context: SearchContext, flags: Record<
   const on = (i: { module?: ModuleKey }) => !i.module || flags[MODULE_FLAGS[i.module]] === true;
   const items =
     context === "employee"
-      ? [...EMPLOYEE_NAV, ...EMPLOYEE_NAV_SECONDARY]
+      ? [...EMPLOYEE_NAV, ...EMPLOYEE_NAV_SECONDARY, ...EMPLOYEE_ACCOUNT_PAGES]
           .filter((i) => on(i) && (achievements || i.href !== "/minhas-conquistas"))
           .map((i) => ({ ...i, subtitle: "Minha experiência" }))
       : [

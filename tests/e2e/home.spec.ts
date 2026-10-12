@@ -69,7 +69,8 @@ test.describe("Início do colaborador", () => {
     await expect(page.getByRole("main").getByRole("button", { name: /^Hoje você está se sentindo muito bem!/ })).toBeVisible();
 
     // Perfil.
-    await page.getByRole("navigation", { name: "Navegação principal" }).getByRole("link", { name: "Meu perfil" }).click();
+    await page.getByRole("button", { name: /^Menu da conta de / }).click();
+    await page.getByRole("menuitem", { name: "Meu perfil" }).click();
     await expect(page.getByRole("main").getByRole("button", { name: /^Hoje você está se sentindo muito bem!/ }).first()).toBeVisible();
   });
 
