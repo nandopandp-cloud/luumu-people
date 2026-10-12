@@ -129,7 +129,7 @@ test.describe("Mural de comunicados", () => {
 
     // Capa própria: a ilustração fica indisponível.
     await expect(page.getByLabel("Ilustração")).toBeEnabled();
-    await page.getByRole("button", { name: /Enviar imagem/ }).locator("..").locator('input[type="file"]').setInputFiles(path.join(process.cwd(), "public/images/login-scene.jpg"));
+    await page.getByRole("button", { name: /Enviar imagem/ }).locator("..").locator('input[type="file"]').setInputFiles(path.join(process.cwd(), "public/images/login-scene.webp"));
     const crop = page.getByRole("dialog", { name: "Ajustar capa do comunicado" });
     await crop.getByRole("button", { name: "Salvar" }).click();
     await expect(crop).toBeHidden();

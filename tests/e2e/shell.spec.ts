@@ -109,7 +109,7 @@ test.describe("Banners da home", () => {
     test.setTimeout(120_000);
     await signIn(page, "rafael.lima@aurora.example");
     await gotoHydrated(page, "/gestao/comunicacao/banners/novo");
-    await page.getByRole("button", { name: "Enviar imagem" }).locator("../..").locator('input[type="file"]').setInputFiles(path.join(process.cwd(), "public/images/login-scene.jpg"));
+    await page.getByRole("button", { name: "Enviar imagem" }).locator("../..").locator('input[type="file"]').setInputFiles(path.join(process.cwd(), "public/images/login-scene.webp"));
     const editor = page.getByRole("dialog", { name: "Ajustar imagem do banner" });
     await expect(editor).toBeVisible();
     await editor.getByLabel("Zoom").fill("1.5");
