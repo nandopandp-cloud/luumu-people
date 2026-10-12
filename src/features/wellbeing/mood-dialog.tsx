@@ -94,8 +94,8 @@ export function MoodDialogHost({ today }: { today: TodayMoodView }) {
             <>
               <header className="relative overflow-hidden bg-gradient-to-br from-purple-100 via-purple-50 to-white px-6 pb-12 pt-8 sm:px-10 sm:pt-11">
                 <span aria-hidden className="absolute -left-16 top-10 size-56 rounded-full bg-white/60" />
-                <MoodArt slug="ola" className="pointer-events-none absolute -bottom-10 right-8 hidden w-48 sm:block" />
-                <div className="relative max-w-[19rem] sm:max-w-[22rem]">
+                <MoodArt slug="ola-maos" className="pointer-events-none absolute bottom-5 right-16 hidden w-44 sm:block" />
+                <div className="relative max-w-[19rem] sm:max-w-[19.5rem]">
                   <Dialog.Title className="text-[1.75rem] font-extrabold leading-[1.08] tracking-[-0.035em] text-neutral-900 sm:text-[2.2rem]">
                     Como você está{" "}
                     <br />
@@ -123,8 +123,8 @@ export function MoodDialogHost({ today }: { today: TodayMoodView }) {
                           )}
                         >
                           <input type="radio" name="humor" value={m.value} checked={active} onChange={() => setSelected(m.value)} className="absolute inset-0 z-10 size-full cursor-pointer appearance-none rounded-2xl opacity-0" />
-                          <span className="relative h-[92px] overflow-hidden sm:h-[104px]">
-                            <MoodArt slug={m.slug} className="absolute -bottom-1.5 left-1/2 w-[100px] -translate-x-1/2 transition-transform group-hover:scale-105 sm:w-[112px]" />
+                          <span className="relative h-[112px] overflow-hidden sm:h-[124px]">
+                            <MoodArt slug={m.slug} className="absolute -bottom-1 left-1/2 w-[100px] -translate-x-1/2 transition-transform group-hover:-translate-y-0.5 sm:w-[110px]" />
                           </span>
                           <span className="relative bg-white/75 px-2 py-2 text-center text-body-sm font-semibold text-neutral-900 backdrop-blur-sm">{m.label}</span>
                           {active ? (

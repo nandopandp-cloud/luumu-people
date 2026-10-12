@@ -6,8 +6,7 @@ import { Skeleton } from "@/design-system/components/feedback";
 import { hasPermissionAnywhere } from "@/server/authz/policy";
 import { achievementsEnabled, getCurrentActor, getMyMoodToday, getUnreadNotificationCount } from "@/server/dal";
 import { toMoodView } from "@/features/wellbeing/events";
-import { MoodChip } from "@/features/wellbeing/mood-indicators";
-import { HelpCard } from "./help-card";
+import { MoodSidebarCard } from "@/features/wellbeing/mood-indicators";
 import { EMPLOYEE_MOBILE_NAV, EMPLOYEE_NAV, EMPLOYEE_NAV_SECONDARY, MANAGEMENT_NAV, type NavItem } from "./nav-config";
 import { getEnabledModules, type EnabledModules } from "@/server/modules/flags/modules";
 import { MobileNavLink, MobileNavLinkView, NavLink, NavLinkView } from "./nav-link";
@@ -24,26 +23,23 @@ function SidebarFrame({ home, children, label, id }: { home: Route; children: Re
         <Logo className="h-auto w-[196px] sidebar-collapsed:hidden" />
         <Mascot className="hidden h-11 sidebar-collapsed:block" label="Luumu People — início" />
       </Link>
-      <Suspense fallback={null}>
-        <SidebarMood />
-      </Suspense>
       <nav aria-label={label} className="-mx-1 flex-1 overflow-y-auto px-1 sidebar-collapsed:overflow-visible">
         {children}
       </nav>
-      <div className="pt-4">
-        <HelpCard />
-      </div>
+      <Suspense fallback={null}>
+        <SidebarMood />
+      </Suspense>
     </aside>
   );
 }
 
-/** Sentimento do dia logo abaixo da marca (recolhido: só a ameixa). */
+/** Sentimento do dia no rodapé do menu (recolhido: só a ameixa). */
 async function SidebarMood() {
   const mood = await getMyMoodToday();
   if (!mood) return null;
   return (
-    <div className="-mt-2 mb-6">
-      <MoodChip today={toMoodView(mood)} compact />
+    <div className="pt-4">
+      <MoodSidebarCard today={toMoodView(mood)} />
     </div>
   );
 }
