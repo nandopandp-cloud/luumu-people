@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Suspense } from "react";
 import { Logo } from "@/design-system/components/brand";
+import { PresenceBeacon } from "@/features/friends/presence-beacon";
 import { EmployeeBottomNav, EmployeeSidebar, ManagementNavList, ManagementSidebar, NavSkeleton } from "./sidebar";
 import { Topbar } from "./topbar";
 
@@ -28,6 +29,7 @@ export function EmployeeShell({ children }: { children: ReactNode }) {
         </div>
       </div>
       <EmployeeBottomNav />
+      <PresenceBeacon />
     </>
   );
 }

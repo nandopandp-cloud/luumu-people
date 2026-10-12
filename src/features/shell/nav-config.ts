@@ -9,6 +9,7 @@ export type NavIcon =
   | "development"
   | "surveys"
   | "announcements"
+  | "friends"
   | "notifications"
   | "library"
   | "profile"
@@ -33,6 +34,8 @@ export type NavItem = {
   module?: ModuleKey;
   /** Contador exibido à direita (ex.: notificações não lidas). */
   badge?: number;
+  /** Leitura do contador para leitores de tela: [singular, plural]. Padrão: não lida(s). */
+  badgeLabel?: [string, string];
 };
 
 /** Navegação do colaborador — briefing §47 e mockups. */
@@ -43,6 +46,7 @@ export const EMPLOYEE_NAV: NavItem[] = [
   { href: "/desenvolvimento", label: "Desenvolvimento", icon: "development" },
   { href: "/pesquisas", label: "Pesquisas", icon: "surveys" },
   { href: "/comunicados", label: "Comunicados", icon: "announcements" },
+  { href: "/amigos", label: "Amigos", icon: "friends" },
   { href: "/notificacoes", label: "Notificações", icon: "notifications" },
   { href: "/biblioteca", label: "Biblioteca", icon: "library", module: "library" },
 ];
@@ -52,13 +56,13 @@ export const EMPLOYEE_NAV_SECONDARY: NavItem[] = [
   { href: "/minhas-conquistas", label: "Minhas conquistas", icon: "achievements" },
 ];
 
-/** Barra inferior no mobile (styleguide "Navegação mobile"). */
+/** Barra inferior no mobile (styleguide "Navegação mobile"). O perfil fica no menu da conta (avatar no topo). */
 export const EMPLOYEE_MOBILE_NAV: NavItem[] = [
   { href: "/inicio", label: "Início", icon: "home" },
   { href: "/desenvolvimento", label: "Desenvolver", icon: "development" },
   { href: "/comunicados", label: "Comunicados", icon: "announcements" },
+  { href: "/amigos", label: "Amigos", icon: "friends" },
   { href: "/pesquisas", label: "Pesquisas", icon: "surveys" },
-  { href: "/meu-perfil", label: "Perfil", icon: "profile" },
 ];
 
 export type ManagementNavItem = NavItem & {

@@ -38,7 +38,7 @@ export function NavLinkView({ item, nested, active = false }: { item: NavItem; n
           </span>
           <span className="sr-only">
             {" "}
-            ({item.badge} {item.badge === 1 ? "não lida" : "não lidas"})
+            ({item.badge} {item.badge === 1 ? (item.badgeLabel?.[0] ?? "não lida") : (item.badgeLabel?.[1] ?? "não lidas")})
           </span>
         </>
       ) : null}

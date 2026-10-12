@@ -13,7 +13,8 @@ Fontes: o styleguide da Luumu People e os mockups de interface. Código em `src/
   - `symbol.svg`: mascote com balão.
 - **A folha existe apenas sobre o "ú" final. Nunca adicione folha junto ao "L".** Alguns mockups antigos mostram essa folha; a logo oficial não tem.
 - Componentes: `<Logo />`, `<Wordmark />`, `<Mascot />`. O mascote é decorativo por padrão (`alt=""`).
-- As ilustrações temáticas dos mockups (mascote com laptop, troféu, megafone, lupa, placas) exigem os arquivos originais. Até chegarem, os heros usam o mascote oficial com folhas e formas suaves.
+- As ilustrações temáticas dos mockups (troféu, megafone, lupa, placas) exigem os arquivos originais. Até chegarem, os heros usam o mascote oficial com folhas e formas suaves.
+- `illustrations/luumu-plum.tsx` traz o mascote oficial em formas vetoriais (corpo, folha e os rostos sorrindo e piscando, sem redesenho) com uma camada de volume, para compor cenas: `survey-scenes.tsx` (banner "Sua opinião importa!" com o Luumu no notebook e o cartão com as carinhas e a prancheta) e `profile-cover.tsx` (capa padrão do perfil de colegas).
 
 ## Tokens
 

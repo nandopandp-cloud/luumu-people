@@ -6,6 +6,7 @@ import { hashPassword } from "@/server/auth/password";
 import type { Database } from "../client";
 import * as s from "../schema";
 import { seedCommunication } from "./communication";
+import { seedFriends } from "./friends";
 import { seedMoods } from "./wellbeing";
 import { seedContent } from "./content";
 import { seedSurveys } from "./surveys";
@@ -199,6 +200,7 @@ export async function seedDemo(db: Database, password: string): Promise<SeedResu
         await seedCommunication(t, seeded.tenantId);
         await seedSurveys(t, seeded.tenantId);
         await seedMoods(t, seeded.tenantId, seeded.users);
+        await seedFriends(t, seeded.tenantId, seeded.users);
         await enableLearningFor(t, seeded);
         result.set(org.slug, seeded);
       }

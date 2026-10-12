@@ -6,7 +6,8 @@ import type { QuestionType, SurveyKind } from "../schema/surveys";
 
 /**
  * Pesquisas de EXEMPLO (somente desenvolvimento e testes): uma de clima em
- * andamento, um eNPS encerrado e um rascunho. As respostas demonstrativas
+ * andamento, um eNPS encerrado, duas encerradas que todos responderam
+ * ("Pesquisas respondidas" na página do colaborador) e um rascunho. As respostas demonstrativas
  * passam pelo MESMO caminho do produto: survey_vault.submit (buffer → lotes
  * embaralhados), sem nenhum vínculo com quem "respondeu".
  */
@@ -51,6 +52,28 @@ const PULSE_DRAFT: SurveySeed = {
     { type: "scale", text: "Minha carga de trabalho está adequada." },
     { type: "scale", text: "Tenho energia para as minhas atividades da semana." },
     { type: "text", text: "Algo mais que queira compartilhar?", required: false },
+  ],
+};
+
+const PULSE_CLOSED: SurveySeed = {
+  title: "Pulso de bem-estar — setembro",
+  description: "Como está a sua energia e a sua carga de trabalho neste mês.",
+  kind: "pulse",
+  questions: [
+    { type: "scale", text: "Minha carga de trabalho está adequada." },
+    { type: "scale", text: "Tenho energia para as minhas atividades da semana." },
+    { type: "text", text: "Algo mais que queira compartilhar?", required: false },
+  ],
+};
+
+const ONBOARDING_CLOSED: SurveySeed = {
+  title: "Semana de integração 2026",
+  description: "Conte como foi a semana de integração para melhorarmos as próximas turmas.",
+  kind: "custom",
+  questions: [
+    { type: "scale", text: "A integração me ajudou a entender como a empresa funciona." },
+    { type: "choice", text: "Qual momento foi mais útil?", options: ["Boas-vindas", "Conversa com a liderança", "Tour pelas áreas", "Ferramentas"] },
+    { type: "text", text: "O que podemos melhorar?", required: false },
   ],
 };
 
@@ -111,9 +134,12 @@ export async function seedSurveys(db: Database, tenantId: string): Promise<void>
   // As funções do cofre validam a pesquisa pelo tenant da "sessão".
   await db.execute(sql`select set_config('app.tenant_id', ${tenantId}, true)`);
 
+  // `everyone`: todas as pessoas responderam (inclusive as de KEEP_PENDING).
   const plans = [
-    { seed: CLIMATE, launchedDaysAgo: 5, closesInDays: 12, share: 0.7, close: false, salt: 7 },
-    { seed: ENPS, launchedDaysAgo: 120, closesInDays: 30, share: 0.8, close: true, salt: 11 },
+    { seed: CLIMATE, launchedDaysAgo: 5, closesInDays: 12, share: 0.7, close: false, salt: 7, everyone: false },
+    { seed: ENPS, launchedDaysAgo: 120, closesInDays: 30, share: 0.8, close: true, salt: 11, everyone: false },
+    { seed: ONBOARDING_CLOSED, launchedDaysAgo: 60, closesInDays: 30, share: 1, close: true, salt: 13, everyone: true },
+    { seed: PULSE_CLOSED, launchedDaysAgo: 30, closesInDays: 30, share: 1, close: true, salt: 17, everyone: true },
   ];
   for (const plan of plans) {
     const { id, questionIds } = await insertSurvey(db, tenantId, plan.seed, k);
@@ -126,7 +152,7 @@ export async function seedSurveys(db: Database, tenantId: string): Promise<void>
 
     const rnd = random(plan.salt);
     for (const [index, profile] of profiles.entries()) {
-      if (KEEP_PENDING.test(emails.get(profile.userId) ?? "") || rnd() > plan.share) continue;
+      if (!plan.everyone && (KEEP_PENDING.test(emails.get(profile.userId) ?? "") || rnd() > plan.share)) continue;
       const answers: Record<string, number | string> = {};
       plan.seed.questions.forEach((q, i) => {
         const value = answerFor(q, rnd);

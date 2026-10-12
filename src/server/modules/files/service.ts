@@ -14,7 +14,7 @@ import { badRequest, forbidden, HttpError, notFound } from "@/server/http/errors
 type Meta = { ip: string | null; userAgent: string | null; requestId: string };
 
 /** Quem pode ENVIAR cada tipo de arquivo. Avatar: o próprio usuário (se a empresa permitir). */
-const UPLOAD_PERMISSION: Record<Exclude<FilePurpose, "avatar" | "profile_cover">, Permission> = {
+const UPLOAD_PERMISSION: Record<Exclude<FilePurpose, "avatar" | "profile_cover" | "chat_attachment">, Permission> = {
   course_cover: "content.course.edit",
   lesson_material: "content.course.edit",
   announcement_cover: "comms.announcement.create",
@@ -39,8 +39,8 @@ export function fileUrl(id: string) {
 }
 
 async function assertCanUpload(actor: AuthenticatedActor, purpose: FilePurpose) {
-  // Capa do perfil: personalização visual da própria pessoa, sempre permitida.
-  if (purpose === "profile_cover") return;
+  // Capa do perfil (personalização da própria pessoa) e anexo de conversa: sempre permitidos.
+  if (purpose === "profile_cover" || purpose === "chat_attachment") return;
   if (purpose === "avatar") {
     const allowed = await withTenant(actor, async (tx) => {
       const [policy] = await tx
@@ -102,15 +102,27 @@ export async function uploadFile(actor: AuthenticatedActor, purpose: FilePurpose
 /**
  * Leitura: qualquer pessoa ATIVA do mesmo tenant pode ver avatares, capas e
  * materiais (conteúdo interno da empresa). Arquivos de outro tenant são
- * invisíveis pela RLS (404). Quando houver documentos restritos, a regra por
- * finalidade entra aqui.
+ * invisíveis pela RLS (404). Anexos de conversa: só quem enviou e quem vê a
+ * mensagem (participantes, pela RLS de chat_messages); para os demais, 404.
  */
 export async function openFile(actor: AuthenticatedActor, id: string) {
   const row = await withTenant(actor, async (tx) => {
     const [found] = await tx
-      .select({ storageKey: s.files.storageKey, mimeType: s.files.mimeType, originalName: s.files.originalName, sizeBytes: s.files.sizeBytes, sha256: s.files.sha256 })
+      .select({
+        storageKey: s.files.storageKey,
+        mimeType: s.files.mimeType,
+        originalName: s.files.originalName,
+        sizeBytes: s.files.sizeBytes,
+        sha256: s.files.sha256,
+        purpose: s.files.purpose,
+        ownerUserId: s.files.ownerUserId,
+      })
       .from(s.files)
       .where(and(eq(s.files.id, id), isNull(s.files.deletedAt)));
+    if (found?.purpose === "chat_attachment" && found.ownerUserId !== actor.userId) {
+      const [visible] = await tx.select({ id: s.chatMessages.id }).from(s.chatMessages).where(eq(s.chatMessages.fileId, id)).limit(1);
+      if (!visible) return undefined;
+    }
     return found;
   });
   if (!row) throw notFound();

@@ -51,8 +51,8 @@ Paginação por cursor: `?cursor=…&limit=…` → `{ items, nextCursor }`.
 | GET | `/api/v1/roles` | `access.roles.assign` | papéis da empresa e permissões |
 | GET | `/api/v1/org-units` | autenticado | estrutura organizacional (não sensível) |
 | POST | `/api/v1/me/avatar` | autenticado (se a empresa permitir) | troca a foto do perfil — multipart, campo `file` (PNG/JPG/WEBP até 2 MB) |
-| POST | `/api/v1/files?purpose=…` | conforme a finalidade | upload privado — `course_cover`/`lesson_material` (`content.course.edit`), `announcement_cover` (`comms.announcement.create`, até 3 MB), `home_banner` (`comms.announcement.publish`, até 3 MB), `library_material` (`content.library.manage`) |
-| GET | `/api/v1/files/:id` | autenticado (mesmo tenant) | entrega o arquivo com `nosniff`, CSP `sandbox` e cache privado |
+| POST | `/api/v1/files?purpose=…` | conforme a finalidade | upload privado — `course_cover`/`lesson_material` (`content.course.edit`), `announcement_cover` (`comms.announcement.create`, até 3 MB), `home_banner` (`comms.announcement.publish`, até 3 MB), `library_material` (`content.library.manage`), `chat_attachment` (autenticado; PDF ou imagem até 4 MB) |
+| GET | `/api/v1/files/:id` | autenticado (mesmo tenant) | entrega o arquivo com `nosniff`, CSP `sandbox` e cache privado; anexo de conversa só para quem enviou e quem participa da conversa (senão 404) |
 | POST | `/api/v1/courses/:id/enroll` | autenticado | matrícula voluntária em curso publicado; devolve a próxima aula |
 | POST | `/api/v1/courses/:id/lessons/:lessonId/complete` | autenticado | conclui a aula (idempotente), recalcula o progresso e emite o certificado ao chegar a 100% |
 | POST | `/api/v1/development/pdis` | `development.pdi.manage` no escopo (nunca sobre si) | cria o PDI ativo `{ userId, title, periodStart, periodEnd }` (409 se já existir) |
@@ -89,6 +89,22 @@ Paginação por cursor: `?cursor=…&limit=…` → `{ items, nextCursor }`.
 | GET / PUT / DELETE | `/api/v1/banners/:id` | `comms.announcement.publish` | lê, edita e exclui um banner |
 | PUT | `/api/v1/banners/order` | `comms.announcement.publish` | ordem do carrossel `{ ids }` (todos os banners, uma vez cada) |
 | GET | `/api/v1/search?q=&context=` | autenticado | busca da paleta ⌘K; cada grupo respeita permissão, escopo e flags. Sem termo: atalhos |
+| GET | `/api/v1/friends` | autenticado | amigos da própria pessoa (cartão de colega, sentimento do dia, presença) |
+| GET | `/api/v1/friends/people?q=&limit=` | autenticado | colegas ativos da empresa para encontrar amigos — só o cartão profissional (nome, foto, cargo, área, local); amigos e pedidos primeiro |
+| GET / POST | `/api/v1/friends/requests` | autenticado | pedidos recebidos e enviados / pede amizade `{ userId }` (se a outra pessoa já tinha pedido, vira amizade) |
+| POST | `/api/v1/friends/requests/:userId/accept` | autenticado (quem recebeu) | aceita o pedido |
+| DELETE | `/api/v1/friends/requests/:userId` | autenticado (uma das partes) | recusa (recebido) ou cancela (enviado) |
+| DELETE | `/api/v1/friends/:userId` | autenticado (uma das partes) | desfaz a amizade (a conversa privada fica no histórico, sem novas mensagens) |
+| GET | `/api/v1/friends/:userId/profile` | autenticado | perfil do colega: cartão, frase, capa, amigos e grupos em comum (404 para si, inativos e outras empresas) |
+| GET / POST | `/api/v1/conversations` | autenticado | conversas da pessoa / abre a privada com um amigo `{ kind: "direct", userId }` ou cria grupo com amigos `{ kind: "group", title, memberIds }` |
+| GET / PATCH | `/api/v1/conversations/:id` | quem participa / administração do grupo | detalhes (participantes, papel, bloqueio) / renomeia o grupo `{ title }` |
+| POST | `/api/v1/conversations/:id/members` | administração do grupo | adiciona amigos `{ userIds }` (veem só as mensagens a partir da entrada) |
+| DELETE | `/api/v1/conversations/:id/members/:userId` | administração do grupo / a própria pessoa | remove do grupo / sai do grupo |
+| GET / POST | `/api/v1/conversations/:id/messages` | quem participa | mensagens (`before`, `after` para atualização periódica) + leitura, digitação e presença / envia `{ body, fileId? }` |
+| DELETE | `/api/v1/conversations/:id/messages/:messageId` | quem enviou | apaga (texto e anexo descartados; não há edição) |
+| POST | `/api/v1/conversations/:id/read` · `/typing` | quem participa | marca como lida · sinal de "digitando…" |
+| GET | `/api/v1/conversations/:id/media` | quem participa | fotos, arquivos e links compartilhados |
+| POST | `/api/v1/me/presence` | autenticado | sinal de atividade ("online agora"), gravado no máximo a cada 30 s |
 | POST | `/api/v1/me/surveys/:id/responses` | autenticado (convidado) | envio anônimo `{ answers }` — sem log de payload/usuário, rate limit só em memória, sem auditoria |
 
 ## Criando uma rota nova

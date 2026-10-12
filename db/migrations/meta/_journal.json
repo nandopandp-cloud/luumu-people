@@ -204,6 +204,20 @@
       "when": 1791802475716,
       "tag": "0028_mood_reactions_security",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1791811435980,
+      "tag": "0029_friends_chat",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1791811445953,
+      "tag": "0030_friends_chat_security",
+      "breakpoints": true
     }
   ]
 }

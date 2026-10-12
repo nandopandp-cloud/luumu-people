@@ -128,8 +128,9 @@ test.describe("Fase 1 — fundação", () => {
   test("@mobile colaborador navega pela barra inferior", async ({ page }) => {
     await signIn(page, "fernando.santos@aurora.example");
     const bottomNav = page.getByRole("navigation", { name: "Navegação principal" }).last();
-    await bottomNav.getByRole("link", { name: "Perfil" }).click();
-    await expect(page).toHaveURL(/\/meu-perfil/);
+    await bottomNav.getByRole("link", { name: "Amigos" }).click();
+    await expect(page).toHaveURL(/\/amigos/);
+    await expect(page.getByRole("heading", { level: 1, name: "Amigos" })).toBeVisible();
     await expectAccessible(page);
   });
 });

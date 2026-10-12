@@ -6,6 +6,7 @@ import { resolveActor, type AuthenticatedActor } from "@/server/auth/session";
 import type { Permission } from "@/server/authz/permissions";
 import { hasPermissionAnywhere } from "@/server/authz/policy";
 import { effectiveFlags } from "@/server/modules/flags/service";
+import { friendsBadgeCount } from "@/server/modules/friends/conversations";
 import { countUnread } from "@/server/modules/notifications/service";
 import { getTodayMood, type TodayMood } from "@/server/modules/wellbeing/service";
 
@@ -53,4 +54,10 @@ export const getMyMoodToday = cache(async (): Promise<TodayMood | null> => {
 export const getUnreadNotificationCount = cache(async (): Promise<number> => {
   const actor = await getCurrentActor();
   return actor ? countUnread(actor) : 0;
+});
+
+/** Conversas com mensagens não lidas + pedidos de amizade recebidos (menu "Amigos"). */
+export const getFriendsBadgeCount = cache(async (): Promise<number> => {
+  const actor = await getCurrentActor();
+  return actor ? friendsBadgeCount(actor) : 0;
 });
