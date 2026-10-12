@@ -30,12 +30,12 @@ test.describe("Fase 1 — fundação", () => {
 
   test("@mobile login no celular: proposta e ilustração acima do formulário em cartão", async ({ page }) => {
     await gotoHydrated(page, "/entrar");
-    await expect(page.getByText(/^Pessoas que\s*aprendem, crescem/)).toBeVisible();
-    await expect(page.getByText(/^Uma plataforma de experiência/)).toBeVisible();
+    await expect(page.getByRole("main").getByText(/^Pessoas que\s*aprendem, crescem/)).toBeVisible();
+    await expect(page.getByRole("main").getByText(/^Uma plataforma de experiência/)).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Bem-vindo(a)!" })).toBeInViewport();
     await expect(page.getByRole("button", { name: "Entrar com Google" })).toBeVisible();
     await expect(page.getByText(/Ainda não tem acesso|Não tem uma conta/)).toHaveCount(0);
-    // A ilustração do celular carrega em boa resolução; a do painel largo, oculta, só na menor variação.
+    // A ilustração do celular carrega em boa resolução.
     const widths = () =>
       page.locator('img[src*="login-scene"]').evaluateAll((list) =>
         list.map((img) => ({
@@ -44,7 +44,16 @@ test.describe("Fase 1 — fundação", () => {
         })),
       );
     await expect.poll(async () => (await widths()).find((i) => i.visible)?.width ?? 0).toBeGreaterThanOrEqual(640);
-    await expect.poll(async () => (await widths()).find((i) => !i.visible)?.width).toBe(32);
+    // A oculta não gera download grande: só a miniatura, ou reaproveita a já baixada.
+    const visibleWidth = (await widths()).find((i) => i.visible)!.width;
+    const downloaded = await page.evaluate(() =>
+      performance
+        .getEntriesByType("resource")
+        .map((e) => e.name)
+        .filter((n) => n.includes("login-scene"))
+        .map((n) => Number(new URL(n).searchParams.get("w"))),
+    );
+    expect(downloaded.every((w) => w === visibleWidth || w <= 48)).toBe(true);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
     await expectAccessible(page);
@@ -67,7 +76,7 @@ test.describe("Fase 1 — fundação", () => {
 
   test("colaborador: início, perfil e edição do próprio perfil", async ({ page }) => {
     await signIn(page, "fernando.santos@aurora.example");
-    await expect(page.getByRole("heading", { level: 1, name: "Olá, Fernando!" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: /^(Bom dia|Boa tarde|Boa noite), Fernando!/ })).toBeVisible();
     await expectAccessible(page);
 
     await page.getByRole("link", { name: "Meu perfil" }).first().click();

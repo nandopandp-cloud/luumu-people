@@ -1,12 +1,14 @@
 import { z } from "zod";
+import { MOOD_NOTE_MAX } from "@/lib/moods";
 
-export const MOODS = [
-  { value: 5, label: "Muito bem", emoji: "😄" },
-  { value: 4, label: "Bem", emoji: "🙂" },
-  { value: 3, label: "Neutro", emoji: "😐" },
-  { value: 2, label: "Um pouco desanimado", emoji: "🙁" },
-  { value: 1, label: "Não estou bem", emoji: "😣" },
-] as const;
-
-export const moodInputSchema = z.strictObject({ mood: z.number().int().min(1).max(5) });
+/** Sentimento do dia: 1 (muito mal) a 6 (muito bem) e comentário opcional. */
+export const moodInputSchema = z.strictObject({
+  mood: z.number().int().min(1).max(6),
+  note: z
+    .string()
+    .trim()
+    .max(MOOD_NOTE_MAX, `Use até ${MOOD_NOTE_MAX} caracteres.`)
+    .nullish()
+    .transform((v) => v || null),
+});
 export type MoodInput = z.infer<typeof moodInputSchema>;

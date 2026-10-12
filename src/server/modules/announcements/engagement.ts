@@ -4,6 +4,7 @@ import { recordAudit } from "@/server/audit/audit";
 import type { AuthenticatedActor } from "@/server/auth/session";
 import { hasTenantWide } from "@/server/authz/policy";
 import * as s from "@/server/db/schema";
+import type { ReactionKind } from "@/server/db/schema";
 import { usersInOrgSubtreeSql } from "@/server/authz/resolver";
 import { withTenant, type Tx } from "@/server/db/tenant";
 import { containsText } from "@/server/db/text-search";
@@ -12,7 +13,7 @@ import { keepMentions, mentionedIds, mentionsToPlainText, splitMentions, type Me
 import { visibleTo } from "./service";
 
 /**
- * Curtidas e comentários do mural. Só em comunicados que a pessoa pode ver
+ * Reações e comentários do mural. Só em comunicados que a pessoa pode ver
  * (publicado, no ar e do público dela); fora disso, 404. Curtir e comentar
  * só em nome próprio (também garantido por policy no banco). Comentários não
  * são editados nem apagados fisicamente: o autor ou a moderação
@@ -39,30 +40,40 @@ async function assertVisible(tx: Tx, actor: AuthenticatedActor, announcementId: 
 const audienceCondition = (audienceOrgUnitId: string | null) =>
   and(eq(s.users.status, "active"), audienceOrgUnitId ? sql`${s.users.id} in ${usersInOrgSubtreeSql(audienceOrgUnitId)}` : undefined);
 
-async function likeSummary(tx: Tx, actor: AuthenticatedActor, announcementId: string) {
-  const [row] = await tx
+export type ReactionSummary = { counts: Record<ReactionKind, number>; total: number; mine: ReactionKind | null };
+
+async function reactionSummary(tx: Tx, actor: AuthenticatedActor, announcementId: string): Promise<ReactionSummary> {
+  const rows = await tx
     .select({
-      likes: sql<number>`count(*)::int`,
-      likedByMe: sql<boolean>`coalesce(bool_or(${s.announcementReactions.userId} = ${actor.userId}), false)`,
+      kind: s.announcementReactions.kind,
+      count: sql<number>`count(*)::int`,
+      mine: sql<boolean>`coalesce(bool_or(${s.announcementReactions.userId} = ${actor.userId}), false)`,
     })
     .from(s.announcementReactions)
-    .where(eq(s.announcementReactions.announcementId, announcementId));
-  return { likes: row?.likes ?? 0, likedByMe: row?.likedByMe ?? false };
+    .where(eq(s.announcementReactions.announcementId, announcementId))
+    .groupBy(s.announcementReactions.kind);
+  const counts: Record<ReactionKind, number> = { love: 0, cheer: 0, sad: 0 };
+  for (const r of rows) counts[r.kind] = r.count;
+  return { counts, total: counts.love + counts.cheer + counts.sad, mine: rows.find((r) => r.mine)?.kind ?? null };
 }
 
-export async function likeAnnouncement(actor: AuthenticatedActor, announcementId: string) {
+/** Reage (ou troca de reação) em nome próprio: uma reação por pessoa e comunicado. */
+export async function reactToAnnouncement(actor: AuthenticatedActor, announcementId: string, kind: ReactionKind) {
   return withTenant(actor, async (tx) => {
     await assertVisible(tx, actor, announcementId);
-    await tx.insert(s.announcementReactions).values({ tenantId: actor.tenantId, announcementId, userId: actor.userId }).onConflictDoNothing();
-    return likeSummary(tx, actor, announcementId);
+    await tx
+      .insert(s.announcementReactions)
+      .values({ tenantId: actor.tenantId, announcementId, userId: actor.userId, kind })
+      .onConflictDoUpdate({ target: [s.announcementReactions.tenantId, s.announcementReactions.announcementId, s.announcementReactions.userId], set: { kind } });
+    return reactionSummary(tx, actor, announcementId);
   });
 }
 
-export async function unlikeAnnouncement(actor: AuthenticatedActor, announcementId: string) {
+export async function removeReaction(actor: AuthenticatedActor, announcementId: string) {
   return withTenant(actor, async (tx) => {
     await assertVisible(tx, actor, announcementId);
     await tx.delete(s.announcementReactions).where(and(eq(s.announcementReactions.announcementId, announcementId), eq(s.announcementReactions.userId, actor.userId)));
-    return likeSummary(tx, actor, announcementId);
+    return reactionSummary(tx, actor, announcementId);
   });
 }
 

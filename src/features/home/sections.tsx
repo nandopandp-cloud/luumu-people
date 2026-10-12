@@ -1,4 +1,4 @@
-import { AlarmClock, ArrowRight, ChevronRight, ClipboardList, FileText, Headphones, ListChecks, PlayCircle, SquareCheckBig, SquarePen, type LucideIcon } from "lucide-react";
+import { AlarmClock, ArrowRight, BarChart3, ChevronRight, ClipboardList, FileText, Headphones, ListChecks, Megaphone, PlayCircle, SquareCheckBig, SquarePen, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
 import type { ReactNode } from "react";
@@ -13,20 +13,25 @@ import { HexBadge } from "@/design-system/illustrations/hex-badge";
 import { JourneySignpost } from "@/design-system/illustrations/journey-signpost";
 import { formatDate } from "@/lib/format";
 import type { AuthenticatedActor } from "@/server/auth/session";
-import { achievementsEnabled } from "@/server/dal";
+import { achievementsEnabled, getMyMoodToday } from "@/server/dal";
 import { listMyAchievements } from "@/server/modules/achievements/service";
 import { listAnnouncementFeed } from "@/server/modules/announcements/service";
 import { listLiveBanners } from "@/server/modules/banners/service";
 import { getMyLearningProgress, listNextActivities, listRecommendedPaths, type NextActivity } from "@/server/modules/learning/service";
 import { listFeaturedLibrary } from "@/server/modules/library/service";
 import { getMyProfile } from "@/server/modules/people/service";
-import { MOODS } from "@/server/modules/wellbeing/schemas";
-import { getTodayMood } from "@/server/modules/wellbeing/service";
+import { unreadHighlights } from "@/server/modules/notifications/service";
+import { myTeamMoods } from "@/server/modules/wellbeing/service";
+import { Avatar } from "@/design-system/components/avatar";
+import { moodOf } from "@/lib/moods";
+import { greetingNow } from "@/lib/format";
+import { toMoodView } from "@/features/wellbeing/events";
+import { MoodArt } from "@/features/wellbeing/mood-art";
+import { MoodChip } from "@/features/wellbeing/mood-indicators";
 import { HeroCarousel } from "./hero-banner";
 import { getDevelopment } from "@/server/modules/development/service";
 import { formatDay } from "@/features/development/labels";
 import { ANNOUNCEMENT_CATEGORY, daysUntil, formatMinutes, LIBRARY_TYPE, relativeDay } from "./labels";
-import { MoodCheckin } from "./mood-checkin";
 
 /* ---------------------------------------------------------------- blocos */
 
@@ -57,44 +62,82 @@ function RoundArrow({ label }: { label: string }) {
 
 /* ------------------------------------------------------------------ hero */
 
+/** Saudação personalizada: período do dia, sentimento de hoje e atalhos do que há de novo. */
+async function Greeting({ actor, firstName }: { actor: AuthenticatedActor; firstName: string }) {
+  const [mood, unread] = await Promise.all([getMyMoodToday(), unreadHighlights(actor)]);
+  const shortcuts = [
+    unread.surveys > 0 ? { href: "/pesquisas" as Route, icon: BarChart3, tile: "text-purple-600", label: unread.surveys === 1 ? "Nova pesquisa disponível" : `${unread.surveys} pesquisas disponíveis` } : null,
+    unread.announcements > 0
+      ? { href: "/comunicados" as Route, icon: Megaphone, tile: "text-green-700", label: unread.announcements === 1 ? "1 comunicado não lido" : `${unread.announcements} comunicados não lidos` }
+      : null,
+  ].filter((x) => x !== null);
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+        <div className="min-w-0">
+          <h1 className="text-[1.9rem] font-extrabold leading-[1.1] tracking-[-0.03em] text-neutral-900">
+            {greetingNow()}, {firstName}! <span aria-hidden>👋</span>
+          </h1>
+          <p className="mt-1.5 text-body text-neutral-600">Que bom ver você por aqui.</p>
+        </div>
+        {mood ? <MoodChip today={toMoodView(mood)} className="max-w-[17rem]" /> : null}
+      </div>
+      {shortcuts.length ? (
+        <ul className="flex flex-wrap gap-3">
+          {shortcuts.map(({ href, icon: Icon, tile, label }) => (
+            <li key={href}>
+              <Link
+                href={href}
+                className="group flex items-center gap-3 rounded-xl bg-purple-50 py-2.5 pl-3 pr-4 text-body-sm font-medium text-neutral-800 transition-colors hover:bg-purple-100/70 focus-visible:outline-2 focus-visible:outline-purple-500"
+              >
+                <span aria-hidden className="flex size-9 items-center justify-center rounded-lg bg-white shadow-sm">
+                  <Icon className={cn("size-5", tile)} />
+                </span>
+                {label}
+                <ArrowRight aria-hidden className="size-4 text-purple-600 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 export async function HomeHero({ actor }: { actor: AuthenticatedActor }) {
   const [profile, banners] = await Promise.all([getMyProfile(actor), listLiveBanners(actor)]);
-  const firstName = (profile.preferredName || profile.name).split(" ")[0];
+  const firstName = (profile.preferredName || profile.name).split(" ")[0]!;
   if (banners.length > 0) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-h2 font-extrabold tracking-[-0.02em] text-neutral-900">
-          Olá, {firstName}! <span aria-hidden>👋</span>
-        </h1>
+      <div className="space-y-5">
+        <Greeting actor={actor} firstName={firstName} />
         <HeroCarousel slides={banners.map(({ id, layout, title, subtitle, ctaLabel, ctaUrl, theme, illustration, imageFileId }) => ({ id, layout, title, subtitle, ctaLabel, ctaUrl, theme, illustration, imageFileId }))} />
       </div>
     );
   }
   // Sem banner ativo: boas-vindas padrão.
   return (
-    <section aria-label="Boas-vindas" className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#efe8fe] via-[#e3d8fb] to-[#d3c2f7]">
-      <svg aria-hidden viewBox="0 0 800 320" preserveAspectRatio="none" className="absolute inset-0 size-full">
-        <path d="M380 0c60 90 30 160 120 210s190 20 300 110V0Z" fill="#ffffff" opacity="0.22" />
-        <path d="M520 320c40-80 130-120 280-120v120Z" fill="#c9b5f5" opacity="0.5" />
-      </svg>
-      <div className="relative grid items-end md:grid-cols-[minmax(0,1.12fr)_minmax(260px,0.88fr)]">
-        <div className="px-7 py-8 sm:px-9 sm:py-8">
-          <p className="text-[17px] font-semibold text-neutral-800">
-            Olá, {firstName}! <span aria-hidden>👋</span>
-          </p>
-          <h1 className="mt-3 max-w-[26rem] text-[2rem] font-extrabold leading-[1.08] tracking-[-0.035em] text-neutral-900 sm:text-[2.2rem]">
-            Pessoas que aprendem hoje constroem o amanhã.
-          </h1>
-          <p className="mt-4 max-w-[26rem] text-[15px] leading-relaxed text-neutral-700">Explore conteúdos, desenvolva suas habilidades e faça parte de uma cultura que cresce junta.</p>
-          <Button asChild size="lg" className="mt-6 h-11 px-7">
-            <Link href="/desenvolvimento">
-              Ver meu desenvolvimento <ArrowRight aria-hidden />
-            </Link>
-          </Button>
+    <div className="space-y-5">
+      <Greeting actor={actor} firstName={firstName} />
+      <section aria-label="Boas-vindas" className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#efe8fe] via-[#e3d8fb] to-[#d3c2f7]">
+        <svg aria-hidden viewBox="0 0 800 320" preserveAspectRatio="none" className="absolute inset-0 size-full">
+          <path d="M380 0c60 90 30 160 120 210s190 20 300 110V0Z" fill="#ffffff" opacity="0.22" />
+          <path d="M520 320c40-80 130-120 280-120v120Z" fill="#c9b5f5" opacity="0.5" />
+        </svg>
+        <div className="relative grid items-end md:grid-cols-[minmax(0,1.12fr)_minmax(260px,0.88fr)]">
+          <div className="px-7 py-8 sm:px-9 sm:py-8">
+            <h2 className="max-w-[26rem] text-[2rem] font-extrabold leading-[1.08] tracking-[-0.035em] text-neutral-900 sm:text-[2.2rem]">Pessoas que aprendem hoje constroem o amanhã.</h2>
+            <p className="mt-4 max-w-[26rem] text-[15px] leading-relaxed text-neutral-700">Explore conteúdos, desenvolva suas habilidades e faça parte de uma cultura que cresce junta.</p>
+            <Button asChild size="lg" className="mt-6 h-11 px-7">
+              <Link href="/desenvolvimento">
+                Ver meu desenvolvimento <ArrowRight aria-hidden />
+              </Link>
+            </Button>
+          </div>
+          <JourneySignpost className="hidden h-full max-h-[300px] w-full self-end md:block" />
         </div>
-        <JourneySignpost className="hidden h-full max-h-[300px] w-full self-end md:block" />
-      </div>
-    </section>
+      </section>
+    </div>
   );
 }
 
@@ -374,15 +417,40 @@ export async function NextActivitiesCard({ actor }: { actor: AuthenticatedActor 
   );
 }
 
-export async function MoodCard({ actor }: { actor: AuthenticatedActor }) {
-  const today = await getTodayMood(actor);
+/** Visão do gestor: sentimento de hoje de cada pessoa do time direto. Não aparece para quem não tem time. */
+export async function MyTeamMoodCard({ actor }: { actor: AuthenticatedActor }) {
+  const team = await myTeamMoods(actor);
+  if (team.length === 0) return null;
+  const shown = team.slice(0, 6);
   return (
-    <section aria-labelledby="humor" className="rounded-xl bg-gradient-to-br from-[#fdeef4] to-[#fbe3ee] p-5">
-      <h2 id="humor" className="mb-4 text-[17px] font-bold tracking-[-0.01em] text-neutral-900">
-        Como você está se sentindo hoje?
+    <Panel>
+      <h2 id="meu-time" className="mb-3 text-[17px] font-bold tracking-[-0.01em] text-neutral-900">
+        Meu time <span className="font-medium text-neutral-600">({team.length})</span>
       </h2>
-      <MoodCheckin moods={MOODS} initial={today} />
-    </section>
+      <ul aria-labelledby="meu-time" className="divide-y divide-line">
+        {shown.map((m) => {
+          const mood = moodOf(m.today?.mood);
+          return (
+            <li key={m.id} className="flex items-center gap-3 py-2.5">
+              <Avatar name={m.name} src={m.image} size="md" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-body-sm font-semibold text-neutral-900">{m.name}</span>
+                <span className="block truncate text-caption text-neutral-600">{m.position ?? "—"}</span>
+              </span>
+              {mood ? (
+                <>
+                  <MoodArt slug={mood.slug} className="size-9 shrink-0" />
+                  <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-caption font-semibold", mood.pill)}>{mood.label}</span>
+                </>
+              ) : (
+                <span className="shrink-0 rounded-full bg-neutral-100 px-2.5 py-1 text-caption font-medium text-neutral-600">Sem registro hoje</span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {team.length > shown.length ? <p className="pt-2 text-caption text-neutral-600">e mais {team.length - shown.length} {team.length - shown.length === 1 ? "pessoa" : "pessoas"} no time</p> : null}
+    </Panel>
   );
 }
 

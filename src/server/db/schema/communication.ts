@@ -12,17 +12,23 @@ import { organizations } from "./tenancy";
  * comunicado (público por área) é decidido no serviço.
  */
 
-/** Curtida: uma por pessoa e comunicado. */
+/** Reações a um comunicado: amei (coração), que demais! (Luumu feliz) e que pena (Luumu triste). */
+export const REACTION_KINDS = ["love", "cheer", "sad"] as const;
+export type ReactionKind = (typeof REACTION_KINDS)[number];
+
+/** Reação: uma por pessoa e comunicado (trocar de reação atualiza `kind`). */
 export const announcementReactions = pgTable(
   "announcement_reactions",
   {
     tenantId: tenantId().references(() => organizations.id),
     announcementId: uuid("announcement_id").notNull(),
     userId: uuid("user_id").notNull(),
+    kind: text("kind", { enum: REACTION_KINDS }).notNull().default("love"),
     createdAt: createdAt(),
   },
   (t) => [
     primaryKey({ name: "announcement_reactions_pk", columns: [t.tenantId, t.announcementId, t.userId] }),
+    check("announcement_reactions_kind", sql`${t.kind} in ('love', 'cheer', 'sad')`),
     foreignKey({ name: "announcement_reactions_announcement_fk", columns: [t.tenantId, t.announcementId], foreignColumns: [announcements.tenantId, announcements.id] }).onDelete("cascade"),
     foreignKey({ name: "announcement_reactions_user_fk", columns: [t.tenantId, t.userId], foreignColumns: [users.tenantId, users.id] }),
   ],

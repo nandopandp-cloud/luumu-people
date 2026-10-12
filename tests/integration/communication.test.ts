@@ -2,7 +2,7 @@ import { desc, eq, sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import * as commentRoute from "@/app/api/v1/announcements/[id]/comments/[commentId]/route";
 import * as commentsRoute from "@/app/api/v1/announcements/[id]/comments/route";
-import * as likeRoute from "@/app/api/v1/announcements/[id]/like/route";
+import * as reactionRoute from "@/app/api/v1/announcements/[id]/reaction/route";
 import * as itemRoute from "@/app/api/v1/announcements/[id]/route";
 import * as createRoute from "@/app/api/v1/announcements/route";
 import * as eventsRoute from "@/app/api/v1/events/route";
@@ -52,9 +52,9 @@ describe("mural de comunicados", () => {
     expect(await titles(bruno)).not.toContain(AREA_ONLY);
     expect(await titles(fernando)).toContain(AREA_ONLY);
 
-    // Nem curtir nem comentar o que não se vê.
+    // Nem reagir nem comentar o que não se vê.
     const { cookie } = await signIn("aurora", "bruno");
-    expect((await call(likeRoute.POST, { path: "/x", method: "POST", cookie, params: { id } })).status).toBe(404);
+    expect((await call(reactionRoute.PUT, { path: "/x", method: "PUT", cookie, params: { id }, body: { kind: "love" } })).status).toBe(404);
     expect((await call(commentsRoute.POST, { path: "/x", method: "POST", cookie, params: { id }, body: { body: "Oi" } })).status).toBe(404);
   });
 
@@ -72,19 +72,33 @@ describe("mural de comunicados", () => {
     expect(withCounts.comments).toBe(2); // comentário da Camila + menção do Rafael (seed)
   });
 
-  it("curtir: uma vez por pessoa, só em nome próprio (API e banco)", async () => {
+  it("reagir: uma reação por pessoa, que pode trocar ou remover, só em nome próprio (API e banco)", async () => {
     const id = await idOf("Programa de Saúde Mental");
     const { cookie } = await signIn("aurora", "leticia");
-    // Parte de "não curtido", seja qual for o seed.
-    const before = (await call(likeRoute.DELETE, { path: "/x", method: "DELETE", cookie, params: { id } })).json.likes as number;
-    const liked = await call(likeRoute.POST, { path: "/x", method: "POST", cookie, params: { id } });
-    expect(liked.json).toEqual({ likes: before + 1, likedByMe: true });
-    const again = await call(likeRoute.POST, { path: "/x", method: "POST", cookie, params: { id } });
-    expect(again.json).toEqual({ likes: before + 1, likedByMe: true });
-    const unliked = await call(likeRoute.DELETE, { path: "/x", method: "DELETE", cookie, params: { id } });
-    expect(unliked.json).toEqual({ likes: before, likedByMe: false });
+    const react = (kind: string) => call(reactionRoute.PUT, { path: "/x", method: "PUT", cookie, params: { id }, body: { kind } });
+    // Parte de "sem reação", seja qual for o seed.
+    const before = (await call(reactionRoute.DELETE, { path: "/x", method: "DELETE", cookie, params: { id } })).json as { counts: Record<string, number>; total: number; mine: null };
+    expect(before.mine).toBeNull();
 
-    // A role de runtime não grava curtida em nome de outra pessoa.
+    const loved = await react("love");
+    expect(loved.json).toMatchObject({ mine: "love", total: before.total + 1, counts: { ...before.counts, love: before.counts.love! + 1 } });
+    // Trocar de reação não soma: a mesma linha muda de tipo.
+    const cheered = await react("cheer");
+    expect(cheered.json).toMatchObject({ mine: "cheer", total: before.total + 1, counts: { ...before.counts, cheer: before.counts.cheer! + 1 } });
+    expect((await react("sad")).json).toMatchObject({ mine: "sad", counts: { sad: before.counts.sad! + 1 } });
+    expect((await react("raiva")).status).toBe(400);
+
+    const removed = await call(reactionRoute.DELETE, { path: "/x", method: "DELETE", cookie, params: { id } });
+    expect(removed.json).toEqual({ ...before, mine: null });
+
+    // O mural traz a contagem por tipo e a reação da pessoa.
+    await react("cheer");
+    const actor = await actorFor("leticia");
+    const card = (await listAnnouncements(actor, { limit: 50 })).items.find((a) => a.id === id)!;
+    expect(card.myReaction).toBe("cheer");
+    expect(card.reactions.cheer).toBe(before.counts.cheer! + 1);
+
+    // A role de runtime não grava nem troca reação em nome de outra pessoa.
     const tenantId = (await tenantOf("aurora")).tenantId;
     const { db } = await testDatabase();
     const [someone] = await db.select({ id: s.users.id }).from(s.users).where(eq(s.users.email, "camila.oliveira@aurora.example"));
@@ -96,6 +110,12 @@ describe("mural de comunicados", () => {
       }),
       /row-level security/,
     );
+    await call(reactionRoute.PUT, { path: "/x", method: "PUT", cookie: (await signIn("aurora", "camila")).cookie, params: { id }, body: { kind: "love" } });
+    const changed = await asRole("luumu_app", async (tx) => {
+      await tx.execute(sql`select set_config('app.tenant_id', ${tenantId}, true), set_config('app.user_id', ${me!.id}, true)`);
+      return tx.update(s.announcementReactions).set({ kind: "sad" }).where(eq(s.announcementReactions.userId, someone!.id)).returning();
+    });
+    expect(changed).toHaveLength(0);
   });
 
   it("comentários: autor remove o seu; outra pessoa não; moderação remove e fica auditado", async () => {

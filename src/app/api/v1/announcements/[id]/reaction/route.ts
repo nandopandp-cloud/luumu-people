@@ -1,16 +1,17 @@
 import { defineRoute } from "@/server/http/route";
-import { likeAnnouncement, unlikeAnnouncement } from "@/server/modules/announcements/engagement";
-import { announcementParamsSchema } from "@/server/modules/announcements/schemas";
+import { reactToAnnouncement, removeReaction } from "@/server/modules/announcements/engagement";
+import { announcementParamsSchema, reactionInputSchema } from "@/server/modules/announcements/schemas";
 
-/** Curtir/descurtir em nome próprio (qualquer pessoa que veja o comunicado). */
-export const POST = defineRoute({
+/** Reagir (ou trocar de reação) e remover a reação, em nome próprio, em comunicado que a pessoa vê. */
+export const PUT = defineRoute({
   permission: "authenticated",
   params: announcementParamsSchema,
-  handler: ({ actor, params }) => likeAnnouncement(actor, params.id),
+  body: reactionInputSchema,
+  handler: ({ actor, params, body }) => reactToAnnouncement(actor, params.id, body.kind),
 });
 
 export const DELETE = defineRoute({
   permission: "authenticated",
   params: announcementParamsSchema,
-  handler: ({ actor, params }) => unlikeAnnouncement(actor, params.id),
+  handler: ({ actor, params }) => removeReaction(actor, params.id),
 });

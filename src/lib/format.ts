@@ -23,3 +23,9 @@ export const CONTRACT_LABELS: Record<string, string> = {
   apprentice: "Jovem aprendiz",
   temporary: "Temporário",
 };
+
+/** "Bom dia" (5h–12h), "Boa tarde" (12h–18h) ou "Boa noite", no horário de Brasília. */
+export function greetingNow(now = new Date()): string {
+  const hour = Number(new Intl.DateTimeFormat("pt-BR", { hour: "numeric", hourCycle: "h23", timeZone: "America/Sao_Paulo" }).format(now));
+  return hour >= 5 && hour < 12 ? "Bom dia" : hour >= 12 && hour < 18 ? "Boa tarde" : "Boa noite";
+}

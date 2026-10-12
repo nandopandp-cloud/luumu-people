@@ -12,7 +12,9 @@ import { AvatarUploadButton, CoverUploadButton } from "@/features/profile/avatar
 import { ChangePasswordForm } from "@/features/profile/change-password-form";
 import { EditProfileDialog } from "@/features/profile/edit-profile-dialog";
 import { CONTRACT_LABELS, formatDate, formatLocation } from "@/lib/format";
-import { achievementsEnabled, requireActor } from "@/server/dal";
+import { achievementsEnabled, getMyMoodToday, requireActor } from "@/server/dal";
+import { toMoodView, type TodayMoodView } from "@/features/wellbeing/events";
+import { MoodAvatarBadge, MoodChip } from "@/features/wellbeing/mood-indicators";
 import { getDevelopment } from "@/server/modules/development/service";
 import { getEnabledModules } from "@/server/modules/flags/modules";
 import { CompetencyBarsCard, GoalsCard, OverviewCards } from "@/features/development/sections";
@@ -42,14 +44,14 @@ export default function ProfilePage({ searchParams }: PageProps<"/meu-perfil">) 
 
 async function Profile({ searchParams }: { searchParams: PageProps<"/meu-perfil">["searchParams"] }) {
   const actor = await requireActor();
-  const [profile, params, modules, achievements] = await Promise.all([getMyProfile(actor), searchParams, getEnabledModules(actor), achievementsEnabled()]);
+  const [profile, params, modules, achievements, mood] = await Promise.all([getMyProfile(actor), searchParams, getEnabledModules(actor), achievementsEnabled(), getMyMoodToday()]);
   // Conquistas seguem a flag `gamification` (oculta por padrão), como no menu e na busca.
   const tabs = TABS.filter((t) => (t.value !== "certificados" || modules.learning) && (t.value !== "conquistas" || achievements));
   const tab: Tab = tabs.some((t) => t.value === params.aba) ? (params.aba as Tab) : "visao-geral";
 
   return (
     <>
-      <ProfileHeader profile={profile} />
+      <ProfileHeader profile={profile} mood={mood ? toMoodView(mood) : null} />
       <div className="mb-6">
         <LinkTabs label="Seções do perfil" current={tab} items={tabs.map((t) => ({ ...t, href: { pathname: "/meu-perfil", query: t.value === "visao-geral" ? {} : { aba: t.value } } }))} />
       </div>
@@ -69,7 +71,7 @@ async function Profile({ searchParams }: { searchParams: PageProps<"/meu-perfil"
   );
 }
 
-function ProfileHeader({ profile }: { profile: Profile }) {
+function ProfileHeader({ profile, mood }: { profile: Profile; mood: TodayMoodView | null }) {
   const location = formatLocation(profile.city, profile.state);
   return (
     <section className="relative mb-6 overflow-hidden rounded-xl bg-gradient-to-br from-purple-100 via-[#ece5fc] to-purple-200 px-6 py-7 sm:px-8">
@@ -96,6 +98,7 @@ function ProfileHeader({ profile }: { profile: Profile }) {
         <div className="relative shrink-0 self-start">
           <Avatar name={profile.name} src={profile.image} size="xl" className="shadow-md ring-0" />
           {profile.editableFields.includes("image") ? <AvatarUploadButton /> : null}
+          {mood ? <MoodAvatarBadge today={mood} /> : null}
         </div>
         <div className="min-w-0 flex-1">
           <h1 className="text-[2rem] font-extrabold leading-tight tracking-[-0.03em] text-neutral-900 sm:text-[2.25rem]">{profile.preferredName || profile.name}</h1>
@@ -121,6 +124,7 @@ function ProfileHeader({ profile }: { profile: Profile }) {
             ) : null}
           </ul>
           {profile.headline ? <p className="mt-4 max-w-xl text-body italic text-neutral-700">“{profile.headline}”</p> : null}
+          {mood ? <MoodChip today={mood} className="mt-4 w-fit max-w-full" /> : null}
         </div>
         <div aria-hidden className={profile.profileCover ? "hidden" : "relative hidden h-40 w-56 shrink-0 lg:block"}>
           <div className="absolute -left-4 top-0 max-w-40 rounded-lg border border-line bg-white px-4 py-3 text-body-sm font-medium leading-snug text-neutral-800 shadow-md">

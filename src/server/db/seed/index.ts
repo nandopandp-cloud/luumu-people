@@ -6,6 +6,7 @@ import { hashPassword } from "@/server/auth/password";
 import type { Database } from "../client";
 import * as s from "../schema";
 import { seedCommunication } from "./communication";
+import { seedMoods } from "./wellbeing";
 import { seedContent } from "./content";
 import { seedSurveys } from "./surveys";
 import { DEFAULT_EDITABLE_PROFILE_FIELDS, SEED_FEATURE_FLAGS, SEED_ORGANIZATIONS, seedEmail, type SeedOrganization } from "./data";
@@ -197,6 +198,7 @@ export async function seedDemo(db: Database, password: string): Promise<SeedResu
         await seedContent(t, seeded.tenantId, [...seeded.users.values()].map((u) => u.id));
         await seedCommunication(t, seeded.tenantId);
         await seedSurveys(t, seeded.tenantId);
+        await seedMoods(t, seeded.tenantId, seeded.users);
         await enableLearningFor(t, seeded);
         result.set(org.slug, seeded);
       }

@@ -70,7 +70,7 @@ A CSP é estática e permite `'unsafe-inline'` em scripts. Nonces exigiriam rend
 ## LGPD
 
 - Separação entre identidade, dados de RH e dados de desenvolvimento; minimização em cada endpoint.
-- O check-in de humor (Fase 2) é **identificado**, por decisão de produto, mas é dado potencialmente de saúde. Ele será visível ao próprio colaborador, agregado com k-anonimato para G&G e **nunca** individualmente para gestores. A tela vai explicar a finalidade.
+- O sentimento do dia ("Como você está se sentindo hoje?") é **identificado** e, por decisão de produto (out/2026), **visível para todas as pessoas da empresa** no dia — no perfil, no topo, na home, no menu e na visão "Meu time" do gestor —, com o comentário opcional. O modal avisa isso antes do envio ("Seu sentimento e o comentário ficam visíveis para a empresa hoje"). Gravar e mudar, só o próprio registro (policies `RESTRICTIVE` de insert/update). Atenção LGPD: é dado potencialmente de saúde (art. 11); a exposição ampla deve ser validada com o encarregado (DPO). Fechar o modal sem responder fica em `mood_prompt_dismissals`, visível só à própria pessoa.
 - Hospedagem atual: Neon `us-east-1` + Vercel `iad1` (transferência internacional, com base no art. 33 da LGPD). Recomendação: migrar para `sa-east-1` + `gru1` antes de dados reais de clientes.
 
 ## Riscos conhecidos e próximos passos

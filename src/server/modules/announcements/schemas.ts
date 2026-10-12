@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { REACTION_KINDS } from "@/server/db/schema/communication";
 import { ANNOUNCEMENT_CATEGORIES, ILLUSTRATIONS, THEMES } from "@/server/db/schema/learning";
 import { toEmbedUrl } from "@/server/modules/courses/video";
 
@@ -56,3 +57,6 @@ export const mentionableQuerySchema = z.strictObject({
   q: z.string().trim().min(1).max(40),
 });
 export const commentParamsSchema = z.strictObject({ id: z.uuid(), commentId: z.uuid() });
+
+/** Reação ao comunicado: amei, que demais! ou que pena. */
+export const reactionInputSchema = z.strictObject({ kind: z.enum(REACTION_KINDS) });

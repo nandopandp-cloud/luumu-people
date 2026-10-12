@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 import { expectAccessible, gotoHydrated, signIn } from "./helpers";
 
 test.describe("Mural de comunicados", () => {
-  test("colaborador: destaques, abas, agenda, links, curtida e comentário", async ({ page }) => {
+  test("colaborador: destaques, abas, agenda, links, reações e comentário", async ({ page }) => {
     test.setTimeout(120_000);
     await signIn(page, "gabriel.rocha@aurora.example");
     await gotoHydrated(page, "/comunicados");
@@ -31,16 +31,28 @@ test.describe("Mural de comunicados", () => {
     await expect(row).toBeVisible();
     await expect(page.getByRole("region", { name: "Comunicados em destaque" })).toHaveCount(0);
 
-    // Curtir e descurtir (o número muda junto), seja qual for o estado do seed.
-    const like = row.getByRole("button", { name: /^(Curtir|Descurtir)/ });
-    const wasLiked = (await like.getAttribute("aria-pressed")) === "true";
-    const before = Number((await like.innerText()).trim());
-    await like.click();
-    await expect(like).toHaveAttribute("aria-pressed", String(!wasLiked));
-    await expect(like).toHaveText(String(before + (wasLiked ? -1 : 1)));
-    await like.click();
-    await expect(like).toHaveAttribute("aria-pressed", String(wasLiked));
-    await expect(like).toHaveText(String(before));
+    // Reagir no card: abre as opções, escolhe, troca e remove (o total acompanha), seja qual for o seed.
+    const trigger = row.getByRole("button", { name: /^(Reagir|Sua reação:)/ });
+    const options = page.getByRole("dialog", { name: "Reações" });
+    const totalOf = async () => Number(/\((\d+) reaç/.exec((await trigger.getAttribute("aria-label")) ?? "")![1]);
+    const choose = async (label: string) => {
+      await trigger.click();
+      await options.getByRole("button", { name: new RegExp(`^${label} \\(`) }).click();
+      await expect(options).toBeHidden();
+    };
+    const current = /^Sua reação: (.+) \(/.exec((await trigger.getAttribute("aria-label")) ?? "")?.[1];
+    if (current) await choose(current);
+    await expect(trigger).toHaveAccessibleName(/^Reagir \(/);
+    const before = await totalOf();
+    await choose("Que demais!");
+    await expect(trigger).toHaveAccessibleName(new RegExp(`^Sua reação: Que demais! \\(${before + 1} reaç`));
+    await trigger.click();
+    await expect(options.getByRole("button", { name: /^Que demais! \(/ })).toHaveAttribute("aria-pressed", "true");
+    await expectAccessible(page);
+    await options.getByRole("button", { name: /^Que pena \(/ }).click();
+    await expect(trigger).toHaveAccessibleName(new RegExp(`^Sua reação: Que pena \\(${before + 1} reaç`));
+    await choose("Que pena");
+    await expect(trigger).toHaveAccessibleName(new RegExp(`^Reagir \\(${before} reaç`));
 
     // Detalhe: comentar e remover o próprio comentário.
     await row.getByRole("link", { name: "Programa de Saúde Mental" }).click();

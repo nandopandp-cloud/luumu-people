@@ -95,7 +95,7 @@ test.describe("Banners da home", () => {
     await signIn(page, "fernando.santos@aurora.example");
     await gotoHydrated(page, "/inicio");
     // A saudação fica acima do carrossel.
-    await expect(page.getByRole("heading", { level: 1, name: "Olá, Fernando!" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: /^(Bom dia|Boa tarde|Boa noite), Fernando!/ })).toBeVisible();
     const carousel = page.getByRole("region", { name: "Destaques" });
     await expect(carousel).toBeVisible();
     await carousel.getByRole("button", { name: /Ir para o banner 2: Hackathon de inovação/ }).click();
@@ -131,7 +131,7 @@ test.describe("Banners da home", () => {
     await page.context().clearCookies();
     await signIn(page, "fernando.santos@aurora.example");
     await gotoHydrated(page, "/inicio");
-    const greeting = page.getByRole("heading", { level: 1, name: "Olá, Fernando!" });
+    const greeting = page.getByRole("heading", { level: 1, name: /^(Bom dia|Boa tarde|Boa noite), Fernando!/ });
     const carousel = page.getByRole("region", { name: "Destaques" });
     await carousel.getByRole("button", { name: /Semana da inovação/ }).click();
     const art = carousel.getByRole("img", { name: "Semana da inovação: inscrições abertas" });

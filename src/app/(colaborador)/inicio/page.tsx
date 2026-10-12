@@ -8,8 +8,8 @@ import {
   DevelopmentProgressCard,
   FeaturedContentSection,
   HomeHero,
-  MoodCard,
   MyProgressCard,
+  MyTeamMoodCard,
   NextActivitiesCard,
   NextPdiActionsCard,
   RecommendedPathsSection,
@@ -34,10 +34,10 @@ export default function HomePage() {
         <Block fallback={null}>{(actor, m) => (m.learning ? <RecommendedPathsSection actor={actor} /> : null)}</Block>
         <Block fallback={null}>{(actor, m) => (m.library ? <FeaturedContentSection actor={actor} /> : null)}</Block>
       </div>
-      <aside className="space-y-5" aria-label="Seu resumo">
+      <aside className="min-w-0 space-y-5" aria-label="Seu resumo">
         <Block fallback={<Skeleton className="h-[160px] rounded-xl" />}>{(actor, m) => (m.learning ? <MyProgressCard actor={actor} /> : <DevelopmentProgressCard actor={actor} />)}</Block>
         <Block fallback={<Skeleton className="h-[360px] rounded-xl" />}>{(actor, m) => (m.learning ? <NextActivitiesCard actor={actor} /> : <NextPdiActionsCard actor={actor} />)}</Block>
-        <Block fallback={<Skeleton className="h-[170px] rounded-xl" />}>{(actor) => <MoodCard actor={actor} />}</Block>
+        <Block fallback={null}>{(actor) => <MyTeamMoodCard actor={actor} />}</Block>
         <Block fallback={null}>{(actor) => <AchievementsCard actor={actor} />}</Block>
       </aside>
     </div>

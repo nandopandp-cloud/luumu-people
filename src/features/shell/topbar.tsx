@@ -2,15 +2,18 @@ import { Bell } from "lucide-react";
 import { Suspense, type ReactNode } from "react";
 import { Skeleton } from "@/design-system/components/feedback";
 import { hasPermissionAnywhere } from "@/server/authz/policy";
-import { getCurrentActor, getUnreadNotificationCount } from "@/server/dal";
+import { getCurrentActor, getMyMoodToday, getUnreadNotificationCount } from "@/server/dal";
 import { getMyProfile } from "@/server/modules/people/service";
 import { NotificationBell } from "@/features/notifications/bell";
 import { CommandPalette } from "@/features/search/command-palette";
+import { toMoodView } from "@/features/wellbeing/events";
+import { MoodDialogHost } from "@/features/wellbeing/mood-dialog";
+import { MoodTopbarBadge } from "@/features/wellbeing/mood-indicators";
 import { MobileMenuButton } from "./mobile-menu";
 import { UserMenu } from "./user-menu";
 
 /**
- * Barra superior: busca, notificações e conta. A parte que depende da sessão
+ * Barra superior: busca, notificações, conta e o sentimento do dia. A parte que depende da sessão
  * fica atrás de <Suspense> (Cache Components: o resto vai no static shell).
  */
 export function Topbar({
@@ -58,15 +61,25 @@ function BellPlaceholder() {
 async function TopbarUser({ environment }: { environment: "employee" | "management" }) {
   const actor = await getCurrentActor();
   if (!actor) return null;
-  const profile = await getMyProfile(actor);
+  const [profile, mood] = await Promise.all([getMyProfile(actor), getMyMoodToday()]);
+  const today = mood ? toMoodView(mood) : null;
   return (
-    <UserMenu
-      name={profile.preferredName || profile.name}
-      subtitle={profile.position ?? profile.orgUnit ?? ""}
-      image={profile.image}
-      environment={environment}
-      canManage={hasPermissionAnywhere(actor, "management.access")}
-    />
+    <div className="relative">
+      <UserMenu
+        name={profile.preferredName || profile.name}
+        subtitle={profile.position ?? profile.orgUnit ?? ""}
+        image={profile.image}
+        environment={environment}
+        canManage={hasPermissionAnywhere(actor, "management.access")}
+      />
+      {/* Sentimento do dia: selo sobre o avatar e o modal (abre sozinho no 1º acesso do dia). */}
+      {today ? (
+        <>
+          <MoodTopbarBadge today={today} />
+          <MoodDialogHost today={today} />
+        </>
+      ) : null}
+    </div>
   );
 }
 

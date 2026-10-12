@@ -7,7 +7,7 @@ import { Badge } from "@/design-system/components/badge";
 import { Skeleton } from "@/design-system/components/feedback";
 import { Breadcrumb } from "@/design-system/components/navigation";
 import { Comments } from "@/features/announcements/mural/comments";
-import { LikeButton } from "@/features/announcements/mural/like-button";
+import { ReactionBar } from "@/features/announcements/mural/reactions";
 import { RichText } from "@/features/announcements/rich-text";
 import { MarkSeen } from "@/features/notifications/mark-seen";
 import { CourseCover } from "@/features/courses/course-cover";
@@ -124,8 +124,8 @@ async function Announcement({ params }: { params: PageProps<"/comunicados/[id]">
             </section>
           ) : null}
 
-          <div className="mt-8 flex items-center gap-4 border-y border-line py-3">
-            <LikeButton announcementId={a.id} likes={a.likes} likedByMe={a.likedByMe} />
+          <div className="mt-8 flex flex-wrap items-center gap-4 border-y border-line py-3">
+            <ReactionBar announcementId={a.id} initial={{ counts: a.reactions, mine: a.myReaction }} />
             <a href="#comentarios" className="inline-flex items-center gap-1.5 text-body-sm text-neutral-600 hover:text-purple-600">
               <MessageCircle aria-hidden className="size-[18px]" /> {a.comments} {a.comments === 1 ? "comentário" : "comentários"}
             </a>

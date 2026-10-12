@@ -325,6 +325,14 @@ export async function listNotifications(actor: AuthenticatedActor, { tab = "toda
 }
 
 /** Quantas não lidas (sino e menu). */
+/** Atalhos da saudação da home: pesquisas e comunicados ainda não lidos. */
+export async function unreadHighlights(actor: AuthenticatedActor): Promise<{ surveys: number; announcements: number }> {
+  return withTenant(actor, async (tx) => {
+    const unread = (await collect(tx, actor, new Date())).filter((n) => n.unread);
+    return { surveys: unread.filter((n) => n.category === "surveys").length, announcements: unread.filter((n) => n.category === "announcements").length };
+  });
+}
+
 export async function countUnread(actor: AuthenticatedActor): Promise<number> {
   return withTenant(actor, async (tx) => (await collect(tx, actor, new Date())).filter((n) => n.unread).length);
 }

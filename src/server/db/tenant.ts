@@ -30,7 +30,7 @@ export async function withTenant<T>(ctx: TenantContext, fn: (tx: Tx) => Promise<
   const db = await appDb();
   return db.transaction(async (tx) => {
     // Uma única ida ao banco: role de runtime + tenant + usuário (este último
-    // usado por policies de dados estritamente pessoais, ex.: check-in de humor).
+    // usado por policies de dados pessoais, ex.: notificações e o "agora não" do sentimento do dia).
     await tx.execute(sql`select
       set_config('role', 'luumu_app', true),
       set_config('app.tenant_id', ${tenantId}, true),

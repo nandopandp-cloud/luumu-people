@@ -4,6 +4,7 @@ import { recordAudit } from "@/server/audit/audit";
 import type { AuthenticatedActor } from "@/server/auth/session";
 import { hasTenantWide } from "@/server/authz/policy";
 import * as s from "@/server/db/schema";
+import type { ReactionKind } from "@/server/db/schema";
 import { containsText } from "@/server/db/text-search";
 import { withTenant, type Tx } from "@/server/db/tenant";
 import { badRequest, conflict, forbidden, notFound } from "@/server/http/errors";
@@ -41,13 +42,22 @@ const visibleNow = () => and(eq(s.announcements.status, "published"), lte(s.anno
 export const visibleTo = (actor: AuthenticatedActor) => and(visibleNow(), audienceVisibleSql(s.announcements.audienceOrgUnitId, actor.userId));
 
 /**
- * Contadores do mural: curtidas, comentários (não removidos) e anexos por tipo.
+ * Contadores do mural: reações (total em `likes` e por tipo), a reação da pessoa,
+ * comentários (não removidos) e anexos por tipo.
  * Colunas qualificadas à mão: o Drizzle omite a tabela no SELECT de uma tabela só,
  * e "id" dentro da subconsulta apontaria para a tabela errada.
  */
+const reactionCount = (kind: ReactionKind) =>
+  sql<number>`(select count(*)::int from announcement_reactions r where r.tenant_id = announcements.tenant_id and r.announcement_id = announcements.id and r.kind = ${kind})`;
+
 const engagementColumns = (actor: AuthenticatedActor) => ({
   likes: sql<number>`(select count(*)::int from announcement_reactions r where r.tenant_id = announcements.tenant_id and r.announcement_id = announcements.id)`,
-  likedByMe: sql<boolean>`exists (select 1 from announcement_reactions r where r.tenant_id = announcements.tenant_id and r.announcement_id = announcements.id and r.user_id = ${actor.userId})`,
+  reactions: {
+    love: reactionCount("love"),
+    cheer: reactionCount("cheer"),
+    sad: reactionCount("sad"),
+  },
+  myReaction: sql<ReactionKind | null>`(select r.kind from announcement_reactions r where r.tenant_id = announcements.tenant_id and r.announcement_id = announcements.id and r.user_id = ${actor.userId})`,
   comments: sql<number>`(select count(*)::int from announcement_comments c where c.tenant_id = announcements.tenant_id and c.announcement_id = announcements.id and c.deleted_at is null)`,
   files: sql<number>`(select count(*)::int from announcement_attachments x where x.tenant_id = announcements.tenant_id and x.announcement_id = announcements.id and x.kind = 'file')`,
   videos: sql<number>`(select count(*)::int from announcement_attachments x where x.tenant_id = announcements.tenant_id and x.announcement_id = announcements.id and x.kind = 'video')`,

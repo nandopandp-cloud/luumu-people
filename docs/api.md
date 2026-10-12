@@ -63,8 +63,10 @@ Paginação por cursor: `?cursor=…&limit=…` → `{ items, nextCursor }`.
 | GET / POST | `/api/v1/development/competencies` | autenticado / `development.pdi.manage` (TENANT) | catálogo de competências da empresa |
 | GET | `/api/v1/reports/development` | `reports.export` | CSV do desenvolvimento (pessoas no escopo de `development.read` ∩ `reports.export`); células neutralizadas contra injeção de fórmulas; auditado |
 | POST / DELETE | `/api/v1/me/cover` | autenticado | troca (multipart `file`, imagem até 3 MB) ou remove a capa do próprio perfil |
-| GET / PUT | `/api/v1/me/mood` | autenticado | check-in de humor do dia `{ mood: 1..5 }` — somente o próprio registro |
+| GET / PUT | `/api/v1/me/mood` | autenticado | sentimento do dia da própria pessoa: `GET` → `{ mood, note, at, dismissed }`; `PUT { mood: 1..6, note? (≤ 300) }` registra ou muda |
+| POST | `/api/v1/me/mood/dismiss` | autenticado | fechou o modal do dia sem responder: não reabre sozinho hoje |
 | GET | `/api/v1/audit-logs` | `audit.read` (TENANT) | trilha de auditoria (`action`, `actorUserId`, `cursor`) |
+| PUT / DELETE | `/api/v1/announcements/:id/reaction` | autenticado (quem vê o comunicado) | reage `{ kind: love \| cheer \| sad }` (trocar atualiza) ou remove a reação, em nome próprio; devolve `{ counts, total, mine }` |
 | GET / POST | `/api/v1/announcements/:id/comments` | autenticado (quem vê o comunicado) | lista / cria comentário `{ body, parentId? }` — resposta de um nível; menções `@[Nome](user:id)` só de quem vê o comunicado (as demais viram texto) |
 | POST / DELETE | `/api/v1/announcements/:id/comments/:commentId/like` | autenticado (quem vê o comunicado) | curte/descurte comentário em nome próprio; avisa quem escreveu |
 | GET | `/api/v1/announcements/:id/mentionable?q=` | autenticado (quem vê o comunicado) | sugestões de menção: até 8 pessoas do público, só `{ id, name, image }` |

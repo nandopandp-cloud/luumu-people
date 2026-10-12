@@ -170,9 +170,10 @@ export const libraryItems = pgTable(
 );
 
 /**
- * Check-in de humor — IDENTIFICADO (decisão de produto), mas dado
- * potencialmente de saúde (LGPD art. 11): a RLS só deixa cada pessoa ver e
- * gravar o PRÓPRIO registro. Agregados para G&G virão por função com k-anonimato.
+ * Sentimento do dia ("Como você está se sentindo hoje?") — IDENTIFICADO e,
+ * por decisão de produto (out/2026), visível para todas as pessoas da empresa
+ * no dia, com o comentário; o modal avisa isso a quem responde. Gravar e mudar,
+ * só o próprio registro (policy RESTRICTIVE). Escala 1 (muito mal) a 6 (muito bem).
  */
 export const moodCheckins = pgTable(
   "mood_checkins",
@@ -182,12 +183,29 @@ export const moodCheckins = pgTable(
     userId: uuid("user_id").notNull(),
     checkinDate: date("checkin_date", { mode: "string" }).notNull(),
     mood: smallint("mood").notNull(),
+    note: text("note"),
     ...timestamps(),
   },
   (t) => [
     foreignKey({ name: "mood_checkins_user_fk", columns: [t.tenantId, t.userId], foreignColumns: [users.tenantId, users.id] }).onDelete("cascade"),
     unique("mood_checkins_user_date_key").on(t.userId, t.checkinDate),
-    check("mood_checkins_mood_range", sql`${t.mood} between 1 and 5`),
+    check("mood_checkins_mood_range", sql`${t.mood} between 1 and 6`),
+    check("mood_checkins_note_len", sql`char_length(${t.note}) between 1 and 300`),
+  ],
+);
+
+/** Dia em que a pessoa fechou o modal do sentimento sem responder (não reabre sozinho no mesmo dia). */
+export const moodPromptDismissals = pgTable(
+  "mood_prompt_dismissals",
+  {
+    tenantId: tenantId(),
+    userId: uuid("user_id").notNull(),
+    promptDate: date("prompt_date", { mode: "string" }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    primaryKey({ name: "mood_prompt_dismissals_pk", columns: [t.tenantId, t.userId, t.promptDate] }),
+    foreignKey({ name: "mood_prompt_dismissals_user_fk", columns: [t.tenantId, t.userId], foreignColumns: [users.tenantId, users.id] }).onDelete("cascade"),
   ],
 );
 

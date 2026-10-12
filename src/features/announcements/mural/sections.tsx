@@ -8,7 +8,7 @@ import type { CoverIllustration, CoverTheme } from "@/design-system/illustration
 import { CourseCover } from "@/features/courses/course-cover";
 import { ANNOUNCEMENT_CATEGORY, relativeDay } from "@/features/home/labels";
 import { EVENT_KIND, eventDay, eventMonth, eventTime, eventWhere, QUICK_LINK_COLOR, QUICK_LINK_ICON } from "./labels";
-import { LikeButton } from "./like-button";
+import { ReactionPicker, type ReactionKind } from "./reactions";
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -22,15 +22,15 @@ export type FeedItem = {
   pinned: boolean;
   coverFileId: string | null;
   publishedAt: Date | null;
-  likes: number;
-  likedByMe: boolean;
+  reactions: Record<ReactionKind, number>;
+  myReaction: ReactionKind | null;
   comments: number;
   files: number;
   videos: number;
   forMyArea: boolean;
 };
 
-/** Card de comunicado da lista do mural: capa, categoria, data, resumo, curtidas, comentários e anexos. */
+/** Card de comunicado da lista do mural: capa, categoria, data, resumo, reações, comentários e anexos. */
 export function AnnouncementRow({ item }: { item: FeedItem }) {
   const cat = ANNOUNCEMENT_CATEGORY[item.category] ?? { label: item.category, tone: "purple" as const };
   const href = `/comunicados/${item.id}` as Route;
@@ -57,7 +57,7 @@ export function AnnouncementRow({ item }: { item: FeedItem }) {
         </h3>
         <p className="mt-1 line-clamp-2 text-body-sm text-neutral-600">{item.summary}</p>
         <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-2 pt-3">
-          <LikeButton announcementId={item.id} likes={item.likes} likedByMe={item.likedByMe} className="-ml-1.5" />
+          <ReactionPicker announcementId={item.id} initial={{ counts: item.reactions, mine: item.myReaction }} className="-ml-1.5" />
           <span className="inline-flex items-center gap-1.5 text-body-sm text-neutral-600">
             <MessageCircle aria-hidden className="size-[18px]" />
             <span className="tabular-nums">{item.comments}</span>

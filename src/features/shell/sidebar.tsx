@@ -4,7 +4,9 @@ import { Suspense, type ReactNode } from "react";
 import { Logo, Mascot } from "@/design-system/components/brand";
 import { Skeleton } from "@/design-system/components/feedback";
 import { hasPermissionAnywhere } from "@/server/authz/policy";
-import { achievementsEnabled, getCurrentActor, getUnreadNotificationCount } from "@/server/dal";
+import { achievementsEnabled, getCurrentActor, getMyMoodToday, getUnreadNotificationCount } from "@/server/dal";
+import { toMoodView } from "@/features/wellbeing/events";
+import { MoodChip } from "@/features/wellbeing/mood-indicators";
 import { HelpCard } from "./help-card";
 import { EMPLOYEE_MOBILE_NAV, EMPLOYEE_NAV, EMPLOYEE_NAV_SECONDARY, MANAGEMENT_NAV, type NavItem } from "./nav-config";
 import { getEnabledModules, type EnabledModules } from "@/server/modules/flags/modules";
@@ -22,6 +24,9 @@ function SidebarFrame({ home, children, label, id }: { home: Route; children: Re
         <Logo className="h-auto w-[196px] sidebar-collapsed:hidden" />
         <Mascot className="hidden h-11 sidebar-collapsed:block" label="Luumu People — início" />
       </Link>
+      <Suspense fallback={null}>
+        <SidebarMood />
+      </Suspense>
       <nav aria-label={label} className="-mx-1 flex-1 overflow-y-auto px-1 sidebar-collapsed:overflow-visible">
         {children}
       </nav>
@@ -29,6 +34,17 @@ function SidebarFrame({ home, children, label, id }: { home: Route; children: Re
         <HelpCard />
       </div>
     </aside>
+  );
+}
+
+/** Sentimento do dia logo abaixo da marca (recolhido: só a ameixa). */
+async function SidebarMood() {
+  const mood = await getMyMoodToday();
+  if (!mood) return null;
+  return (
+    <div className="-mt-2 mb-6">
+      <MoodChip today={toMoodView(mood)} compact />
+    </div>
   );
 }
 

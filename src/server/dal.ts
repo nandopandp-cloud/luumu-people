@@ -7,6 +7,7 @@ import type { Permission } from "@/server/authz/permissions";
 import { hasPermissionAnywhere } from "@/server/authz/policy";
 import { effectiveFlags } from "@/server/modules/flags/service";
 import { countUnread } from "@/server/modules/notifications/service";
+import { getTodayMood, type TodayMood } from "@/server/modules/wellbeing/service";
 
 /**
  * Data Access Layer para Server Components. Lê a sessão uma vez por request
@@ -37,6 +38,16 @@ export const getCurrentFlags = cache(async (): Promise<Record<string, boolean>> 
 export async function achievementsEnabled(): Promise<boolean> {
   return (await getCurrentFlags()).gamification === true;
 }
+
+/**
+ * Sentimento de hoje da pessoa atual (topo, menu, home, perfil e modal diário).
+ * `null` quando a flag `mood_checkin` está desligada para ela.
+ */
+export const getMyMoodToday = cache(async (): Promise<TodayMood | null> => {
+  const actor = await getCurrentActor();
+  if (!actor || (await getCurrentFlags()).mood_checkin === false) return null;
+  return getTodayMood(actor);
+});
 
 /** Notificações não lidas do usuário atual (sino e menu; uma consulta por request). */
 export const getUnreadNotificationCount = cache(async (): Promise<number> => {
