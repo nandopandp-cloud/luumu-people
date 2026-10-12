@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, Plus, Rocket, Trash2, Wand2 } from "lucide-react";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { EmojiInput } from "@/design-system/components/emoji-input";
 import { Button, IconButton } from "@/design-system/components/button";
 import { Checkbox } from "@/design-system/components/choice";
 import { Modal } from "@/design-system/components/dialog";
@@ -132,7 +133,7 @@ export function SurveyBuilder({ survey, organizationK, canDesign, canLaunch }: {
           <h2 id="dados-pesquisa" className="text-h3 font-bold text-neutral-900">
             Sobre a pesquisa
           </h2>
-          <Field label="Título">{(f) => <Input id={f.id} value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} required />}</Field>
+          <Field label="Título">{(f) => <EmojiInput id={f.id} value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} required />}</Field>
           <Field label="Descrição" hint="Explique o objetivo e quanto tempo leva. Aparece para quem vai responder.">
             {(f) => <Textarea id={f.id} aria-describedby={f.describedBy} value={description} maxLength={600} rows={3} onChange={(e) => setDescription(e.target.value)} />}
           </Field>

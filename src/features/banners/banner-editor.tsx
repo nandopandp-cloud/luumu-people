@@ -4,6 +4,7 @@ import { Trash2 } from "lucide-react";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { EmojiInput } from "@/design-system/components/emoji-input";
 import { Button } from "@/design-system/components/button";
 import { RadioGroup, Switch } from "@/design-system/components/choice";
 import { Alert } from "@/design-system/components/feedback";
@@ -151,7 +152,7 @@ export function BannerEditor({ banner }: { banner: EditableBanner }) {
               />
               {errors.imageFileId ? <p className="text-caption text-red-600">{errors.imageFileId}</p> : null}
               <Field label="Descrição da imagem" hint="Lida por leitores de tela e usada para identificar o banner na lista. Ex.: Inscrições abertas para o programa de mentoria." error={errors.title}>
-                {(f) => <Input id={f.id} aria-describedby={f.describedBy} invalid={f.invalid} value={values.title} maxLength={90} onChange={(e) => set("title", e.target.value)} required />}
+                {(f) => <EmojiInput id={f.id} aria-describedby={f.describedBy} invalid={f.invalid} value={values.title} maxLength={90} onChange={(e) => set("title", e.target.value)} required />}
               </Field>
               <Field label="Link ao clicar (opcional)" hint="Página da plataforma (ex.: /comunicados) ou endereço https://. Vazio: o banner não é clicável." error={errors.ctaUrl}>
                 {(f) => <Input id={f.id} aria-describedby={f.describedBy} invalid={f.invalid} value={values.ctaUrl} maxLength={500} placeholder="/comunicados" onChange={(e) => set("ctaUrl", e.target.value)} />}

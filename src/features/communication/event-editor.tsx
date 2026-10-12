@@ -4,6 +4,7 @@ import { Trash2 } from "lucide-react";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { EmojiInput } from "@/design-system/components/emoji-input";
 import { Button } from "@/design-system/components/button";
 import { Switch } from "@/design-system/components/choice";
 import { Alert } from "@/design-system/components/feedback";
@@ -92,7 +93,7 @@ export function EventEditor({ event }: { event: EditableEvent }) {
     <form onSubmit={save} className="card max-w-3xl space-y-5 p-6" noValidate>
       <fieldset disabled={pending} className="space-y-5">
         <Field label="Título" error={errors.title}>
-          {(f) => <Input id={f.id} aria-describedby={f.describedBy} invalid={f.invalid} value={values.title} maxLength={120} onChange={(e) => set("title", e.target.value)} required />}
+          {(f) => <EmojiInput id={f.id} aria-describedby={f.describedBy} invalid={f.invalid} value={values.title} maxLength={120} onChange={(e) => set("title", e.target.value)} required />}
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Tipo">

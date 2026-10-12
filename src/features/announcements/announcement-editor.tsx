@@ -27,6 +27,7 @@ import {
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useId, useRef, useState, useTransition, type ReactNode } from "react";
+import { EmojiInput } from "@/design-system/components/emoji-input";
 import { Badge } from "@/design-system/components/badge";
 import { Button } from "@/design-system/components/button";
 import { Switch } from "@/design-system/components/choice";
@@ -303,7 +304,7 @@ export function AnnouncementEditor({ announcement, canPublish, audienceOptions }
           <fieldset disabled={disabled} className="space-y-5">
             <div className="flex flex-col gap-1.5">
               <CountedLabel htmlFor={ids.title} label="Título" required count={values.title.length} max={LIMITS.title} />
-              <Input id={ids.title} aria-required aria-describedby={errors.title ? `${ids.title}-msg` : undefined} invalid={Boolean(errors.title)} value={values.title} maxLength={LIMITS.title} onChange={(e) => update("title", e.target.value)} />
+              <EmojiInput id={ids.title} aria-required aria-describedby={errors.title ? `${ids.title}-msg` : undefined} invalid={Boolean(errors.title)} value={values.title} maxLength={LIMITS.title} onChange={(e) => update("title", e.target.value)} />
               <FieldMessage id={`${ids.title}-msg`} error={errors.title} />
             </div>
             <div className="flex flex-col gap-1.5">
@@ -451,7 +452,7 @@ export function AnnouncementEditor({ announcement, canPublish, audienceOptions }
                 <span className="inline-flex items-center gap-1.5">
                   <CalendarDays aria-hidden className="size-4" /> {previewDate(announcement?.publishedAt ?? null, status)}
                 </span>
-                <span className="ml-auto inline-flex items-center gap-1" aria-label={`${announcement?.likes ?? 0} curtidas`}>
+                <span className="ml-auto inline-flex items-center gap-1" aria-label={`${announcement?.likes ?? 0} reações`}>
                   <Heart aria-hidden className="size-4" /> {announcement?.likes ?? 0}
                 </span>
                 <span className="inline-flex items-center gap-1" aria-label={`${announcement?.comments ?? 0} comentários`}>

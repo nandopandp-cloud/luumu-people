@@ -3,6 +3,7 @@
 import { Bold, FileText, ImageIcon, Italic, Link2, List, ListOrdered, Redo2, RemoveFormatting, Underline, Undo2, type LucideIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button } from "@/design-system/components/button";
+import { EmojiPicker } from "@/design-system/components/emoji-picker";
 import { Modal } from "@/design-system/components/dialog";
 import { Field, Input, controlBase, controlState } from "@/design-system/components/field";
 import { cn } from "@/design-system/cn";
@@ -150,6 +151,16 @@ export function RichTextEditor({
         <Tool label="Anexar imagem" icon={ImageIcon} onClick={() => onAttach("image")} disabled={disabled} />
         <Tool label="Anexar arquivo" icon={FileText} onClick={() => onAttach("file")} disabled={disabled} />
         <Tool label="Limpar formatação" icon={RemoveFormatting} onClick={clearFormatting} disabled={disabled} />
+        {divider}
+        <EmojiPicker
+          disabled={disabled}
+          align="start"
+          className="size-7 rounded-md text-neutral-700 [&_svg]:size-4"
+          onPick={(emoji) => {
+            const el = area.current;
+            if (el) replace(el.selectionStart, el.selectionEnd, emoji);
+          }}
+        />
         <span className="ml-auto flex items-center gap-0.5">
           <Tool label="Desfazer" icon={Undo2} onClick={() => history("undo")} disabled={disabled} />
           <Tool label="Refazer" icon={Redo2} onClick={() => history("redo")} disabled={disabled} />

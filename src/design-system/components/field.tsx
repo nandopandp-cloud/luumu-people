@@ -1,6 +1,7 @@
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { useId, type ComponentProps, type ReactNode } from "react";
 import { cn } from "../cn";
+import { controlBase, controlState } from "./control";
 
 /**
  * Campos de formulário — styleguide "01. Inputs de texto" / "03. Textarea".
@@ -50,13 +51,6 @@ export function Field({ label, hint, error, success, className, children }: Fiel
   );
 }
 
-export const controlBase =
-  "w-full rounded-md border bg-white text-body-sm text-neutral-900 placeholder:text-neutral-500 transition-[border-color,box-shadow] duration-150 focus:outline-none focus-visible:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-400";
-
-export function controlState(invalid?: boolean) {
-  return invalid ? "border-red-500 focus:border-red-500 focus:ring-red-100" : "border-neutral-200 hover:border-neutral-300";
-}
-
 type InputProps = ComponentProps<"input"> & {
   invalid?: boolean;
   leading?: ReactNode;
@@ -77,6 +71,6 @@ export function Input({ className, invalid, leading, trailing, ...props }: Input
   );
 }
 
-export function Textarea({ className, invalid, ...props }: ComponentProps<"textarea"> & { invalid?: boolean }) {
-  return <textarea aria-invalid={invalid || undefined} className={cn(controlBase, controlState(invalid), "min-h-24 resize-y px-3.5 py-3", className)} {...props} />;
-}
+export { controlBase, controlState } from "./control";
+/** Textarea com botão de emoji (ver ./textarea.tsx). */
+export { Textarea } from "./textarea";
