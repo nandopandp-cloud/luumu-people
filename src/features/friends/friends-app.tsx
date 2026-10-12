@@ -11,6 +11,7 @@ import { Skeleton } from "@/design-system/components/feedback";
 import { Input } from "@/design-system/components/field";
 import { useToast } from "@/design-system/components/toast";
 import { cn } from "@/design-system/cn";
+import { NOTIFICATIONS_CHANGED } from "@/features/notifications/labels";
 import { ChatPanel } from "./chat-panel";
 import { errorMessage, friendsApi } from "./client";
 import { AddMembersDialog, ConfirmDialog, NewGroupDialog, RenameGroupDialog } from "./group-dialogs";
@@ -139,6 +140,8 @@ export function FriendsApp({ meId, initial }: { meId: string; initial: Initial }
   }, []);
 
   const afterRelationChange = useCallback(async () => {
+    // O sino recalcula: pedido aceito/recusado sai das notificações.
+    window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED));
     setProfileVersion((v) => v + 1);
     setPeopleVersion((v) => v + 1);
     await refreshList();
@@ -315,7 +318,7 @@ export function FriendsApp({ meId, initial }: { meId: string; initial: Initial }
             >
               {t.label}
               {t.count ? (
-                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white">
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold text-white">
                   {t.count}
                   <span className="sr-only"> {t.count === 1 ? "pedido novo" : "pedidos novos"}</span>
                 </span>
@@ -473,7 +476,7 @@ function ConversationsTab({ conversations, activeId, unread, onOpen, onFindPeopl
             )}
           >
             {f.label}
-            {f.count ? <span className={cn("inline-flex size-5 items-center justify-center rounded-full text-[11px] font-bold", filter === f.value ? "bg-white text-purple-700" : "bg-red-500 text-white")}>{f.count}</span> : null}
+            {f.count ? <span className={cn("inline-flex size-5 items-center justify-center rounded-full text-[11px] font-bold", filter === f.value ? "bg-white text-purple-700" : "bg-red-600 text-white")}>{f.count}</span> : null}
           </button>
         ))}
       </div>

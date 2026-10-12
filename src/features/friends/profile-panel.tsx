@@ -8,6 +8,7 @@ import { AvatarGroup } from "@/design-system/components/avatar";
 import { Badge } from "@/design-system/components/badge";
 import { Button, IconButton } from "@/design-system/components/button";
 import { Drawer } from "@/design-system/components/dialog";
+import { Lightbox } from "@/design-system/components/lightbox";
 import { Skeleton } from "@/design-system/components/feedback";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/design-system/components/menu";
 import { cn } from "@/design-system/cn";
@@ -147,6 +148,7 @@ function Cover({ cover, onClose }: { cover: string | null; onClose?: () => void 
 function MediaSection({ conversationId }: { conversationId: string }) {
   const [media, setMedia] = useState<SharedMedia | null>(null);
   const [open, setOpen] = useState(false);
+  const [viewing, setViewing] = useState<number | null>(null);
   useEffect(() => {
     let alive = true;
     friendsApi
@@ -161,6 +163,8 @@ function MediaSection({ conversationId }: { conversationId: string }) {
   if (!media) return <Skeleton className="h-24 rounded-lg" />;
   const tiles = [...media.files.map((f) => ({ ...f, kind: "file" as const })), ...media.images.map((f) => ({ ...f, kind: "image" as const }))].sort((a, b) => b.at.localeCompare(a.at));
   const total = tiles.length + media.links.length;
+  const view = (id: string) => setViewing(tiles.findIndex((t) => t.id === id));
+  const lightboxItems = tiles.map((t) => ({ id: t.id, name: t.name, mimeType: t.mimeType, url: t.url, downloadUrl: `${t.url}?download=1`, caption: `${fileSize(t.sizeBytes)} · ${shortWhen(t.at)}` }));
   return (
     <section aria-label="Mídia, links e arquivos">
       <SectionTitle
@@ -183,15 +187,15 @@ function MediaSection({ conversationId }: { conversationId: string }) {
             const overlay = i === 2 && rest > 0;
             return (
               <li key={t.id}>
-                <a
-                  href={t.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="relative flex h-[76px] flex-col justify-end overflow-hidden rounded-lg border border-line bg-neutral-50 p-2 hover:border-purple-200 focus-visible:outline-2 focus-visible:outline-purple-500"
+                <button
+                  type="button"
+                  onClick={() => (overlay ? setOpen(true) : view(t.id))}
+                  aria-label={overlay ? `Ver todos os ${tiles.length} arquivos` : `Abrir ${t.name}`}
+                  className="relative flex h-[76px] w-full flex-col justify-end overflow-hidden rounded-lg border border-line bg-neutral-50 p-2 text-left hover:border-purple-200 focus-visible:outline-2 focus-visible:outline-purple-500"
                 >
                   {t.kind === "image" ? (
                     // eslint-disable-next-line @next/next/no-img-element -- arquivo privado servido pela própria API
-                    <img src={t.url} alt={t.name} className="absolute inset-0 size-full object-cover" />
+                    <img src={t.url} alt="" className="absolute inset-0 size-full object-cover" />
                   ) : (
                     <>
                       <span aria-hidden className="mb-auto flex size-6 items-center justify-center rounded bg-orange-100 text-orange-700">
@@ -202,12 +206,11 @@ function MediaSection({ conversationId }: { conversationId: string }) {
                     </>
                   )}
                   {overlay ? (
-                    <span className="absolute inset-0 flex items-center justify-center bg-neutral-900/45 text-body font-bold text-white">
+                    <span aria-hidden className="absolute inset-0 flex items-center justify-center bg-neutral-900/45 text-body font-bold text-white">
                       +{rest}
-                      <span className="sr-only"> arquivos</span>
                     </span>
                   ) : null}
-                </a>
+                </button>
               </li>
             );
           })}
@@ -218,6 +221,7 @@ function MediaSection({ conversationId }: { conversationId: string }) {
           ) : null}
         </ul>
       )}
+      <Lightbox items={lightboxItems} index={viewing !== null && viewing >= 0 ? viewing : null} onIndexChange={setViewing} onClose={() => setViewing(null)} />
       <Drawer open={open} onOpenChange={setOpen} title="Mídia, links e arquivos">
         <div className="space-y-6">
           {media.images.length ? (
@@ -226,10 +230,10 @@ function MediaSection({ conversationId }: { conversationId: string }) {
               <ul className="grid grid-cols-3 gap-2">
                 {media.images.map((f) => (
                   <li key={f.id}>
-                    <a href={f.url} target="_blank" rel="noopener noreferrer" className="block aspect-square overflow-hidden rounded-lg">
+                    <button type="button" onClick={() => view(f.id)} aria-label={`Abrir ${f.name}`} className="block aspect-square w-full overflow-hidden rounded-lg focus-visible:outline-2 focus-visible:outline-purple-500">
                       {/* eslint-disable-next-line @next/next/no-img-element -- arquivo privado servido pela própria API */}
-                      <img src={f.url} alt={f.name} className="size-full object-cover" />
-                    </a>
+                      <img src={f.url} alt="" className="size-full object-cover" />
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -241,11 +245,11 @@ function MediaSection({ conversationId }: { conversationId: string }) {
               <ul className="divide-y divide-line">
                 {media.files.map((f) => (
                   <li key={f.id}>
-                    <a href={f.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 py-2.5 hover:text-purple-700">
+                    <button type="button" onClick={() => view(f.id)} className="flex w-full items-center gap-3 py-2.5 text-left hover:text-purple-700 focus-visible:outline-2 focus-visible:outline-purple-500">
                       <FileText aria-hidden className="size-5 text-orange-700" />
                       <span className="min-w-0 flex-1 truncate text-body-sm font-medium">{f.name}</span>
                       <span className="text-caption text-neutral-600">{fileSize(f.sizeBytes)}</span>
-                    </a>
+                    </button>
                   </li>
                 ))}
               </ul>

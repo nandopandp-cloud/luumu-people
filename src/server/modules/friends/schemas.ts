@@ -49,3 +49,7 @@ export const sendMessageSchema = z
   })
   .refine((v) => v.body.trim().length > 0 || v.fileId, { message: "Escreva uma mensagem ou anexe um arquivo.", path: ["body"] });
 export type SendMessage = z.infer<typeof sendMessageSchema>;
+
+export const editMessageSchema = z.strictObject({
+  body: z.string().max(MESSAGE_MAX, `Use no máximo ${MESSAGE_MAX} caracteres.`),
+});

@@ -1,6 +1,6 @@
-import { AtSign, BarChart3, CalendarClock, Heart, Megaphone, MessageSquare, type LucideIcon } from "lucide-react";
+import { AtSign, BarChart3, CalendarClock, Heart, Megaphone, MessageSquare, UserPlus, type LucideIcon } from "lucide-react";
 
-export type NotificationCategory = "surveys" | "reminders" | "announcements" | "mentions" | "comments" | "likes";
+export type NotificationCategory = "surveys" | "reminders" | "announcements" | "mentions" | "comments" | "likes" | "friends";
 
 /** Ícone e cores de cada categoria (fundo claro + ícone no tom escuro, contraste AA). */
 export const CATEGORY: Record<NotificationCategory, { label: string; icon: LucideIcon; tile: string; filled?: boolean }> = {
@@ -9,11 +9,12 @@ export const CATEGORY: Record<NotificationCategory, { label: string; icon: Lucid
   mentions: { label: "Menções", icon: AtSign, tile: "bg-purple-100 text-purple-600" },
   comments: { label: "Comentários", icon: MessageSquare, tile: "bg-blue-100 text-blue-700" },
   likes: { label: "Curtidas e reações", icon: Heart, tile: "bg-pink-100 text-red-500", filled: true },
+  friends: { label: "Amizades", icon: UserPlus, tile: "bg-yellow-100 text-yellow-800" },
   reminders: { label: "Lembretes", icon: CalendarClock, tile: "bg-orange-100 text-orange-700" },
 };
 
 /** Ordem das categorias nos filtros e nas preferências. */
-export const CATEGORY_ORDER: NotificationCategory[] = ["surveys", "announcements", "mentions", "comments", "likes", "reminders"];
+export const CATEGORY_ORDER: NotificationCategory[] = ["surveys", "announcements", "mentions", "comments", "likes", "friends", "reminders"];
 
 export const TABS = [
   { value: "todas", label: "Todas" },

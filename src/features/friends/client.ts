@@ -30,6 +30,8 @@ export const friendsApi = {
   messages: (id: string, params: { before?: string; after?: string } = {}) => api<MessagesPage>(`/api/v1/conversations/${id}/messages${q(params)}`),
   send: (id: string, body: { body: string; fileId?: string | null }) => api<ChatMessage>(`/api/v1/conversations/${id}/messages`, { method: "POST", body }),
   deleteMessage: (id: string, messageId: string) => api<void>(`/api/v1/conversations/${id}/messages/${messageId}`, { method: "DELETE" }),
+  editMessage: (id: string, messageId: string, body: string) => api<ChatMessage>(`/api/v1/conversations/${id}/messages/${messageId}`, { method: "PATCH", body: { body } }),
+  likeMessage: (id: string, messageId: string, liked: boolean) => api<ChatMessage>(`/api/v1/conversations/${id}/messages/${messageId}/like`, { method: liked ? "PUT" : "DELETE" }),
   read: (id: string) => api<void>(`/api/v1/conversations/${id}/read`, { method: "POST" }),
   typing: (id: string) => api<void>(`/api/v1/conversations/${id}/typing`, { method: "POST" }),
   media: (id: string) => api<SharedMedia>(`/api/v1/conversations/${id}/media`),

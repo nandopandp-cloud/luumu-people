@@ -118,6 +118,10 @@ export const chatMessages = pgTable(
     createdAt: createdAt(),
     /** Apagada por quem enviou: texto e anexo são descartados. */
     deletedAt: timestamp("deleted_at", { withTimezone: true, mode: "date" }),
+    /** Texto corrigido por quem enviou (definido pelo trigger do banco). */
+    editedAt: timestamp("edited_at", { withTimezone: true, mode: "date" }),
+    /** Última mudança (edição, exclusão ou curtida): base da atualização periódica. */
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (t) => [
     unique("chat_messages_tenant_id_id_key").on(t.tenantId, t.id),
@@ -129,6 +133,22 @@ export const chatMessages = pgTable(
       "chat_messages_content",
       sql`(${t.deletedAt} is not null and ${t.body} = '' and ${t.fileId} is null) or (${t.deletedAt} is null and char_length(${t.body}) <= ${sql.raw(String(MESSAGE_MAX))} and (char_length(btrim(${t.body})) > 0 or ${t.fileId} is not null))`,
     ),
+  ],
+);
+
+/** Curtida em mensagem: uma por pessoa e mensagem, em nome próprio. */
+export const chatMessageLikes = pgTable(
+  "chat_message_likes",
+  {
+    tenantId: tenantId().references(() => organizations.id),
+    messageId: uuid("message_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    primaryKey({ name: "chat_message_likes_pk", columns: [t.tenantId, t.messageId, t.userId] }),
+    foreignKey({ name: "chat_message_likes_message_fk", columns: [t.tenantId, t.messageId], foreignColumns: [chatMessages.tenantId, chatMessages.id] }).onDelete("cascade"),
+    foreignKey({ name: "chat_message_likes_user_fk", columns: [t.tenantId, t.userId], foreignColumns: [users.tenantId, users.id] }),
   ],
 );
 

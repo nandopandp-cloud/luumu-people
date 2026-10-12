@@ -2,7 +2,7 @@ import { z } from "zod";
 import { NOTIFICATION_CATEGORIES } from "@/server/db/schema/notifications";
 import { NOTIFICATION_TABS } from "./service";
 
-const KEY = /^(?:(?:announcement|survey|reminder|n|like):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
+const KEY = /^(?:(?:announcement|survey|reminder|friend|friendok|n|like):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
 
 export const notificationsQuerySchema = z.strictObject({
   aba: z.enum(NOTIFICATION_TABS).default("todas"),

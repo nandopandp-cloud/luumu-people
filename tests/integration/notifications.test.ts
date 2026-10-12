@@ -67,7 +67,8 @@ describe("notificações", () => {
     expect(likes[0]!.body).toMatch(/^e outras 3 pessoas curtiram seu comentário/);
     expect(likes[0]!.actors).toHaveLength(3);
     expect(counts.mentions).toBe(1);
-    expect(counts.groups.interactions).toBe(2);
+    // Comentário + curtidas + 2 pedidos de amizade recebidos (Amanda e Diego, do seed).
+    expect(counts.groups.interactions).toBe(4);
   });
 
   it("menção: só quem vê o comunicado; marcador forjado vira texto; sem notificar a si mesmo", async () => {

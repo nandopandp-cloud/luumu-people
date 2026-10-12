@@ -70,6 +70,12 @@ export type ChatMessage = {
   file: ChatFile | null;
   at: string;
   deleted: boolean;
+  /** Texto corrigido depois do envio. */
+  edited: boolean;
+  likes: number;
+  likedByMe: boolean;
+  /** Nomes de quem curtiu (ordem das curtidas). */
+  likedBy: string[];
 };
 
 export type MemberView = PersonLite & { role: "admin" | "member"; position: string | null; online: boolean; mood: MoodView | null };

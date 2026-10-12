@@ -17,6 +17,9 @@ import { mentionsToPlainText } from "@/lib/mentions";
  *    para o encerramento). Pesquisa respondida conta como lida.
  *  - Gravadas: menção, resposta e curtidas em comentário (agrupadas por
  *    comentário), só de comunicados que a pessoa ainda vê e comentários não removidos.
+ *  - Amizade (calculadas, a partir de `friendships`): pedido recebido ainda
+ *    pendente e pedido aceito pela outra pessoa (últimos 30 dias). Pedido
+ *    recusado ou cancelado some sozinho.
  *  - Categorias silenciadas nas preferências não aparecem nem contam.
  */
 
@@ -25,7 +28,7 @@ export const NOTIFICATION_TABS = ["todas", "nao-lidas", "mencoes"] as const;
 export type NotificationTab = (typeof NOTIFICATION_TABS)[number];
 
 export type NotificationView = {
-  /** Chave estável do item: `announcement|survey|reminder:<id>`, `n:<id>` ou `like:<commentId>`. */
+  /** Chave estável do item: `announcement|survey|reminder|friend|friendok:<id>`, `n:<id>` ou `like:<commentId>`. */
   key: string;
   category: NotificationCategory;
   title: string;
@@ -83,6 +86,7 @@ export const SUMMARY_GROUP: Record<NotificationCategory, keyof NotificationCount
   mentions: "mentions",
   comments: "interactions",
   likes: "interactions",
+  friends: "interactions",
 };
 
 async function mutedCategories(tx: Tx, actor: AuthenticatedActor): Promise<Set<NotificationCategory>> {
@@ -294,8 +298,56 @@ async function collect(tx: Tx, actor: AuthenticatedActor, now: Date): Promise<No
     }
   }
 
+  // Amizade (calculadas): pedidos recebidos pendentes e pedidos aceitos pela outra pessoa.
+  if (!muted.has("friends")) {
+    const other = alias(s.users, "friend_user");
+    const otherProfile = alias(s.employeeProfiles, "friend_profile");
+    const rows = await tx
+      .select({
+        id: s.friendships.id,
+        status: s.friendships.status,
+        requesterId: s.friendships.requesterId,
+        createdAt: s.friendships.createdAt,
+        respondedAt: s.friendships.respondedAt,
+        otherId: other.id,
+        name: sql<string>`coalesce(nullif(${otherProfile.preferredName}, ''), ${other.name})`,
+        image: other.image,
+      })
+      .from(s.friendships)
+      .innerJoin(other, sql`${other.id} = case when ${s.friendships.requesterId} = ${actor.userId} then ${s.friendships.addresseeId} else ${s.friendships.requesterId} end`)
+      .leftJoin(otherProfile, eq(otherProfile.userId, other.id))
+      .where(
+        and(
+          eq(other.status, "active"),
+          or(
+            and(eq(s.friendships.status, "pending"), eq(s.friendships.addresseeId, actor.userId)),
+            and(eq(s.friendships.status, "accepted"), eq(s.friendships.requesterId, actor.userId), gte(s.friendships.respondedAt, since)),
+          ),
+        ),
+      )
+      .limit(100);
+    for (const f of rows) {
+      const received = f.status === "pending";
+      drafts.push({
+        key: `${received ? "friend" : "friendok"}:${f.id}`,
+        category: "friends",
+        title: received ? "Novo pedido de amizade" : "Pedido de amizade aceito",
+        lead: f.name,
+        body: received ? "quer ser seu amigo no Luumu People." : "aceitou seu pedido de amizade. Que tal mandar um oi? 👋",
+        context: "Amigos",
+        at: received ? f.createdAt : f.respondedAt!,
+        href: received ? "/amigos?aba=solicitacoes" : `/amigos/${f.otherId}`,
+        action: received ? "Ver solicitação" : "Ver perfil",
+        primary: received,
+        actors: [{ name: f.name, image: f.image }],
+        thumbnail: null,
+        read: false,
+      });
+    }
+  }
+
   // Leitura das calculadas.
-  const derivedKeys = drafts.filter((d) => /^(announcement|survey|reminder):/.test(d.key)).map((d) => d.key);
+  const derivedKeys = drafts.filter((d) => /^(announcement|survey|reminder|friend|friendok):/.test(d.key)).map((d) => d.key);
   const reads = derivedKeys.length
     ? new Set((await tx.select({ key: s.notificationReads.key }).from(s.notificationReads).where(and(eq(s.notificationReads.userId, actor.userId), inArray(s.notificationReads.key, derivedKeys)))).map((r) => r.key))
     : new Set<string>();
@@ -337,7 +389,7 @@ export async function countUnread(actor: AuthenticatedActor): Promise<number> {
   return withTenant(actor, async (tx) => (await collect(tx, actor, new Date())).filter((n) => n.unread).length);
 }
 
-const DERIVED = /^(announcement|survey|reminder):[0-9a-f-]{36}$/;
+const DERIVED = /^(announcement|survey|reminder|friend|friendok):[0-9a-f-]{36}$/;
 
 function splitKeys(keys: string[]) {
   return {

@@ -52,7 +52,7 @@ Paginação por cursor: `?cursor=…&limit=…` → `{ items, nextCursor }`.
 | GET | `/api/v1/org-units` | autenticado | estrutura organizacional (não sensível) |
 | POST | `/api/v1/me/avatar` | autenticado (se a empresa permitir) | troca a foto do perfil — multipart, campo `file` (PNG/JPG/WEBP até 2 MB) |
 | POST | `/api/v1/files?purpose=…` | conforme a finalidade | upload privado — `course_cover`/`lesson_material` (`content.course.edit`), `announcement_cover` (`comms.announcement.create`, até 3 MB), `home_banner` (`comms.announcement.publish`, até 3 MB), `library_material` (`content.library.manage`), `chat_attachment` (autenticado; PDF ou imagem até 4 MB) |
-| GET | `/api/v1/files/:id` | autenticado (mesmo tenant) | entrega o arquivo com `nosniff`, CSP `sandbox` e cache privado; anexo de conversa só para quem enviou e quem participa da conversa (senão 404) |
+| GET | `/api/v1/files/:id` | autenticado (mesmo tenant) | entrega o arquivo com `nosniff`, CSP `sandbox` e cache privado (`?download=1`: como anexo, para baixar); anexo de conversa só para quem enviou e quem participa da conversa (senão 404) |
 | POST | `/api/v1/courses/:id/enroll` | autenticado | matrícula voluntária em curso publicado; devolve a próxima aula |
 | POST | `/api/v1/courses/:id/lessons/:lessonId/complete` | autenticado | conclui a aula (idempotente), recalcula o progresso e emite o certificado ao chegar a 100% |
 | POST | `/api/v1/development/pdis` | `development.pdi.manage` no escopo (nunca sobre si) | cria o PDI ativo `{ userId, title, periodStart, periodEnd }` (409 se já existir) |
@@ -100,8 +100,9 @@ Paginação por cursor: `?cursor=…&limit=…` → `{ items, nextCursor }`.
 | GET / PATCH | `/api/v1/conversations/:id` | quem participa / administração do grupo | detalhes (participantes, papel, bloqueio) / renomeia o grupo `{ title }` |
 | POST | `/api/v1/conversations/:id/members` | administração do grupo | adiciona amigos `{ userIds }` (veem só as mensagens a partir da entrada) |
 | DELETE | `/api/v1/conversations/:id/members/:userId` | administração do grupo / a própria pessoa | remove do grupo / sai do grupo |
-| GET / POST | `/api/v1/conversations/:id/messages` | quem participa | mensagens (`before`, `after` para atualização periódica) + leitura, digitação e presença / envia `{ body, fileId? }` |
-| DELETE | `/api/v1/conversations/:id/messages/:messageId` | quem enviou | apaga (texto e anexo descartados; não há edição) |
+| GET / POST | `/api/v1/conversations/:id/messages` | quem participa | mensagens (`before`, `after` para atualização periódica: novas, editadas, apagadas e curtidas) + leitura, digitação e presença / envia `{ body, fileId? }` |
+| PATCH / DELETE | `/api/v1/conversations/:id/messages/:messageId` | quem enviou | corrige o texto `{ body }` (fica "editada"; não troca anexo) / apaga (texto e anexo descartados) |
+| PUT / DELETE | `/api/v1/conversations/:id/messages/:messageId/like` | quem participa | curte / descurte a mensagem em nome próprio; devolve a mensagem com `likes`, `likedByMe`, `likedBy` |
 | POST | `/api/v1/conversations/:id/read` · `/typing` | quem participa | marca como lida · sinal de "digitando…" |
 | GET | `/api/v1/conversations/:id/media` | quem participa | fotos, arquivos e links compartilhados |
 | POST | `/api/v1/me/presence` | autenticado | sinal de atividade ("online agora"), gravado no máximo a cada 30 s |

@@ -202,6 +202,17 @@ async function directBlock(tx: Tx, actor: AuthenticatedActor, other: { id: strin
   return friends.has(other.id) ? null : "Vocês não são mais amigos. Envie um pedido de amizade para voltar a conversar.";
 }
 
+/** Conversa privada: envio e edição só enquanto forem amigos e a outra pessoa estiver ativa (senão 409). */
+async function assertCanSend(tx: Tx, actor: AuthenticatedActor, conversationId: string) {
+  const [other] = await tx
+    .select({ id: s.users.id, status: s.users.status })
+    .from(s.conversationMembers)
+    .innerJoin(s.users, eq(s.users.id, s.conversationMembers.userId))
+    .where(and(eq(s.conversationMembers.conversationId, conversationId), ne(s.conversationMembers.userId, actor.userId)));
+  const blocked = await directBlock(tx, actor, other);
+  if (blocked) throw conflict(blocked);
+}
+
 /**
  * Abre uma conversa privada com um amigo (a existente, se houver) ou cria um
  * grupo com amigos. Quem cria entra como administração.
@@ -316,6 +327,12 @@ const messageColumns = {
   body: s.chatMessages.body,
   createdAt: s.chatMessages.createdAt,
   deletedAt: s.chatMessages.deletedAt,
+  editedAt: s.chatMessages.editedAt,
+  /** Quem curtiu (nome atual), na ordem das curtidas — só curtidas que a pessoa vê (RLS). */
+  likers: sql<{ id: string; name: string }[]>`coalesce((
+    select json_agg(json_build_object('id', lu.id, 'name', coalesce(nullif(lp.preferred_name, ''), lu.name)) order by l.created_at)
+    from chat_message_likes l join users lu on lu.id = l.user_id left join employee_profiles lp on lp.user_id = lu.id
+    where l.tenant_id = chat_messages.tenant_id and l.message_id = chat_messages.id), '[]'::json)`,
   fileId: s.files.id,
   fileName: s.files.originalName,
   fileMime: s.files.mimeType,
@@ -350,12 +367,16 @@ function toMessage(actor: AuthenticatedActor, r: MessageRow): ChatMessage {
     file: deleted ? null : toFile(r.fileId, r.fileName, r.fileMime, r.fileSize),
     at: r.createdAt.toISOString(),
     deleted,
+    edited: !deleted && r.editedAt !== null,
+    likes: deleted ? 0 : r.likers.length,
+    likedByMe: !deleted && r.likers.some((l) => l.id === actor.userId),
+    likedBy: deleted ? [] : r.likers.map((l) => l.name),
   };
 }
 
 /**
  * Mensagens: a página mais recente (ou anterior a `before`), ou as novidades
- * desde `after` (inclui as apagadas nesse intervalo). Junto: até quando as
+ * desde `after` (inclui as editadas, apagadas e curtidas nesse intervalo). Junto: até quando as
  * outras pessoas leram, quem está digitando e quem está online.
  */
 export async function listMessages(actor: AuthenticatedActor, conversationId: string, query: MessagesQuery): Promise<MessagesPage> {
@@ -367,7 +388,7 @@ export async function listMessages(actor: AuthenticatedActor, conversationId: st
     if (query.after) {
       const since = new Date(new Date(query.after).getTime() - OVERLAP_MS);
       items = await messagesQuery(tx)
-        .where(and(inConversation, or(gt(s.chatMessages.createdAt, since), gt(s.chatMessages.deletedAt, since))))
+        .where(and(inConversation, or(gt(s.chatMessages.createdAt, since), gt(s.chatMessages.updatedAt, since))))
         .orderBy(asc(s.chatMessages.createdAt), asc(s.chatMessages.id))
         .limit(200);
     } else {
@@ -409,15 +430,7 @@ export async function listMessages(actor: AuthenticatedActor, conversationId: st
 export async function sendMessage(actor: AuthenticatedActor, conversationId: string, input: SendMessage): Promise<ChatMessage> {
   return withTenant(actor, async (tx) => {
     const me = await membership(tx, actor, conversationId);
-    if (me.kind === "direct") {
-      const [other] = await tx
-        .select({ id: s.users.id, status: s.users.status })
-        .from(s.conversationMembers)
-        .innerJoin(s.users, eq(s.users.id, s.conversationMembers.userId))
-        .where(and(eq(s.conversationMembers.conversationId, conversationId), ne(s.conversationMembers.userId, actor.userId)));
-      const blocked = await directBlock(tx, actor, other);
-      if (blocked) throw conflict(blocked);
-    }
+    if (me.kind === "direct") await assertCanSend(tx, actor, conversationId);
     if (input.fileId) {
       const [file] = await tx
         .select({ id: s.files.id })
@@ -434,6 +447,43 @@ export async function sendMessage(actor: AuthenticatedActor, conversationId: str
       .set({ lastReadAt: sql`now()`, typingAt: null })
       .where(and(eq(s.conversationMembers.conversationId, conversationId), eq(s.conversationMembers.userId, actor.userId)));
     const [row] = await messagesQuery(tx).where(eq(s.chatMessages.id, id));
+    return toMessage(actor, row!);
+  });
+}
+
+/** Corrige o texto de uma mensagem própria (o banco marca como editada). */
+export async function editMessage(actor: AuthenticatedActor, conversationId: string, messageId: string, body: string): Promise<ChatMessage> {
+  return withTenant(actor, async (tx) => {
+    const me = await membership(tx, actor, conversationId);
+    if (me.kind === "direct") await assertCanSend(tx, actor, conversationId);
+    const [message] = await tx
+      .select({ body: s.chatMessages.body, fileId: s.chatMessages.fileId })
+      .from(s.chatMessages)
+      .where(and(eq(s.chatMessages.id, messageId), eq(s.chatMessages.conversationId, conversationId), eq(s.chatMessages.senderId, actor.userId), isNull(s.chatMessages.deletedAt)));
+    if (!message) throw notFound("Mensagem não encontrada.");
+    const text = body.trim();
+    if (!text && !message.fileId) throw badRequest("A mensagem não pode ficar vazia. Para tirá-la da conversa, apague a mensagem.");
+    if (text !== message.body) await tx.update(s.chatMessages).set({ body: text }).where(eq(s.chatMessages.id, messageId));
+    const [row] = await messagesQuery(tx).where(eq(s.chatMessages.id, messageId));
+    return toMessage(actor, row!);
+  });
+}
+
+/** Curte (ou desfaz a curtida de) uma mensagem que a pessoa vê, em nome próprio. */
+export async function setMessageLike(actor: AuthenticatedActor, conversationId: string, messageId: string, liked: boolean): Promise<ChatMessage> {
+  return withTenant(actor, async (tx) => {
+    await membership(tx, actor, conversationId);
+    const [message] = await tx
+      .select({ id: s.chatMessages.id })
+      .from(s.chatMessages)
+      .where(and(eq(s.chatMessages.id, messageId), eq(s.chatMessages.conversationId, conversationId), isNull(s.chatMessages.deletedAt)));
+    if (!message) throw notFound("Mensagem não encontrada.");
+    if (liked) {
+      await tx.insert(s.chatMessageLikes).values({ tenantId: actor.tenantId, messageId, userId: actor.userId }).onConflictDoNothing();
+    } else {
+      await tx.delete(s.chatMessageLikes).where(and(eq(s.chatMessageLikes.messageId, messageId), eq(s.chatMessageLikes.userId, actor.userId)));
+    }
+    const [row] = await messagesQuery(tx).where(eq(s.chatMessages.id, messageId));
     return toMessage(actor, row!);
   });
 }

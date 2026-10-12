@@ -60,7 +60,9 @@ A CSP é estática e permite `'unsafe-inline'` em scripts. Nonces exigiriam rend
 - **Quem vê o quê:** o cartão de colega (nome, foto, cargo, área, local, frase do perfil) é visível a todas as pessoas ativas da empresa — sem e-mail, telefone, gestor ou dados de RH. Pedidos de amizade, só as duas pessoas. Amizades aceitas, a empresa (amigos em comum).
 - **Conversas são privadas:** só quem participa lê, e só as mensagens enviadas depois da própria entrada. Não há permissão, tela ou endpoint para a gestão ou administradores lerem conversas de outras pessoas; a RLS nega mesmo que a aplicação erre. Fora da conversa, 404.
 - **Regras:** conversa privada só entre amigos (desfeita a amizade, o histórico fica e novas mensagens são bloqueadas); grupo só com amigos de quem cria ou administra; tudo em nome próprio (policies `RESTRICTIVE` sobre `app.current_user_id()`).
-- **Sem registro do conteúdo:** mensagens não são auditadas nem vão para logs. Apagar descarta texto e anexo (o arquivo deixa de ser entregue). Não há edição de mensagens.
+- **Sem registro do conteúdo:** mensagens não são auditadas nem vão para logs. Apagar descarta texto e anexo (o arquivo deixa de ser entregue). Editar corrige só o texto, só por quem enviou (o banco marca "editada" e recusa editar mensagem apagada ou trocar o anexo); a versão anterior não é guardada.
+- **Curtidas:** em nome próprio e só em mensagens que a pessoa vê (RLS sobre a própria visibilidade da mensagem).
+- **Sino:** pedido de amizade recebido e pedido aceito aparecem como notificações calculadas a partir de `friendships` — pedido recusado ou cancelado some sozinho.
 - **Anexos:** finalidade `chat_attachment` (PDF ou imagem até 4 MB, tipo pelos bytes); entrega só para quem enviou e quem vê a mensagem.
 - **Presença:** "online agora" vem de um sinal de atividade gravado no máximo a cada 30 s, enquanto a aba está visível; é mostrado só a amigos e a quem conversa com a pessoa.
 

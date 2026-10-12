@@ -28,6 +28,31 @@ test.describe("Amigos", () => {
     await expect(chat.getByText("Combinado! Começo amanhã 🚀")).toBeVisible();
     await expect(field).toHaveValue("");
 
+    // Curtir (duplo clique na bolha) e editar a própria mensagem.
+    await chat.getByText("Show! Vamos sim! 💜").dblclick();
+    await expect(chat.getByRole("button", { name: /^1 curtida: Fernando Santos/ })).toBeVisible();
+    const mine = chat.getByRole("listitem").filter({ hasText: "Combinado! Começo amanhã 🚀" });
+    await mine.hover();
+    await mine.getByRole("button", { name: "Opções da mensagem" }).click();
+    await page.getByRole("menuitem", { name: "Editar mensagem" }).click();
+    await expect(chat.getByText("Editando mensagem")).toBeVisible();
+    await field.fill("Combinado! Começo amanhã cedo 🚀");
+    await field.press("Enter");
+    await expect(chat.getByText("Combinado! Começo amanhã cedo 🚀")).toBeVisible();
+    await expect(chat.getByText("Editando mensagem")).toHaveCount(0);
+    await expect(chat.getByRole("listitem").filter({ hasText: "Combinado! Começo amanhã cedo 🚀" }).getByText(/editada/)).toBeVisible();
+
+    // Anexo: abre no lightbox, com opção de baixar.
+    await chat.locator('input[type="file"]').setInputFiles({ name: "quadro.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64") });
+    await expect(chat.getByText("quadro.png")).toBeVisible();
+    await field.press("Enter");
+    await chat.getByRole("button", { name: "Abrir imagem quadro.png" }).click();
+    const lightbox = page.getByRole("dialog", { name: "quadro.png" });
+    await expect(lightbox.getByRole("link", { name: "Baixar" })).toHaveAttribute("href", /\?download=1$/);
+    await expectAccessible(page);
+    await page.keyboard.press("Escape");
+    await expect(lightbox).toHaveCount(0);
+
     // A Carla recebe sem recarregar a página.
     const carlaContext = await browser.newContext();
     const carla = await carlaContext.newPage();
@@ -35,11 +60,17 @@ test.describe("Amigos", () => {
     await gotoHydrated(carla, "/amigos");
     await carla.getByRole("list", { name: "Conversas" }).getByRole("button", { name: /Fernando Santos/ }).click();
     const carlaChat = carla.getByRole("region", { name: "Fernando Santos" });
-    await expect(carlaChat.getByText("Combinado! Começo amanhã 🚀")).toBeVisible();
+    await expect(carlaChat.getByText("Combinado! Começo amanhã cedo 🚀")).toBeVisible();
     await carlaChat.getByRole("textbox", { name: "Mensagem" }).fill("Fechado, até amanhã!");
     await carlaChat.getByRole("button", { name: "Enviar mensagem" }).click();
     await expect(chat.getByText("Fechado, até amanhã!")).toBeVisible({ timeout: 20_000 });
     await carlaContext.close();
+
+    // O sino avisa dos pedidos de amizade recebidos.
+    await page.getByRole("button", { name: /^Notificações:/ }).click();
+    const bell = page.getByRole("dialog", { name: "Notificações" });
+    await expect(bell.getByText("Novo pedido de amizade").first()).toBeVisible();
+    await page.keyboard.press("Escape");
 
     // Pedidos recebidos: aceitar a Amanda.
     await page.getByRole("tab", { name: /Solicitações/ }).click();

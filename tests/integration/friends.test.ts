@@ -16,6 +16,7 @@ import * as conversationRoute from "@/app/api/v1/conversations/[id]/route";
 import * as mediaRoute from "@/app/api/v1/conversations/[id]/media/route";
 import * as memberRoute from "@/app/api/v1/conversations/[id]/members/[userId]/route";
 import * as membersRoute from "@/app/api/v1/conversations/[id]/members/route";
+import * as likeRoute from "@/app/api/v1/conversations/[id]/messages/[messageId]/like/route";
 import * as messageRoute from "@/app/api/v1/conversations/[id]/messages/[messageId]/route";
 import * as messagesRoute from "@/app/api/v1/conversations/[id]/messages/route";
 import * as readRoute from "@/app/api/v1/conversations/[id]/read/route";
@@ -25,6 +26,7 @@ import * as presenceRoute from "@/app/api/v1/me/presence/route";
 import { resolveActor } from "@/server/auth/session";
 import * as s from "@/server/db/schema";
 import { friendsBadgeCount } from "@/server/modules/friends/conversations";
+import { listNotifications } from "@/server/modules/notifications/service";
 import { headersWith, signIn } from "../support/auth";
 import { asRole, expectDbError, tenantOf, testDatabase } from "../support/db";
 import { call } from "../support/http";
@@ -242,7 +244,7 @@ describe("amigos e conversas", () => {
     expect(detail.json.members.map((m: { name: string }) => m.name).sort()).toEqual(["Camila Oliveira", "Helena Duarte"]);
   });
 
-  it("mensagens: apagar descarta o conteúdo; não há edição; desfazer a amizade bloqueia novas mensagens", async () => {
+  it("mensagens: apagar descarta o conteúdo; editar só o próprio texto; desfazer a amizade bloqueia novas mensagens", async () => {
     const conversation = await direct("fernando", "pedro");
     const id = conversation.json.id as string;
     const msg = await send("pedro", id, { body: "Mensagem que vou apagar" });
@@ -254,11 +256,21 @@ describe("amigos e conversas", () => {
     const [row] = await db.select({ body: s.chatMessages.body }).from(s.chatMessages).where(eq(s.chatMessages.id, msg.json.id));
     expect(row?.body).toBe("");
 
-    const kept = await send("pedro", id, { body: "Original" });
+    const kept = await send("pedro", id, { body: "Origianl" });
+    // Só quem enviou edita; a mensagem fica marcada como editada.
+    expect((await call(messageRoute.PATCH, { path: "/x", method: "PATCH", cookie: await cookie("fernando"), params: { id, messageId: kept.json.id }, body: { body: "invasão" } })).status).toBe(404);
+    const fixed = await call(messageRoute.PATCH, { path: "/x", method: "PATCH", cookie: await cookie("pedro"), params: { id, messageId: kept.json.id }, body: { body: "Original" } });
+    expect(fixed.status).toBe(200);
+    expect(fixed.json).toMatchObject({ body: "Original", edited: true });
+    expect((await messages("fernando", id)).json.items.find((m: { id: string }) => m.id === kept.json.id)).toMatchObject({ body: "Original", edited: true });
+    expect((await call(messageRoute.PATCH, { path: "/x", method: "PATCH", cookie: await cookie("pedro"), params: { id, messageId: kept.json.id }, body: { body: "   " } })).status).toBe(400);
+    // No banco: mensagem apagada não volta, e ninguém edita a de outra pessoa.
     await expectDbError(
-      asUser("pedro", (tx) => tx.update(s.chatMessages).set({ body: "Editada" }).where(eq(s.chatMessages.id, kept.json.id))),
-      /não podem ser editadas/,
+      asUser("pedro", (tx) => tx.update(s.chatMessages).set({ body: "ressuscitada" }).where(eq(s.chatMessages.id, msg.json.id))),
+      /apagada não pode ser alterada/,
     );
+    const hijack = await asUser("fernando", (tx) => tx.update(s.chatMessages).set({ body: "editada por outra pessoa" }).where(eq(s.chatMessages.id, kept.json.id)).returning({ id: s.chatMessages.id }));
+    expect(hijack).toEqual([]);
     const { tenantId } = await tenantOf("aurora");
     await expectDbError(
       asUser("fernando", (tx) => tx.insert(s.chatMessages).values({ tenantId, conversationId: id, senderId: kept.json.senderId, body: "em nome do Pedro" })),
@@ -269,6 +281,7 @@ describe("amigos e conversas", () => {
     const blocked = await send("pedro", id, { body: "Ainda posso?" });
     expect(blocked.status).toBe(409);
     expect((await messages("pedro", id)).json.items.map((m: { body: string }) => m.body)).toContain("Original");
+    expect((await call(messageRoute.PATCH, { path: "/x", method: "PATCH", cookie: await cookie("pedro"), params: { id, messageId: kept.json.id }, body: { body: "Ainda edito?" } })).status).toBe(409);
     const detail = await call(conversationRoute.GET, { path: "/x", cookie: await cookie("fernando"), params: { id } });
     expect(detail.json.blocked).toMatch(/não são mais amigos/);
   });
@@ -309,5 +322,69 @@ describe("amigos e conversas", () => {
     expect((await send("fernando", carla, { body: "   " })).status).toBe(400);
     expect((await send("fernando", carla, { body: "oi", senderId: await idOf("carla") })).status).toBe(400);
     expect((await call(requestsRoute.POST, { path: "/x", method: "POST", cookie: await cookie("fernando"), body: { userId: "não-é-uuid" } })).status).toBe(400);
+  });
+
+  it("curtidas: em nome próprio, só por quem vê a mensagem; a atualização periódica traz a mudança", async () => {
+    const id = (await direct("fernando", "larissa")).json.id as string;
+    const msg = await send("larissa", id, { body: "Curte aí 💜" });
+    const before = new Date().toISOString();
+    const liked = await call(likeRoute.PUT, { path: "/x", method: "PUT", cookie: await cookie("fernando"), params: { id, messageId: msg.json.id } });
+    expect(liked.status).toBe(200);
+    expect(liked.json).toMatchObject({ likes: 1, likedByMe: true, likedBy: ["Fernando Santos"] });
+    // Idempotente.
+    expect((await call(likeRoute.PUT, { path: "/x", method: "PUT", cookie: await cookie("fernando"), params: { id, messageId: msg.json.id } })).json.likes).toBe(1);
+
+    const seen = await call(messagesRoute.GET, { path: `/x?after=${encodeURIComponent(before)}`, cookie: await cookie("larissa"), params: { id } });
+    expect(seen.json.items.find((m: { id: string }) => m.id === msg.json.id)).toMatchObject({ likes: 1, likedByMe: false });
+
+    // Fora da conversa: 404 e nada no banco.
+    expect((await call(likeRoute.PUT, { path: "/x", method: "PUT", cookie: await cookie("paula"), params: { id, messageId: msg.json.id } })).status).toBe(404);
+    const { tenantId } = await tenantOf("aurora");
+    const [paula, fernando] = [await idOf("paula"), await idOf("fernando")];
+    await expectDbError(
+      asUser("paula", (tx) => tx.insert(s.chatMessageLikes).values({ tenantId, messageId: msg.json.id, userId: paula })),
+      /row-level security/,
+    );
+    const unliked = await call(likeRoute.DELETE, { path: "/x", method: "DELETE", cookie: await cookie("fernando"), params: { id, messageId: msg.json.id } });
+    expect(unliked.json).toMatchObject({ likes: 0, likedByMe: false });
+    // Curtir em nome de outra pessoa (mesmo participando): recusado.
+    await expectDbError(
+      asUser("larissa", (tx) => tx.insert(s.chatMessageLikes).values({ tenantId, messageId: msg.json.id, userId: fernando })),
+      /row-level security/,
+    );
+  });
+
+  it("sino: pedido de amizade recebido e pedido aceito viram notificação; recusado some", async () => {
+    const [simone, otavio] = [await idOf("simone"), await idOf("otavio")];
+    await call(requestsRoute.POST, { path: "/x", method: "POST", cookie: await cookie("simone"), body: { userId: otavio } });
+    const actorOf = async (key: string) => (await resolveActor(headersWith(await cookie(key))))!;
+    const inbox = await listNotifications(await actorOf("otavio"));
+    const request = inbox.items.find((n) => n.category === "friends")!;
+    expect(request).toMatchObject({ title: "Novo pedido de amizade", lead: "Simone Batista", href: "/amigos?aba=solicitacoes", unread: true });
+
+    await call(acceptRoute.POST, { path: "/x", method: "POST", cookie: await cookie("otavio"), params: { userId: simone } });
+    expect((await listNotifications(await actorOf("otavio"))).items.some((n) => n.key === request.key)).toBe(false);
+    const accepted = (await listNotifications(await actorOf("simone"))).items.find((n) => n.category === "friends")!;
+    expect(accepted).toMatchObject({ title: "Pedido de amizade aceito", lead: "Otávio Ferraz", href: `/amigos/${otavio}` });
+
+    // Recusado: some do sino de quem recebeu.
+    const caio = await idOf("caio");
+    await call(requestsRoute.POST, { path: "/x", method: "POST", cookie: await cookie("caio"), body: { userId: otavio } });
+    expect((await listNotifications(await actorOf("otavio"))).items.filter((n) => n.title === "Novo pedido de amizade")).toHaveLength(1);
+    await call(requestRoute.DELETE, { path: "/x", method: "DELETE", cookie: await cookie("otavio"), params: { userId: caio } });
+    expect((await listNotifications(await actorOf("otavio"))).items.filter((n) => n.title === "Novo pedido de amizade")).toHaveLength(0);
+  });
+
+  it("anexo: ?download=1 entrega como anexo", async () => {
+    const form = new FormData();
+    form.set("file", new File([PNG as Uint8Array<ArrayBuffer>], "comprovante.png"));
+    const upload = await filesRoute.POST(
+      new Request(`${ORIGIN}/api/v1/files?purpose=chat_attachment`, { method: "POST", body: form, headers: { cookie: await cookie("fernando"), origin: ORIGIN, "sec-fetch-site": "same-origin" } }),
+      { params: Promise.resolve({}) },
+    );
+    const fileId = (await upload.json()).id as string;
+    const res = await fileRoute.GET(new Request(`${ORIGIN}/api/v1/files/${fileId}?download=1`, { headers: { cookie: await cookie("fernando") } }), { params: Promise.resolve({ id: fileId }) });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-disposition")).toMatch(/^attachment; filename\*=UTF-8''comprovante\.png$/);
   });
 });

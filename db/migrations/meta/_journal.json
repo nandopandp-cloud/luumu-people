@@ -218,6 +218,20 @@
       "when": 1791811445953,
       "tag": "0030_friends_chat_security",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1791843348283,
+      "tag": "0031_chat_likes_edit_friend_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1791843366414,
+      "tag": "0032_chat_likes_edit_security",
+      "breakpoints": true
     }
   ]
 }
