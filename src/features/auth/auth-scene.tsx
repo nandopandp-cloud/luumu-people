@@ -34,7 +34,9 @@ export function AuthScene() {
           WebkitMaskComposite: "source-in",
         }}
       >
-        <Image src="/images/login-scene.webp" alt="" fill priority quality={90} sizes="(min-width: 1280px) 60vw, 0px" className="object-cover" />
+        {/* Eager: é o LCP. Onde fica oculta (abaixo de 1280 px), "1vw" faz o navegador
+            baixar só a menor variação (32 px); a versão do celular é a AuthHero. */}
+        <Image src="/images/login-scene.webp" alt="" fill loading="eager" fetchPriority="high" quality={90} sizes="(min-width: 1280px) 60vw, 1vw" className="object-cover" />
       </div>
       <div
         aria-hidden
@@ -74,6 +76,52 @@ export function AuthScene() {
           </div>
           <p className="mt-4 max-w-[12rem] text-caption text-neutral-600">Uma plataforma completa para o futuro das pessoas.</p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Bordas da ilustração se dissolvem no fundo lilás: topo, laterais e a base
+ * (que fica atrás do cartão do formulário e só aparece nas margens dele).
+ */
+const HERO_MASK_IMAGE =
+  "linear-gradient(to bottom, transparent 0, #000 9%, #000 90%, transparent 100%), linear-gradient(to right, transparent 0, #000 4%, #000 96%, transparent 100%)";
+const HERO_MASK = {
+  maskImage: HERO_MASK_IMAGE,
+  maskComposite: "intersect",
+  WebkitMaskImage: HERO_MASK_IMAGE,
+  WebkitMaskComposite: "source-in",
+} as const;
+
+/**
+ * Proposta de valor no celular e no tablet (abaixo de 1024 px), acima do
+ * formulário: título, texto e a mesma ilustração da tela larga, de ponta a ponta.
+ */
+export function AuthHero({ className }: { className?: string }) {
+  return (
+    <div className={className}>
+      <p className="mt-7 px-2 text-[clamp(1.7rem,7.6vw,2.1rem)] font-extrabold leading-[1.12] tracking-[-0.03em] text-neutral-900">
+        Pessoas que
+        <br />
+        aprendem, crescem
+        <br />e <span className="text-purple-500">constroem juntas</span>.
+      </p>
+      <p className="mt-3 px-2 text-body-sm leading-relaxed text-neutral-600 sm:text-body">
+        <span className="font-medium text-neutral-700">Uma plataforma de experiência, desenvolvimento e inteligência de pessoas</span> que conecta aprendizado, cultura e
+        resultados dentro da sua empresa.
+      </p>
+      <div aria-hidden className="relative -mx-4 mt-3 aspect-[1374/1145]" style={HERO_MASK}>
+        <Image
+          src="/images/login-scene.webp"
+          alt=""
+          fill
+          loading="eager"
+          fetchPriority="high"
+          quality={90}
+          sizes="(min-width: 1024px) 1vw, (min-width: 560px) 560px, 100vw"
+          className="object-cover"
+        />
       </div>
     </div>
   );

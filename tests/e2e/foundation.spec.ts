@@ -28,6 +28,28 @@ test.describe("Fase 1 — fundação", () => {
     await expectAccessible(page);
   });
 
+  test("@mobile login no celular: proposta e ilustração acima do formulário em cartão", async ({ page }) => {
+    await gotoHydrated(page, "/entrar");
+    await expect(page.getByText(/^Pessoas que\s*aprendem, crescem/)).toBeVisible();
+    await expect(page.getByText(/^Uma plataforma de experiência/)).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Bem-vindo(a)!" })).toBeInViewport();
+    await expect(page.getByRole("button", { name: "Entrar com Google" })).toBeVisible();
+    await expect(page.getByText(/Ainda não tem acesso|Não tem uma conta/)).toHaveCount(0);
+    // A ilustração do celular carrega em boa resolução; a do painel largo, oculta, só na menor variação.
+    const widths = () =>
+      page.locator('img[src*="login-scene"]').evaluateAll((list) =>
+        list.map((img) => ({
+          visible: (img as HTMLElement).offsetParent !== null,
+          width: (img as HTMLImageElement).complete ? Number(new URL((img as HTMLImageElement).currentSrc, location.href).searchParams.get("w")) : 0,
+        })),
+      );
+    await expect.poll(async () => (await widths()).find((i) => i.visible)?.width ?? 0).toBeGreaterThanOrEqual(640);
+    await expect.poll(async () => (await widths()).find((i) => !i.visible)?.width).toBe(32);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+    await expectAccessible(page);
+  });
+
   test("login com Google leva ao Google preservando o destino e mostra erros do retorno", async ({ page }) => {
     // Não sai para a internet: o redirecionamento ao Google é interceptado.
     await page.route("https://accounts.google.com/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<title>Google</title>" }));
