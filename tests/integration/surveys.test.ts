@@ -2,7 +2,11 @@ import { and, eq, sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import * as submitRoute from "@/app/api/v1/me/surveys/[id]/responses/route";
 import * as closeRoute from "@/app/api/v1/surveys/[id]/close/route";
+import * as duplicateRoute from "@/app/api/v1/surveys/[id]/duplicate/route";
 import * as launchRoute from "@/app/api/v1/surveys/[id]/launch/route";
+import * as pauseRoute from "@/app/api/v1/surveys/[id]/pause/route";
+import * as resumeRoute from "@/app/api/v1/surveys/[id]/resume/route";
+import * as surveyRoute from "@/app/api/v1/surveys/[id]/route";
 import * as resultsRoute from "@/app/api/v1/surveys/[id]/results/route";
 import * as surveysRoute from "@/app/api/v1/surveys/route";
 import { resolveActor } from "@/server/auth/session";
@@ -255,7 +259,14 @@ describe("pesquisas anônimas", () => {
     await expectDbError(db.execute(sql`update surveys set anonymity_k = 5 where id = ${id}`), /só pode aumentar/);
     await expectDbError(db.execute(sql`update surveys set dimensions = '{}' where id = ${id}`), /congelam/);
     await expectDbError(db.execute(sql`update survey_questions set text = 'outra' where survey_id = ${id}`), /congelam/);
-    await expectDbError(db.execute(sql`delete from surveys where id = ${id}`), /não pode ser excluída/);
+    // A aplicação não apaga pesquisa lançada direto: só pelo cofre (survey_vault.purge).
+    await expectDbError(
+      asRole("luumu_app", async (tx) => {
+        await tx.execute(sql`select set_config('app.tenant_id', ${(await tenantOf("aurora")).tenantId}, true)`);
+        await tx.execute(sql`delete from surveys where id = ${id}`);
+      }),
+      /não pode ser excluída/,
+    );
     await expectDbError(db.execute(sql`update surveys set status = 'draft' where id = ${id}`), /transição/);
     // O runtime nem tem privilégio para alterar o modo de anonimato.
     await expectDbError(
@@ -265,6 +276,55 @@ describe("pesquisas anônimas", () => {
       }),
       /permission denied/,
     );
+  });
+
+  it("gestão: pausar bloqueia respostas, retomar, editar só o permitido, duplicar e excluir apagando o cofre", async () => {
+    const { id, scaleId, admin } = await launchedSurvey("Pulso de teste: gestão");
+    const post = (route: { POST: Parameters<typeof call>[0] }, body?: unknown, cookie = admin.cookie) => call(route.POST, { path: "/x", method: "POST", cookie, params: { id }, body });
+
+    // Sem permissão de gestão: 403.
+    const fernando = await signIn("aurora", "fernando");
+    expect((await post(pauseRoute, undefined, fernando.cookie)).status).toBe(403);
+    expect((await call(surveyRoute.DELETE, { path: "/x", method: "DELETE", cookie: fernando.cookie, params: { id } })).status).toBe(403);
+
+    expect((await post(pauseRoute)).status).toBe(200);
+    expect((await post(pauseRoute)).status).toBe(409);
+    // Pausada: ninguém responde, e quem ainda não respondeu não a vê na lista.
+    expect((await answer("camila", id, { [scaleId]: 4 })).status).toBe(409);
+    const camila = await session("camila");
+    expect((await listMySurveys(camila.actor)).map((x) => x.id)).not.toContain(id);
+    expect((await post(resumeRoute, { closesAt: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString() })).status).toBe(200);
+    expect((await answer("camila", id, { [scaleId]: 4 })).status).toBe(204);
+
+    // Depois do lançamento: título, descrição e prazo mudam; perguntas não.
+    const patch = (body: unknown) => call(surveyRoute.PATCH, { path: "/x", method: "PATCH", cookie: admin.cookie, params: { id }, body });
+    expect((await patch({ title: "Pulso de teste: gestão (novo nome)", description: "Atualizada" })).status).toBe(200);
+    expect((await patch({ closesAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() })).status).toBe(400);
+    expect((await patch({ questions: [] })).status).toBe(400);
+    const { db } = await testDatabase();
+    const [renamed] = await db.select({ title: s.surveys.title, status: s.surveys.status }).from(s.surveys).where(eq(s.surveys.id, id));
+    expect(renamed).toEqual({ title: "Pulso de teste: gestão (novo nome)", status: "active" });
+
+    // Duplicar: rascunho novo com as mesmas perguntas.
+    const copy = await post(duplicateRoute);
+    expect(copy.status).toBe(201);
+    const [draft] = await db.select({ status: s.surveys.status, title: s.surveys.title }).from(s.surveys).where(eq(s.surveys.id, copy.json.id));
+    expect(draft).toEqual({ status: "draft", title: "Pulso de teste: gestão (novo nome) (cópia)" });
+    expect((await db.select().from(s.surveyQuestions).where(eq(s.surveyQuestions.surveyId, copy.json.id))).length).toBe(2);
+
+    // Encerrar a partir de pausada e excluir: some pesquisa, convites e respostas do cofre.
+    expect((await post(pauseRoute)).status).toBe(200);
+    expect((await post(closeRoute)).status).toBe(200);
+    const vault = async () =>
+      (await rowsOf<{ n: number }>(sql`select (select count(*) from survey_vault.anon_response where survey_id = ${id}) + (select count(*) from survey_vault.anon_submission_buffer where survey_id = ${id}) as n`))[0]!.n;
+    expect(Number(await vault())).toBeGreaterThan(0);
+    expect((await call(surveyRoute.DELETE, { path: "/x", method: "DELETE", cookie: admin.cookie, params: { id } })).status).toBe(204);
+    expect(Number(await vault())).toBe(0);
+    expect(await db.select().from(s.surveys).where(eq(s.surveys.id, id))).toEqual([]);
+    expect(await db.select().from(s.surveyInvitations).where(eq(s.surveyInvitations.surveyId, id))).toEqual([]);
+    // A auditoria guarda só título, situação e participação — nada das respostas.
+    const [audit] = await db.select({ metadata: s.auditLogs.metadata }).from(s.auditLogs).where(and(eq(s.auditLogs.action, "survey.deleted"), eq(s.auditLogs.resourceId, id)));
+    expect(Object.keys(audit!.metadata as object).sort()).toEqual(["completed", "invited", "status", "title"]);
   });
 
   it("pesquisa de outra empresa é invisível (404)", async () => {

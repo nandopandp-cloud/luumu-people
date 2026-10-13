@@ -46,6 +46,8 @@ export const AUDIT_LABELS: Record<AuditAction, string> = {
   "survey.deleted": "Rascunho de pesquisa excluído",
   "survey.launched": "Pesquisa lançada",
   "survey.closed": "Pesquisa encerrada",
+  "survey.paused": "Pesquisa pausada",
+  "survey.resumed": "Pesquisa retomada",
   "tenant.seeded": "Empresa criada",
 };
 

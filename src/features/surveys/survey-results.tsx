@@ -25,7 +25,7 @@ export function enps(distribution: Record<string, number>) {
   return { total, promoters, passives, detractors, score: pct(promoters, total) - pct(detractors, total) };
 }
 
-const STATUS = { active: { label: "Em andamento", tone: "green" }, closed: { label: "Encerrada", tone: "neutral" }, draft: { label: "Rascunho", tone: "neutral" } } as const;
+const STATUS = { active: { label: "Em andamento", tone: "green" }, paused: { label: "Pausada", tone: "yellow" }, closed: { label: "Encerrada", tone: "neutral" }, draft: { label: "Rascunho", tone: "neutral" } } as const;
 
 /**
  * Resultados AGREGADOS. Tudo vem do cofre já com supressão por k; esta tela

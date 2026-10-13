@@ -14,7 +14,7 @@ import { organizations } from "./tenancy";
  */
 
 export const SURVEY_KINDS = ["climate", "enps", "pulse", "custom"] as const;
-export const SURVEY_STATUSES = ["draft", "active", "closed"] as const;
+export const SURVEY_STATUSES = ["draft", "active", "paused", "closed"] as const;
 export const ANONYMITY_MODES = ["anonymous", "identified"] as const;
 export const QUESTION_TYPES = ["scale", "enps", "choice", "text"] as const;
 /** Dimensões de segmentação calculadas no envio, já generalizadas. */

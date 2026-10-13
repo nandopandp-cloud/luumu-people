@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, lte, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, lte, sql } from "drizzle-orm";
 import { recordAudit } from "@/server/audit/audit";
 import type { AuthenticatedActor } from "@/server/auth/session";
 import type { Permission } from "@/server/authz/permissions";
@@ -9,7 +9,7 @@ import type { QuestionType, SurveyDimension } from "@/server/db/schema/surveys";
 import { withTenant, type Tx } from "@/server/db/tenant";
 import { badRequest, conflict, forbidden, HttpError, notFound } from "@/server/http/errors";
 import { approveDimensions, dimensionProfiles, generalizedDimensions } from "./dimensions";
-import { MAX_COMMENT_LENGTH, type SurveyInput } from "./schemas";
+import { MAX_COMMENT_LENGTH, type SurveyDetailsInput, type SurveyInput } from "./schemas";
 
 /**
  * Pesquisas anônimas (docs/anonymous-surveys.md).
@@ -53,7 +53,7 @@ async function closeExpired(tx: Tx, tenantId: string) {
   const expired = await tx
     .select({ id: s.surveys.id })
     .from(s.surveys)
-    .where(and(eq(s.surveys.status, "active"), lte(s.surveys.closesAt, new Date())));
+    .where(and(inArray(s.surveys.status, ["active", "paused"]), lte(s.surveys.closesAt, new Date())));
   for (const { id } of expired) {
     await tx.update(s.surveys).set({ status: "closed", closedAt: new Date() }).where(eq(s.surveys.id, id));
     await tx.execute(sql`select survey_vault.close(${id}::uuid)`);
@@ -67,7 +67,7 @@ export type ManagedSurvey = {
   id: string;
   title: string;
   kind: s.SurveyKind;
-  status: "draft" | "active" | "closed";
+  status: "draft" | "active" | "paused" | "closed";
   closesAt: Date | null;
   launchedAt: Date | null;
   anonymityK: number;
@@ -89,7 +89,7 @@ export async function listManagedSurveys(actor: AuthenticatedActor) {
                (select count(*)::int from survey_invitations i where i.survey_id = s.id and i.status = 'completed') as completed
         from surveys s
         ${seesDrafts ? sql`` : sql`where s.status <> 'draft'`}
-        order by case s.status when 'active' then 0 when 'draft' then 1 else 2 end, coalesce(s.launched_at, s.created_at) desc`),
+        order by case s.status when 'active' then 0 when 'paused' then 1 when 'draft' then 2 else 3 end, coalesce(s.launched_at, s.created_at) desc`),
     ).map((r) => ({ ...r, closesAt: r.closesAt && new Date(r.closesAt), launchedAt: r.launchedAt && new Date(r.launchedAt) }));
   });
 }
@@ -177,13 +177,119 @@ export async function updateSurvey(actor: AuthenticatedActor, id: string, input:
   });
 }
 
+/**
+ * Exclui a pesquisa. Rascunho: direto. Lançada (em andamento, pausada ou
+ * encerrada): pelo cofre (`survey_vault.purge`), que apaga junto as respostas
+ * anônimas — sem lê-las. A auditoria guarda só título, situação e participação.
+ */
 export async function deleteSurvey(actor: AuthenticatedActor, id: string, meta: Meta) {
   requireTenantWide(actor, "survey.design");
   return withTenant(actor, async (tx) => {
     const survey = await loadSurvey(tx, id);
-    if (survey.status !== "draft") throw conflict("Somente rascunhos podem ser excluídos.");
-    await tx.delete(s.surveys).where(eq(s.surveys.id, id));
+    if (survey.status === "draft") {
+      await tx.delete(s.surveys).where(eq(s.surveys.id, id));
+    } else {
+      if (!hasTenantWide(actor, "survey.launch")) throw forbidden("Excluir uma pesquisa lançada exige também a permissão de lançar pesquisas.");
+      const [participation] = rows<{ invited: number; completed: number }>(
+        await tx.execute(sql`select count(*)::int as invited, count(*) filter (where status = 'completed')::int as completed from survey_invitations where survey_id = ${id}`),
+      );
+      await tx.execute(sql`select survey_vault.purge(${id}::uuid)`);
+      await recordAudit(tx, {
+        tenantId: actor.tenantId,
+        actorUserId: actor.userId,
+        action: "survey.deleted",
+        resourceType: "survey",
+        resourceId: id,
+        metadata: { title: survey.title, status: survey.status, invited: participation?.invited ?? 0, completed: participation?.completed ?? 0 },
+        ...auditMeta(meta),
+      });
+      return;
+    }
     await recordAudit(tx, { tenantId: actor.tenantId, actorUserId: actor.userId, action: "survey.deleted", resourceType: "survey", resourceId: id, metadata: { title: survey.title }, ...auditMeta(meta) });
+  });
+}
+
+/** Copia a pesquisa (perguntas, tipo e k) como um novo rascunho. */
+export async function duplicateSurvey(actor: AuthenticatedActor, id: string, meta: Meta) {
+  requireTenantWide(actor, "survey.design");
+  return withTenant(actor, async (tx) => {
+    const survey = await loadSurvey(tx, id);
+    const questions = await loadQuestions(tx, id);
+    const title = `${survey.title} (cópia)`.slice(0, 120);
+    const [row] = await tx
+      .insert(s.surveys)
+      .values({ tenantId: actor.tenantId, title, description: survey.description, kind: survey.kind, anonymityMode: "anonymous", anonymityK: survey.anonymityK, createdBy: actor.userId })
+      .returning({ id: s.surveys.id });
+    if (questions.length) {
+      await writeQuestions(
+        tx,
+        actor.tenantId,
+        row!.id,
+        questions.map((q) => ({ type: q.type, text: q.text, options: q.options ?? undefined, required: q.required })),
+      );
+    }
+    await recordAudit(tx, { tenantId: actor.tenantId, actorUserId: actor.userId, action: "survey.created", resourceType: "survey", resourceId: row!.id, metadata: { title, duplicatedFrom: id }, ...auditMeta(meta) });
+    return { id: row!.id };
+  });
+}
+
+function assertClosesAt(closesAt: string) {
+  const closes = new Date(closesAt);
+  if (closes.getTime() < Date.now() + 60 * 60 * 1000 || closes.getTime() > Date.now() + MAX_OPEN_DAYS * DAY) {
+    throw badRequest(`Escolha um encerramento entre 1 hora e ${MAX_OPEN_DAYS} dias a partir de agora.`);
+  }
+  return closes;
+}
+
+/**
+ * Pesquisa lançada: título e descrição (`survey.design`) e prazo (`survey.launch`,
+ * só enquanto não encerrou). Perguntas, k e dimensões continuam congelados.
+ */
+export async function updateSurveyDetails(actor: AuthenticatedActor, id: string, input: SurveyDetailsInput, meta: Meta) {
+  if ((input.title !== undefined || input.description !== undefined) && !hasTenantWide(actor, "survey.design")) throw forbidden();
+  if (input.closesAt !== undefined && !hasTenantWide(actor, "survey.launch")) throw forbidden();
+  return withTenant(actor, async (tx) => {
+    await closeExpired(tx, actor.tenantId);
+    const survey = await loadSurvey(tx, id);
+    if (survey.status === "draft") throw conflict("Edite o rascunho pelo editor de pesquisa.");
+    const changes: Partial<typeof s.surveys.$inferInsert> = {};
+    if (input.title !== undefined) changes.title = input.title;
+    if (input.description !== undefined) changes.description = input.description || null;
+    if (input.closesAt !== undefined) {
+      if (survey.status === "closed") throw conflict("Pesquisa encerrada não muda de prazo.");
+      changes.closesAt = assertClosesAt(input.closesAt);
+    }
+    await tx.update(s.surveys).set(changes).where(eq(s.surveys.id, id));
+    await recordAudit(tx, { tenantId: actor.tenantId, actorUserId: actor.userId, action: "survey.updated", resourceType: "survey", resourceId: id, metadata: { fields: Object.keys(changes) }, ...auditMeta(meta) });
+    return { id };
+  });
+}
+
+/** Pausa: ninguém responde até retomar (o prazo continua correndo). */
+export async function pauseSurvey(actor: AuthenticatedActor, id: string, meta: Meta) {
+  requireTenantWide(actor, "survey.launch");
+  return withTenant(actor, async (tx) => {
+    await closeExpired(tx, actor.tenantId);
+    const survey = await loadSurvey(tx, id);
+    if (survey.status !== "active") throw conflict("Somente pesquisas em andamento podem ser pausadas.");
+    await tx.update(s.surveys).set({ status: "paused" }).where(eq(s.surveys.id, id));
+    await recordAudit(tx, { tenantId: actor.tenantId, actorUserId: actor.userId, action: "survey.paused", resourceType: "survey", resourceId: id, ...auditMeta(meta) });
+    return { id };
+  });
+}
+
+/** Retoma uma pesquisa pausada; com `closesAt`, ajusta o prazo ao mesmo tempo. */
+export async function resumeSurvey(actor: AuthenticatedActor, id: string, closesAt: string | undefined, meta: Meta) {
+  requireTenantWide(actor, "survey.launch");
+  return withTenant(actor, async (tx) => {
+    await closeExpired(tx, actor.tenantId);
+    const survey = await loadSurvey(tx, id);
+    if (survey.status !== "paused") throw conflict("Somente pesquisas pausadas podem ser retomadas.");
+    const closes = closesAt ? assertClosesAt(closesAt) : survey.closesAt;
+    if (!closes || closes.getTime() < Date.now() + 60 * 60 * 1000) throw badRequest("O prazo está acabando: escolha um novo encerramento para retomar.");
+    await tx.update(s.surveys).set({ status: "active", closesAt: closes }).where(eq(s.surveys.id, id));
+    await recordAudit(tx, { tenantId: actor.tenantId, actorUserId: actor.userId, action: "survey.resumed", resourceType: "survey", resourceId: id, metadata: { closesAt: closes.toISOString() }, ...auditMeta(meta) });
+    return { id };
   });
 }
 
@@ -193,10 +299,7 @@ export async function deleteSurvey(actor: AuthenticatedActor, id: string, meta: 
  */
 export async function launchSurvey(actor: AuthenticatedActor, id: string, closesAt: string, meta: Meta) {
   requireTenantWide(actor, "survey.launch");
-  const closes = new Date(closesAt);
-  if (closes.getTime() < Date.now() + 60 * 60 * 1000 || closes.getTime() > Date.now() + MAX_OPEN_DAYS * DAY) {
-    throw badRequest(`Escolha um encerramento entre 1 hora e ${MAX_OPEN_DAYS} dias a partir de agora.`);
-  }
+  const closes = assertClosesAt(closesAt);
   return withTenant(actor, async (tx) => {
     const survey = await loadSurvey(tx, id);
     if (survey.status !== "draft") throw conflict("Esta pesquisa já foi lançada.");
@@ -225,7 +328,7 @@ export async function closeSurvey(actor: AuthenticatedActor, id: string, meta: M
   requireTenantWide(actor, "survey.launch");
   return withTenant(actor, async (tx) => {
     const survey = await loadSurvey(tx, id);
-    if (survey.status !== "active") throw conflict("Somente pesquisas em andamento podem ser encerradas.");
+    if (survey.status !== "active" && survey.status !== "paused") throw conflict("Somente pesquisas em andamento ou pausadas podem ser encerradas.");
     await tx.update(s.surveys).set({ status: "closed", closedAt: new Date() }).where(eq(s.surveys.id, id));
     await tx.execute(sql`select survey_vault.close(${id}::uuid)`);
     await recordAudit(tx, { tenantId: actor.tenantId, actorUserId: actor.userId, action: "survey.closed", resourceType: "survey", resourceId: id, ...auditMeta(meta) });
@@ -326,7 +429,7 @@ export async function listMySurveys(actor: AuthenticatedActor): Promise<MySurvey
                (select count(*)::int from survey_questions q where q.survey_id = s.id) as questions,
                (select count(*)::int from survey_questions q where q.survey_id = s.id and q.type = 'text') as "textQuestions"
         from survey_invitations i join surveys s on s.id = i.survey_id
-        where i.user_id = ${actor.userId} and s.status <> 'draft'
+        where i.user_id = ${actor.userId} and s.status <> 'draft' and (s.status <> 'paused' or i.status = 'completed')
         order by s.closes_at desc`),
     );
     const now = Date.now();
@@ -367,7 +470,7 @@ export async function getSurveyToAnswer(actor: AuthenticatedActor, id: string) {
     return {
       survey: { id: survey.id, title: survey.title, description: survey.description, kind: survey.kind, closesAt: survey.closesAt, anonymityMode: survey.anonymityMode },
       questions: await loadQuestions(tx, id),
-      state: invitation.status === "completed" ? ("answered" as const) : open ? ("open" as const) : ("closed" as const),
+      state: invitation.status === "completed" ? ("answered" as const) : open ? ("open" as const) : survey.status === "paused" ? ("paused" as const) : ("closed" as const),
     };
   });
 }
@@ -417,6 +520,7 @@ export async function submitSurveyResponse(actor: AuthenticatedActor, surveyId: 
     if (!invitation) throw notFound("Pesquisa não encontrada.");
     if (invitation.status === "completed") throw conflict("Você já respondeu esta pesquisa. Obrigado!");
     const survey = await loadSurvey(tx, surveyId);
+    if (survey.status === "paused") throw conflict("Esta pesquisa está pausada. Tente novamente mais tarde.");
     if (survey.status !== "active" || !survey.closesAt || survey.closesAt.getTime() <= Date.now()) throw conflict("Esta pesquisa está encerrada.");
     if (survey.anonymityMode !== "anonymous") throw badRequest("Pesquisas identificadas ainda não são suportadas.");
 

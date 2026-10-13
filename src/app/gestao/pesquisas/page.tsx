@@ -11,13 +11,14 @@ import { Alert, Skeleton } from "@/design-system/components/feedback";
 import { Progress } from "@/design-system/components/progress";
 import { Table, Td, Th, THead, Tr } from "@/design-system/components/table";
 import { formatDay, SURVEY_KIND } from "@/features/surveys/labels";
+import { SurveyActions } from "@/features/surveys/survey-actions";
 import { hasPermissionAnywhere, hasTenantWide } from "@/server/authz/policy";
 import { requireActor } from "@/server/dal";
 import { canReadAllResults, listManagedSurveys } from "@/server/modules/surveys/service";
 
 export const metadata: Metadata = { title: "Pesquisas" };
 
-const STATUS = { draft: { label: "Rascunho", tone: "neutral" }, active: { label: "Em andamento", tone: "green" }, closed: { label: "Encerrada", tone: "blue" } } as const;
+const STATUS = { draft: { label: "Rascunho", tone: "neutral" }, active: { label: "Em andamento", tone: "green" }, paused: { label: "Pausada", tone: "yellow" }, closed: { label: "Encerrada", tone: "blue" } } as const;
 
 export default function ManagementSurveysPage() {
   return (
@@ -32,6 +33,7 @@ async function Surveys() {
   if (!(["survey.design", "survey.launch", "survey.results.read_aggregate"] as const).some((p) => hasPermissionAnywhere(actor, p))) forbidden();
   const items = await listManagedSurveys(actor);
   const canDesign = hasTenantWide(actor, "survey.design");
+  const canLaunch = hasTenantWide(actor, "survey.launch");
 
   return (
     <>
@@ -82,6 +84,9 @@ async function Surveys() {
                   <Th>Situação</Th>
                   <Th>Participação</Th>
                   <Th>Encerramento</Th>
+                  <Th>
+                    <span className="sr-only">Ações</span>
+                  </Th>
                 </Tr>
               </THead>
               <tbody>
@@ -117,6 +122,9 @@ async function Surveys() {
                         )}
                       </Td>
                       <Td className="whitespace-nowrap text-neutral-600">{s.closesAt ? formatDay(s.closesAt) : "—"}</Td>
+                      <Td className="w-12 text-right">
+                        <SurveyActions survey={{ id: s.id, title: s.title, status: s.status, closesAt: s.closesAt }} canDesign={canDesign} canLaunch={canLaunch} />
+                      </Td>
                     </Tr>
                   );
                 })}

@@ -59,6 +59,58 @@ test.describe("Pesquisas", () => {
     await expect(page.getByText(/Grupos com poucas respostas são reunidos em “Outros”/)).toBeVisible();
   });
 
+  test("gestão: duplicar, lançar, editar, pausar, retomar, encerrar e excluir", async ({ page }) => {
+    test.setTimeout(180_000);
+    await signIn(page, "paula.ribeiro@aurora.example");
+    await gotoHydrated(page, "/gestao/pesquisas");
+    // Duplicar a pesquisa de clima vira um rascunho novo.
+    await page.getByRole("button", { name: "Ações da pesquisa Pesquisa de Clima 2026" }).click();
+    await page.getByRole("menuitem", { name: "Duplicar" }).click();
+    await page.waitForURL(/\/gestao\/pesquisas\/[0-9a-f-]{36}$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Editar pesquisa" })).toBeVisible();
+    await expect(page.getByLabel("Título", { exact: true }).filter({ visible: true })).toHaveValue("Pesquisa de Clima 2026 (cópia)");
+    await page.getByLabel("Título", { exact: true }).filter({ visible: true }).fill("Clima de teste E2E");
+    await page.getByRole("button", { name: "Salvar rascunho" }).click();
+    await expect(page.getByText("Rascunho salvo").first()).toBeVisible();
+
+    // Lançar.
+    await page.getByRole("button", { name: "Lançar pesquisa" }).click();
+    const launch = page.getByRole("dialog", { name: "Lançar pesquisa" });
+    await launch.getByLabel("Recebe respostas até").fill(new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
+    await launch.getByRole("button", { name: "Lançar agora" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Clima de teste E2E" })).toBeVisible();
+
+    // Editar informações (perguntas congeladas).
+    await page.getByRole("button", { name: "Ações da pesquisa Clima de teste E2E" }).click();
+    await page.getByRole("menuitem", { name: "Editar informações" }).click();
+    const edit = page.getByRole("dialog", { name: "Editar informações" });
+    await edit.getByLabel("Título").fill("Clima E2E");
+    await expectAccessible(page);
+    await edit.getByRole("button", { name: "Salvar" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Clima E2E" })).toBeVisible();
+
+    // Pausar e retomar.
+    await page.getByRole("button", { name: "Pausar" }).click();
+    await expect(page.getByText("Pausada", { exact: true }).first()).toBeVisible();
+    await page.getByRole("button", { name: "Retomar" }).click();
+    await page.getByRole("dialog", { name: "Retomar respostas" }).getByRole("button", { name: "Retomar" }).click();
+    await expect(page.getByText("Em andamento", { exact: true }).first()).toBeVisible();
+
+    // Encerrar e excluir (com confirmação forte).
+    await page.getByRole("button", { name: "Encerrar", exact: true }).click();
+    await page.getByRole("dialog", { name: "Encerrar pesquisa?" }).getByRole("button", { name: "Encerrar agora" }).click();
+    await expect(page.getByText("Encerrada", { exact: true }).first()).toBeVisible();
+    await page.getByRole("button", { name: "Ações da pesquisa Clima E2E" }).click();
+    await page.getByRole("menuitem", { name: "Excluir" }).click();
+    const remove = page.getByRole("dialog", { name: "Excluir pesquisa e respostas?" });
+    await expect(remove.getByRole("button", { name: "Excluir" })).toBeDisabled();
+    await remove.getByLabel("Digite EXCLUIR para confirmar").fill("excluir");
+    await remove.getByRole("button", { name: "Excluir" }).click();
+    await page.waitForURL(/\/gestao\/pesquisas$/);
+    await expect(page.getByRole("link", { name: "Clima E2E" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Pesquisa de Clima 2026" })).toBeVisible();
+  });
+
   test("builder: rascunho a partir de modelo", async ({ page }) => {
     test.setTimeout(120_000);
     await signIn(page, "juliana.mendes@aurora.example");

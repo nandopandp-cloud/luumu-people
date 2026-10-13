@@ -51,6 +51,8 @@ export const AUDIT_ACTIONS = [
   "survey.deleted",
   "survey.launched",
   "survey.closed",
+  "survey.paused",
+  "survey.resumed",
   "tenant.seeded",
 ] as const;
 

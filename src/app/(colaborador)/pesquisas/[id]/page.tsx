@@ -62,8 +62,8 @@ async function Answer({ params }: { params: PageProps<"/pesquisas/[id]">["params
       ) : (
         <div className="card p-6">
           <EmptyState
-            title={state === "answered" ? "Você já respondeu esta pesquisa" : "Esta pesquisa está encerrada"}
-            description={state === "answered" ? "Obrigado por participar! Cada pessoa responde uma única vez." : "O prazo para respostas terminou."}
+            title={state === "answered" ? "Você já respondeu esta pesquisa" : state === "paused" ? "Esta pesquisa está pausada" : "Esta pesquisa está encerrada"}
+            description={state === "answered" ? "Obrigado por participar! Cada pessoa responde uma única vez." : state === "paused" ? "O time de Gente e Gestão pausou as respostas por um tempo. Volte mais tarde." : "O prazo para respostas terminou."}
             action={
               <Button asChild variant="soft">
                 <Link href="/pesquisas">

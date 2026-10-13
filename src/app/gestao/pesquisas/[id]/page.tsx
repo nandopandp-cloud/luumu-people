@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { z } from "zod";
 import { Alert, Skeleton } from "@/design-system/components/feedback";
 import { Breadcrumb } from "@/design-system/components/navigation";
-import { CloseSurveyButton } from "@/features/surveys/close-survey-button";
+import { SurveyActions } from "@/features/surveys/survey-actions";
 import { SurveyBuilder } from "@/features/surveys/survey-builder";
 import { SurveyResults } from "@/features/surveys/survey-results";
 import { SURVEY_DIMENSIONS, type SurveyDimension } from "@/server/db/schema/surveys";
@@ -62,7 +62,15 @@ async function Survey({ params, searchParams }: Pick<Props, "params" | "searchPa
     return (
       <>
         <div className="mb-5">{crumbs}</div>
-        <h1 className="mb-4 text-h1 font-extrabold tracking-[-0.02em] text-neutral-900">{survey.title}</h1>
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+          <h1 className="text-h1 font-extrabold tracking-[-0.02em] text-neutral-900">{survey.title}</h1>
+          <SurveyActions
+            layout="buttons"
+            survey={{ id, title: survey.title, description: survey.description, status: survey.status, closesAt: survey.closesAt }}
+            canDesign={hasTenantWide(actor, "survey.design")}
+            canLaunch={hasTenantWide(actor, "survey.launch")}
+          />
+        </div>
         <Alert tone="info" title="Resultados por equipe chegam na próxima etapa">
           Por enquanto, resultados ficam disponíveis para quem tem acesso à empresa toda.
         </Alert>
@@ -80,7 +88,14 @@ async function Survey({ params, searchParams }: Pick<Props, "params" | "searchPa
   return (
     <>
       <div className="mb-5">{crumbs}</div>
-      <SurveyResults data={data} basePath={`/gestao/pesquisas/${id}`} actions={survey.status === "active" && hasTenantWide(actor, "survey.launch") ? <CloseSurveyButton surveyId={id} /> : undefined} />
+      <SurveyResults data={data} basePath={`/gestao/pesquisas/${id}`} actions={
+          <SurveyActions
+            layout="buttons"
+            survey={{ id, title: survey.title, description: survey.description, status: survey.status, closesAt: survey.closesAt }}
+            canDesign={hasTenantWide(actor, "survey.design")}
+            canLaunch={hasTenantWide(actor, "survey.launch")}
+          />
+        } />
     </>
   );
 }

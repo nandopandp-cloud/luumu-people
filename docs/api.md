@@ -83,9 +83,13 @@ Paginação por cursor: `?cursor=…&limit=…` → `{ items, nextCursor }`.
 | POST | `/api/v1/announcements/:id/publish` | `comms.announcement.publish` | publica agora ou agenda `{ publishAt? }` (até 12 meses) |
 | POST | `/api/v1/announcements/:id/archive` | `comms.announcement.publish` | tira do mural (fica no histórico) |
 | GET / POST | `/api/v1/surveys` | gestão / `survey.design` | lista pesquisas; cria rascunho (sempre anônima nesta versão) |
-| GET / PUT / DELETE | `/api/v1/surveys/:id` | gestão / `survey.design` | lê, edita e exclui — **somente rascunho** |
+| GET / PUT | `/api/v1/surveys/:id` | gestão / `survey.design` | lê; edita o rascunho inteiro (PUT, **somente rascunho**) |
+| PATCH | `/api/v1/surveys/:id` | `survey.design` (título/descrição) / `survey.launch` (prazo) | pesquisa lançada: `{ title?, description?, closesAt? }`; perguntas, k e dimensões seguem congelados |
+| DELETE | `/api/v1/surveys/:id` | `survey.design` (+ `survey.launch` se lançada) | exclui; se lançada, apaga junto convites e respostas anônimas pelo cofre (`survey_vault.purge`) |
+| POST | `/api/v1/surveys/:id/pause` · `/resume` | `survey.launch` | pausa (ninguém responde) e retoma `{ closesAt? }` |
+| POST | `/api/v1/surveys/:id/duplicate` | `survey.design` | copia perguntas, tipo e k como novo rascunho |
 | POST | `/api/v1/surveys/:id/launch` | `survey.launch` | lança para todas as pessoas ativas `{ closesAt }`; congela k e dimensões |
-| POST | `/api/v1/surveys/:id/close` | `survey.launch` | encerra e libera o último lote |
+| POST | `/api/v1/surveys/:id/close` | `survey.launch` | encerra (em andamento ou pausada) e libera o último lote |
 | GET | `/api/v1/surveys/:id/results` | `survey.results.read_aggregate` (TENANT) | **somente agregados** (`dimension`, `bucket`); grupos < k → `suppressed` |
 | GET / POST | `/api/v1/banners` | `comms.announcement.publish` (TENANT) | banners da home (lista / cria). Destino do botão: caminho interno ou `https://` |
 | GET / PUT / DELETE | `/api/v1/banners/:id` | `comms.announcement.publish` | lê, edita e exclui um banner |

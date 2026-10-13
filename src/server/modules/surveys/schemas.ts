@@ -28,6 +28,14 @@ export const surveyInputSchema = z.strictObject({
 });
 export type SurveyInput = z.infer<typeof surveyInputSchema>;
 
+/** Pesquisa lançada: só título, descrição e prazo mudam. */
+export const surveyDetailsSchema = z
+  .strictObject({ title: text(120).optional(), description: z.string().trim().max(600, "Use no máximo 600 caracteres.").nullish(), closesAt: z.iso.datetime({ offset: true }).optional() })
+  .refine((v) => Object.values(v).some((x) => x !== undefined), "Informe ao menos um campo.");
+export type SurveyDetailsInput = z.infer<typeof surveyDetailsSchema>;
+
+export const resumeInputSchema = z.strictObject({ closesAt: z.iso.datetime({ offset: true }).optional() });
+
 export const launchInputSchema = z.strictObject({ closesAt: z.iso.datetime({ offset: true }) });
 
 export const surveyParamsSchema = z.strictObject({ id: z.uuid() });

@@ -1,6 +1,6 @@
 import { defineRoute } from "@/server/http/route";
-import { surveyInputSchema, surveyParamsSchema } from "@/server/modules/surveys/schemas";
-import { deleteSurvey, getManagedSurvey, updateSurvey } from "@/server/modules/surveys/service";
+import { surveyDetailsSchema, surveyInputSchema, surveyParamsSchema } from "@/server/modules/surveys/schemas";
+import { deleteSurvey, getManagedSurvey, updateSurvey, updateSurveyDetails } from "@/server/modules/surveys/service";
 
 export const GET = defineRoute({
   permission: "management.access",
@@ -16,6 +16,15 @@ export const PUT = defineRoute({
   handler: ({ actor, params, body, meta }) => updateSurvey(actor, params.id, body, meta),
 });
 
+/** Pesquisa lançada: título, descrição e prazo (perguntas e k congelados). */
+export const PATCH = defineRoute({
+  permission: "management.access",
+  params: surveyParamsSchema,
+  body: surveyDetailsSchema,
+  handler: ({ actor, params, body, meta }) => updateSurveyDetails(actor, params.id, body, meta),
+});
+
+/** Rascunho, ou pesquisa lançada junto com as respostas anônimas (exige também `survey.launch`). */
 export const DELETE = defineRoute({
   permission: "survey.design",
   params: surveyParamsSchema,
