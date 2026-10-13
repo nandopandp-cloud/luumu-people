@@ -22,7 +22,9 @@ test.describe("Desenvolvimento", () => {
     await expectAccessible(page);
 
     await gotoHydrated(page, "/desenvolvimento?aba=pdi");
-    await expect(page.getByRole("heading", { level: 1, name: "Meu PDI" })).toBeVisible();
+    // O banner é o mesmo em todas as abas.
+    await expect(page.getByRole("heading", { level: 1, name: /Seu crescimento/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Meu PDI" })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("heading", { name: "Evoluir para posição de liderança" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Editar objetivo" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Novo objetivo" })).toHaveCount(0);
@@ -58,11 +60,53 @@ test.describe("Desenvolvimento", () => {
     await expectAccessible(page);
   });
 
-  test("competências e evolução são acessíveis e sem autoavaliação", async ({ page }) => {
+  test("competências: filtros, detalhes, perfil, sugestões e evolução, sem autoavaliação", async ({ page }) => {
+    test.setTimeout(120_000);
     await signIn(page, "camila.oliveira@aurora.example");
     await gotoHydrated(page, "/desenvolvimento?aba=competencias");
-    await expect(page.getByRole("img", { name: /^Comunicação: atual/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Autoavaliar|Avaliar/ })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Minhas competências" })).toBeVisible();
+    await expect(page.getByText("Competências no total")).toBeVisible();
+    const list = page.getByRole("list", { name: "Competências" });
+    await expect(list.getByRole("listitem")).toHaveCount(8);
+    // Ninguém se autoavalia nem cria competências do catálogo.
+    await expect(page.getByRole("button", { name: /Autoavaliar|Avaliar|Adicionar competência/ })).toHaveCount(0);
+    await expectAccessible(page);
+
+    // Busca e área.
+    await page.getByRole("searchbox", { name: "Buscar competência" }).fill("comunica");
+    await expect(list.getByRole("listitem")).toHaveCount(1);
+    await page.getByRole("searchbox", { name: "Buscar competência" }).fill("");
+    await page.getByRole("combobox", { name: "Área" }).selectOption({ label: "Liderança" });
+    await expect(list.getByRole("listitem")).toHaveCount(2);
+    await page.getByRole("combobox", { name: "Área" }).selectOption({ label: "Área: Todas" });
+    // Filtro por situação: a soma das três situações é o total.
+    const group = page.getByRole("group", { name: "Filtrar por situação" });
+    let total = 0;
+    for (const label of ["Em desenvolvimento", "No nível esperado", "Para evoluir"]) {
+      await group.getByRole("button", { name: new RegExp(`^${label}`) }).click();
+      total += await list.getByRole("listitem").count();
+    }
+    expect(total).toBe(8);
+    await group.getByRole("button", { name: /^Todas/ }).click();
+
+    // Detalhes: atual x esperado e histórico.
+    await list.getByRole("button", { name: "Ver detalhes de Comunicação" }).click();
+    const details = page.getByRole("dialog", { name: "Comunicação" });
+    await expect(details.getByRole("img", { name: /^Comunicação: atual/ })).toBeVisible();
+    await expect(details.getByRole("heading", { name: "Histórico de avaliações" })).toBeVisible();
+    await expectAccessible(page);
+    await details.getByRole("button", { name: "Fechar", exact: true }).first().click();
+
+    // Perfil (radar) com a tabela completa.
+    await page.getByRole("button", { name: "Ver detalhado" }).click();
+    const profile = page.getByRole("dialog", { name: "Meu perfil de competências" });
+    await expect(profile.getByRole("rowheader", { name: "Comunicação" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("region", { name: "Evolução geral" })).toBeVisible();
+    await page.getByRole("combobox", { name: "Período da evolução" }).selectOption("12");
+
+    await gotoHydrated(page, "/desenvolvimento?aba=recomendacoes");
+    await expect(page.getByRole("link", { name: "Recomendações" })).toHaveAttribute("aria-current", "page");
     await expectAccessible(page);
     await gotoHydrated(page, "/desenvolvimento?aba=evolucao");
     await expect(page.getByText("Média das competências")).toBeVisible();
@@ -126,13 +170,16 @@ test.describe("Desenvolvimento", () => {
     await expect(mentorship.getByText("“Conte comigo nos rituais!”")).toBeVisible();
 
     await gotoHydrated(page, `${base}?aba=competencias`);
-    const card = page.getByRole("listitem").filter({ hasText: "Gestão do Tempo" });
-    await card.getByRole("button", { name: "Avaliar" }).click();
+    await expect(page.getByRole("heading", { name: "Sugestões para você" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Ver detalhes de Gestão do Tempo" }).click();
+    const details = page.getByRole("dialog", { name: "Gestão do Tempo" });
+    await details.getByRole("button", { name: "Avaliar" }).click();
     const dialog = page.getByRole("dialog", { name: "Avaliar: Gestão do Tempo" });
     await dialog.getByRole("radio", { name: /Referência/ }).click();
     await dialog.getByRole("button", { name: "Registrar avaliação" }).click();
     await expect(dialog).toBeHidden();
-    await expect(page.getByRole("img", { name: "Gestão do Tempo: atual 100%, esperado 70%" })).toBeVisible();
+    await expect(details.getByRole("img", { name: "Gestão do Tempo: atual 100%, esperado 70%" })).toBeVisible();
+    await page.keyboard.press("Escape");
 
     await gotoHydrated(page, `${base}?aba=historico`);
     await expect(page.getByRole("cell", { name: "Gestão do Tempo" }).first()).toBeVisible();

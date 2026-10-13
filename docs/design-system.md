@@ -44,6 +44,7 @@ Fontes: o styleguide da Luumu People e os mockups de interface. Código em `src/
 | Field, Input, Textarea | `field.tsx`: label associado, dica, erro anunciado (`role=alert`) com ícone |
 | Select | `select.tsx` (nativo estilizado) |
 | Switch, Checkbox, RadioGroup | `choice.tsx` (Radix) |
+| Charts | `charts.tsx`: AreaChart, ColumnChart, DonutChart e `RadarChart` (perfil em várias dimensões, atual x referência; ofereça a tabela equivalente ao lado) |
 | Tabs, LinkTabs | `tabs.tsx` (Radix), `link-tabs.tsx` (estado na URL; `variant="soft"`: blocos claros e a aba atual branca, roxa e sublinhada — Desenvolvimento) |
 | Badge | `badge.tsx`: tons da paleta |
 | Avatar, AvatarGroup | `avatar.tsx`: foto ou iniciais com tom estável |

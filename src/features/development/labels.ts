@@ -14,10 +14,11 @@ export const COMPETENCY_ICONS: Record<string, LucideIcon> = {
 
 export const CATEGORY_LABEL: Record<string, string> = { comportamental: "Comportamental", tecnica: "Técnica", lideranca: "Liderança" };
 
+/** Situação da competência frente ao nível esperado do cargo. */
 export const LEVEL = {
-  developed: { label: "Desenvolvida", tone: "green", bar: "bg-green-500", dot: "bg-green-500" },
-  developing: { label: "Em desenvolvimento", tone: "yellow", bar: "bg-orange-500", dot: "bg-orange-500" },
-  to_develop: { label: "A desenvolver", tone: "red", bar: "bg-pink-500", dot: "bg-pink-500" },
+  developed: { label: "No nível esperado", tone: "green", bar: "bg-green-500", dot: "bg-green-500", chip: "bg-green-50 text-green-800" },
+  developing: { label: "Em desenvolvimento", tone: "yellow", bar: "bg-orange-500", dot: "bg-orange-500", chip: "bg-blue-50 text-blue-700" },
+  to_develop: { label: "Para evoluir", tone: "red", bar: "bg-pink-500", dot: "bg-pink-500", chip: "bg-red-50 text-red-700" },
 } as const;
 
 export const SOURCE_LABEL: Record<string, string> = { self: "Autoavaliação", manager: "Avaliação do gestor", people: "Avaliação de G&G" };

@@ -62,9 +62,12 @@ const SELF_ACTION_FIELDS = new Set(["status", "evidence", "evidenceUrl"]);
 
 /* -------------------------------------------------------------- leitura */
 
+export type AssessmentPoint = { score: number; source: string; assessedAt: Date };
+
 export type CompetencyRow = {
   id: string;
   name: string;
+  description: string | null;
   category: string;
   icon: string;
   score: number | null;
@@ -76,10 +79,25 @@ export type CompetencyRow = {
   source: string | null;
   assessedAt: Date | null;
   level: CompetencyLevel;
+  /** Avaliações, da mais antiga para a mais recente (nota, origem e data — sem comentário nem avaliador). */
+  history: AssessmentPoint[];
 };
 
-async function loadCompetencies(tx: Tx, userId: string): Promise<CompetencyRow[]> {
-  const result = rows<Omit<CompetencyRow, "level" | "delta">>(
+type AssessmentRow = { competencyId: string; name: string; icon: string; score: number; source: string; assessedAt: Date };
+
+/** Todas as avaliações da pessoa (competências ativas), em ordem cronológica por competência. */
+async function loadAssessments(tx: Tx, userId: string): Promise<AssessmentRow[]> {
+  return rows<AssessmentRow>(
+    await tx.execute(sql`
+      select ca.competency_id as "competencyId", c.name, c.icon, ca.score::int as score, ca.source, ca.assessed_at as "assessedAt"
+      from competency_assessments ca join competencies c on c.id = ca.competency_id
+      where ca.user_id = ${userId} and c.archived_at is null
+      order by ca.competency_id, ca.assessed_at, ca.id`),
+  ).map((r) => ({ ...r, assessedAt: new Date(r.assessedAt) }));
+}
+
+async function loadCompetencies(tx: Tx, userId: string, assessments: AssessmentRow[]): Promise<CompetencyRow[]> {
+  const result = rows<Omit<CompetencyRow, "level" | "delta" | "history">>(
     await tx.execute(sql`
       with current_position as (
         select ea.position_id from employment_assignments ea where ea.user_id = ${userId} and ea.valid_to is null
@@ -88,7 +106,7 @@ async function loadCompetencies(tx: Tx, userId: string): Promise<CompetencyRow[]
                row_number() over (partition by ca.competency_id order by ca.assessed_at desc, ca.id desc) as n
         from competency_assessments ca where ca.user_id = ${userId}
       )
-      select c.id, c.name, c.category, c.icon,
+      select c.id, c.name, c.description, c.category, c.icon,
              latest.score::int as score, previous.score::int as "previousScore", latest.source, latest.assessed_at as "assessedAt",
              coalesce(pc.expected_score, 70)::int as expected
       from competencies c
@@ -102,6 +120,7 @@ async function loadCompetencies(tx: Tx, userId: string): Promise<CompetencyRow[]
     ...c,
     delta: c.score !== null && c.previousScore !== null ? c.score - c.previousScore : null,
     level: classify(c.score, c.expected),
+    history: assessments.filter((a) => a.competencyId === c.id).map((a) => ({ score: a.score, source: a.source, assessedAt: a.assessedAt })),
   }));
 }
 
@@ -116,14 +135,7 @@ export type CompetencyMilestone = { competencyId: string; name: string; icon: st
  * Conquistas do desenvolvimento, DERIVADAS do histórico de avaliações: cada vez
  * que uma competência alcança um nível de proficiência inédito. Mais recentes primeiro.
  */
-async function loadMilestones(tx: Tx, userId: string): Promise<CompetencyMilestone[]> {
-  const history = rows<{ competencyId: string; name: string; icon: string; score: number; assessedAt: Date }>(
-    await tx.execute(sql`
-      select ca.competency_id as "competencyId", c.name, c.icon, ca.score::int as score, ca.assessed_at as "assessedAt"
-      from competency_assessments ca join competencies c on c.id = ca.competency_id
-      where ca.user_id = ${userId} and c.archived_at is null
-      order by ca.competency_id, ca.assessed_at, ca.id`),
-  );
+function deriveMilestones(history: AssessmentRow[]): CompetencyMilestone[] {
   const reached = new Map<string, number>();
   const milestones: CompetencyMilestone[] = [];
   for (const h of history) {
@@ -301,11 +313,13 @@ export async function getDevelopment(actor: AuthenticatedActor, userId: string =
         where u.id = ${userId}`),
     );
     if (!person) throw notFound();
-    const competencyList = await loadCompetencies(tx, userId);
+    const assessments = await loadAssessments(tx, userId);
+    const competencyList = await loadCompetencies(tx, userId, assessments);
     const pdis = await listPdis(tx, userId);
     // Ciclo pedido que não é da pessoa: cai no ativo (não revela nada de outra pessoa).
     const pdi = await loadPdi(tx, userId, options.pdiId && pdis.some((p) => p.id === options.pdiId) ? options.pdiId : undefined);
-    const [milestones, competencyOptions] = [await loadMilestones(tx, userId), await listCompetencyOptions(tx)];
+    const milestones = deriveMilestones(assessments);
+    const competencyOptions = await listCompetencyOptions(tx);
     const counts = {
       developed: competencyList.filter((c) => c.level === "developed").length,
       developing: competencyList.filter((c) => c.level === "developing").length,
@@ -326,6 +340,10 @@ export async function getDevelopment(actor: AuthenticatedActor, userId: string =
       competencyOptions,
       canManage: manage && editable,
       canUpdateProgress: (manage || isSelf) && editable,
+      /** Avaliar competências não depende do ciclo do PDI. */
+      canAssess: manage,
+      /** Manter o catálogo de competências da empresa (G&G/Administrador). */
+      canManageCatalog: hasTenantWide(actor, "development.pdi.manage"),
       isSelf,
     };
   });

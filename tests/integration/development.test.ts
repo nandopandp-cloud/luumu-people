@@ -9,6 +9,7 @@ import * as goalsRoute from "@/app/api/v1/development/pdis/[pdiId]/goals/route";
 import * as pdisRoute from "@/app/api/v1/development/pdis/route";
 import { resolveActor } from "@/server/auth/session";
 import { classify, getDevelopment, listTeamCompetencyGaps, listTeamDevelopment } from "@/server/modules/development/service";
+import { listCompetencySuggestions } from "@/server/modules/development/suggestions";
 import { headersWith, signIn } from "../support/auth";
 import { testDatabase, userOf } from "../support/db";
 import { call } from "../support/http";
@@ -68,6 +69,29 @@ describe("desenvolvimento de pessoas", () => {
     // Ciclo de outra pessoa na URL: ignorado (mostra o próprio).
     const other = await getDevelopment((await actorOf("camila")).actor);
     expect((await getDevelopment(actor, actor.userId, { pdiId: other.pdi!.id })).pdi!.id).toBe(pdi.id);
+  });
+
+  it("competências: descrição, histórico sem comentários e sugestões do catálogo para o que falta desenvolver", async () => {
+    const { actor } = await actorOf("fernando");
+    const dev = await getDevelopment(actor);
+    expect(dev.canManageCatalog).toBe(false);
+    const comunicacao = dev.competencies.find((c) => c.name === "Comunicação")!;
+    expect(comunicacao.description).toEqual(expect.any(String));
+    expect(comunicacao.history).toHaveLength(3);
+    expect(Object.keys(comunicacao.history[0]!).sort()).toEqual(["assessedAt", "score", "source"]);
+    expect(comunicacao.history.at(-1)!.score).toBe(comunicacao.score);
+
+    // Força Comunicação abaixo do esperado e Liderança acima: só a primeira recebe sugestões.
+    const forced = dev.competencies.map((c) => (c.name === "Comunicação" ? { ...c, level: "to_develop" as const, score: 30 } : c.name === "Liderança" ? { ...c, level: "developed" as const } : c));
+    const suggestions = await listCompetencySuggestions(actor, forced);
+    const com = suggestions.find((x) => x.competencyName === "Comunicação")!;
+    expect(com.items[0]).toMatchObject({ kind: "path", title: "Comunicação Eficaz" });
+    expect(com.items.length).toBeLessThanOrEqual(3);
+    expect(suggestions.find((x) => x.competencyName === "Liderança")).toBeUndefined();
+    expect(await listCompetencySuggestions(actor, forced.map((c) => ({ ...c, level: "developed" as const })))).toEqual([]);
+
+    const juliana = await actorOf("juliana");
+    expect((await getDevelopment(juliana.actor)).canManageCatalog).toBe(true);
   });
 
   it("objetivo e mentoria: só a liderança edita; mentoria é um colega ativo e nunca a própria pessoa", async () => {

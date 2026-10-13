@@ -12,8 +12,7 @@ import { cn } from "@/design-system/cn";
 import { monthLabel } from "@/features/courses/labels";
 import { Table, Td, Th, THead, Tr } from "@/design-system/components/table";
 import type { AssessmentHistoryItem, CompetencyRow, Development } from "@/server/modules/development/service";
-import { AssessCompetencyButton } from "./forms";
-import { CATEGORY_LABEL, COMPETENCY_ICONS, formatDay, LEVEL, SOURCE_LABEL } from "./labels";
+import { COMPETENCY_ICONS, formatDay, LEVEL, SOURCE_LABEL } from "./labels";
 
 function Panel({ id, title, href, linkLabel, children, className, icon }: { id: string; title: string; href?: Route; linkLabel?: string; children: ReactNode; className?: string; icon?: ReactNode }) {
   return (
@@ -175,53 +174,6 @@ export function CompetencyBarsCard({ development, href }: { development: Develop
         ))}
       </ul>
     </Panel>
-  );
-}
-
-/** Grade de competências com atual x esperado e avaliação. */
-export function CompetencyGrid({ development, assessAs }: { development: Development; assessAs: "manager" | null }) {
-  const userId = development.isSelf ? undefined : development.person.id;
-  return (
-    <ul className="grid gap-4 md:grid-cols-2">
-      {development.competencies.map((c) => {
-        const Icon = COMPETENCY_ICONS[c.icon] ?? Target;
-        const level = LEVEL[c.level];
-        return (
-          <li key={c.id} className="card flex flex-col p-5">
-            <div className="flex items-start gap-3">
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-purple-50 text-purple-500">
-                <Icon aria-hidden className="size-5" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <h3 className="text-h4 font-semibold text-neutral-900">{c.name}</h3>
-                <p className="text-caption text-neutral-600">{CATEGORY_LABEL[c.category] ?? c.category}</p>
-              </div>
-              <Badge tone={level.tone}>{level.label}</Badge>
-            </div>
-            <div className="mt-4">
-              <div className="relative h-2.5 rounded-full bg-neutral-100" role="img" aria-label={`${c.name}: atual ${c.score ?? "sem avaliação"}${c.score !== null ? "%" : ""}, esperado ${c.expected}%`}>
-                <div className={cn("h-full rounded-full", level.bar)} style={{ width: `${c.score ?? 0}%` }} />
-                <span aria-hidden className="absolute -top-1 h-[18px] w-0.5 rounded bg-neutral-800" style={{ left: `calc(${c.expected}% - 1px)` }} />
-              </div>
-              <p className="mt-2 flex justify-between text-caption text-neutral-600">
-                <span>
-                  Atual: <strong className="text-neutral-900">{c.score === null ? "—" : `${c.score}%`}</strong>
-                </span>
-                <span>
-                  Esperado para o cargo: <strong className="text-neutral-900">{c.expected}%</strong>
-                </span>
-              </p>
-            </div>
-            <div className="mt-auto flex items-center justify-between gap-3 pt-3">
-              <p className="text-caption text-neutral-600">{c.source ? `${SOURCE_LABEL[c.source]} · ${c.assessedAt ? new Date(c.assessedAt).toLocaleDateString("pt-BR") : ""}` : "Ainda não avaliada"}</p>
-              {assessAs ? (
-                <AssessCompetencyButton userId={userId} competencyId={c.id} competencyName={c.name} current={c.score} label="Avaliar" />
-              ) : null}
-            </div>
-          </li>
-        );
-      })}
-    </ul>
   );
 }
 

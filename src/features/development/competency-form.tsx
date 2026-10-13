@@ -12,7 +12,7 @@ import { useToast } from "@/design-system/components/toast";
 import { api, ApiError } from "@/lib/api-client";
 import { CATEGORY_LABEL } from "./labels";
 
-export function NewCompetencyButton() {
+export function NewCompetencyButton({ trigger }: { trigger?: React.ReactNode } = {}) {
   const router = useRouter();
   const toast = useToast();
   const [open, setOpen] = useState(false);
@@ -28,9 +28,11 @@ export function NewCompetencyButton() {
       title="Nova competência"
       description="Ela passa a valer para toda a empresa, com nível esperado padrão de 70%."
       trigger={
-        <Button>
-          <Plus aria-hidden /> Nova competência
-        </Button>
+        trigger ?? (
+          <Button>
+            <Plus aria-hidden /> Nova competência
+          </Button>
+        )
       }
     >
       <form

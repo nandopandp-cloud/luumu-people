@@ -265,3 +265,90 @@ export function DonutChart({ data, title, description, centerLabel }: { data: Da
     </ChartFrame>
   );
 }
+
+/** Quebra um rótulo longo em até duas linhas (no espaço mais perto do meio). */
+function splitLabel(label: string, max = 13): string[] {
+  if (label.length <= max || !label.includes(" ")) return [label];
+  const middle = label.length / 2;
+  const spaces = [...label.matchAll(/ /g)].map((m) => m.index!);
+  const at = spaces.reduce((best, i) => (Math.abs(i - middle) < Math.abs(best - middle) ? i : best), spaces[0]!);
+  return [label.slice(0, at), label.slice(at + 1)];
+}
+
+/**
+ * Radar (aranha) — perfil em várias dimensões de 0 a 100, com a série atual
+ * (roxo) sobre a referência (cinza). Ao menos 3 eixos; a tabela equivalente
+ * deve estar disponível ao lado (ex.: "Ver detalhado").
+ */
+export function RadarChart({
+  items,
+  valueLabel,
+  targetLabel,
+  label,
+  className,
+}: {
+  items: { label: string; value: number; target: number }[];
+  valueLabel: string;
+  targetLabel: string;
+  label: string;
+  className?: string;
+}) {
+  const width = 340;
+  const height = 270;
+  const cx = width / 2;
+  const cy = height / 2 + 2;
+  const radius = 82;
+  const n = items.length;
+  if (n < 3) return null;
+  const angle = (i: number) => -Math.PI / 2 + (i * 2 * Math.PI) / n;
+  const point = (i: number, value: number) => {
+    const r = (Math.max(0, Math.min(100, value)) / 100) * radius;
+    return { x: cx + r * Math.cos(angle(i)), y: cy + r * Math.sin(angle(i)) };
+  };
+  const polygon = (values: number[]) => values.map((v, i) => point(i, v)).map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  const summary = `${label}. ${items.map((it) => `${it.label}: ${valueLabel.toLowerCase()} ${fmt.format(it.value)}%, ${targetLabel.toLowerCase()} ${fmt.format(it.target)}%`).join("; ")}.`;
+  return (
+    <div className={className}>
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full overflow-visible" role="img" aria-label={summary}>
+        {[25, 50, 75, 100].map((ring) => (
+          <polygon key={ring} points={polygon(items.map(() => ring))} fill={ring === 100 ? "var(--color-purple-50)" : "none"} stroke="var(--color-chart-grid)" strokeWidth="1" />
+        ))}
+        {items.map((it, i) => {
+          const end = point(i, 100);
+          return <line key={it.label} x1={cx} y1={cy} x2={end.x} y2={end.y} stroke="var(--color-chart-grid)" strokeWidth="1" />;
+        })}
+        <polygon points={polygon(items.map((it) => it.target))} fill="var(--color-neutral-200)" fillOpacity="0.35" stroke="var(--color-neutral-400)" strokeWidth="1.5" strokeDasharray="4 3" />
+        <polygon points={polygon(items.map((it) => it.value))} fill="var(--color-purple-400)" fillOpacity="0.3" stroke="var(--color-purple-500)" strokeWidth="2" strokeLinejoin="round" />
+        {items.map((it, i) => {
+          const p = point(i, it.value);
+          return <circle key={it.label} cx={p.x} cy={p.y} r="3.5" fill="var(--color-purple-500)" stroke="#fff" strokeWidth="1.5" />;
+        })}
+        {items.map((it, i) => {
+          const a = angle(i);
+          const x = cx + (radius + 14) * Math.cos(a);
+          const y = cy + (radius + 14) * Math.sin(a);
+          const anchor = Math.abs(Math.cos(a)) < 0.2 ? "middle" : Math.cos(a) > 0 ? "start" : "end";
+          const lines = splitLabel(it.label);
+          const top = Math.sin(a) < -0.5 ? y - (lines.length - 1) * 13 : Math.sin(a) > 0.5 ? y + 8 : y - ((lines.length - 1) * 13) / 2 + 4;
+          return (
+            <text key={it.label} x={x} y={top} textAnchor={anchor} className="fill-neutral-600 text-[11px]">
+              {lines.map((line, j) => (
+                <tspan key={line} x={x} dy={j ? 13 : 0}>
+                  {line}
+                </tspan>
+              ))}
+            </text>
+          );
+        })}
+      </svg>
+      <div aria-hidden className="mt-1 flex flex-wrap justify-center gap-x-5 gap-y-1 text-caption text-neutral-600">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="size-2.5 rounded-full bg-purple-500" /> {valueLabel}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="size-2.5 rounded-full bg-neutral-300" /> {targetLabel}
+        </span>
+      </div>
+    </div>
+  );
+}

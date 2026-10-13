@@ -14,7 +14,8 @@ import { getCompetencyEvolution, getDevelopment, listAssessmentHistory } from "@
 
 export const metadata: Metadata = { title: "Desenvolvimento da pessoa" };
 
-const TABS = [...DEVELOPMENT_TABS.map((t) => (t.value === "pdi" ? { ...t, label: "PDI" } : t)), { value: "historico", label: "Histórico" }] as const;
+// Recomendações de conteúdo são só para a própria pessoa.
+const TABS = [...DEVELOPMENT_TABS.filter((t) => t.value !== "recomendacoes").map((t) => (t.value === "pdi" ? { ...t, label: "PDI" } : t)), { value: "historico", label: "Histórico" }] as const;
 
 export default function PersonDevelopmentPage({ params, searchParams }: PageProps<"/gestao/desenvolvimento/[userId]">) {
   return (
@@ -53,11 +54,20 @@ async function Person({ params, searchParams }: PageProps<"/gestao/desenvolvimen
         </div>
         <Badge tone={development.canManage ? "purple" : "neutral"}>{development.canManage ? "Você lança metas e avaliações" : "Somente leitura"}</Badge>
       </header>
-      <DevelopmentTabs base={base} tab={tab} development={development} items={TABS} />
       {tab === "historico" ? (
-        <AssessmentHistory items={await listAssessmentHistory(actor, userId)} />
+        <>
+          <DevelopmentTabs base={base} tab={tab} development={development} items={TABS} />
+          <AssessmentHistory items={await listAssessmentHistory(actor, userId)} />
+        </>
       ) : (
-        <DevelopmentTabContent tab={tab} development={development} base={base} managedUserId={userId} evolution={tab === "evolucao" ? await getCompetencyEvolution(actor, userId) : undefined} />
+        <DevelopmentTabContent
+          tab={tab}
+          development={development}
+          base={base}
+          tabs={<DevelopmentTabs base={base} tab={tab} development={development} items={TABS} />}
+          managedUserId={userId}
+          evolution={tab === "evolucao" || tab === "competencias" ? await getCompetencyEvolution(actor, userId, tab === "competencias" ? 12 : 6) : undefined}
+        />
       )}
     </div>
   );

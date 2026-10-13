@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { z } from "zod";
 import { Skeleton } from "@/design-system/components/feedback";
-import { DevelopmentHero, PdiHero } from "@/features/development/hero";
+import { DevelopmentHero } from "@/features/development/hero";
 import { DEVELOPMENT_TABS, DevelopmentTabContent, DevelopmentTabs, type DevelopmentTab } from "@/features/development/view";
 import { requireActor } from "@/server/dal";
 import { getCompetencyEvolution, getDevelopment } from "@/server/modules/development/service";
+import { listCompetencySuggestions } from "@/server/modules/development/suggestions";
+import { getEnabledModules } from "@/server/modules/flags/modules";
 
 export const metadata: Metadata = { title: "Desenvolvimento" };
 
@@ -21,12 +23,11 @@ async function parse(searchParams: SP): Promise<{ tab: DevelopmentTab; pdiId?: s
   return { tab, pdiId: z.uuid().safeParse(pdi).success ? pdi : undefined };
 }
 
+/** O banner é o mesmo em todas as abas ("Seu crescimento é único."). */
 export default function DevelopmentPage({ searchParams }: PageProps<"/desenvolvimento">) {
   return (
     <>
-      <Suspense fallback={<Skeleton className="mb-6 h-[220px] rounded-xl" />}>
-        <Hero searchParams={searchParams} />
-      </Suspense>
+      <DevelopmentHero />
       <Suspense fallback={<Skeleton className="h-[480px] rounded-xl" />}>
         <Content searchParams={searchParams} />
       </Suspense>
@@ -34,18 +35,23 @@ export default function DevelopmentPage({ searchParams }: PageProps<"/desenvolvi
   );
 }
 
-async function Hero({ searchParams }: { searchParams: SP }) {
-  const { tab } = await parse(searchParams);
-  return tab === "pdi" ? <PdiHero /> : <DevelopmentHero />;
-}
-
 async function Content({ searchParams }: { searchParams: SP }) {
   const [actor, { tab, pdiId }] = await Promise.all([requireActor(), parse(searchParams)]);
-  const [development, evolution] = await Promise.all([getDevelopment(actor, actor.userId, { pdiId }), tab === "evolucao" ? getCompetencyEvolution(actor) : undefined]);
+  const [development, evolution, modules] = await Promise.all([
+    getDevelopment(actor, actor.userId, { pdiId }),
+    tab === "evolucao" || tab === "competencias" ? getCompetencyEvolution(actor, actor.userId, tab === "competencias" ? 12 : 6) : undefined,
+    getEnabledModules(actor),
+  ]);
+  const suggestions = modules.learning && (tab === "competencias" || tab === "recomendacoes") ? await listCompetencySuggestions(actor, development.competencies) : undefined;
   return (
-    <>
-      <DevelopmentTabs base="/desenvolvimento" tab={tab} development={development} items={DEVELOPMENT_TABS} />
-      <DevelopmentTabContent tab={tab} development={development} base="/desenvolvimento" evolution={evolution} />
-    </>
+    <DevelopmentTabContent
+      tab={tab}
+      development={development}
+      base="/desenvolvimento"
+      tabs={<DevelopmentTabs base="/desenvolvimento" tab={tab} development={development} items={DEVELOPMENT_TABS} />}
+      evolution={evolution}
+      suggestions={suggestions}
+      learningEnabled={modules.learning}
+    />
   );
 }
