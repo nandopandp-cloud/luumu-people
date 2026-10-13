@@ -182,7 +182,11 @@ export const userInterests = pgTable(
   ],
 );
 
-/** Seguir: vínculo de mão única, sem aprovação (diferente da amizade). */
+/**
+ * @deprecated "Seguir" passou a ser o próprio pedido de conexão (out/2026): a
+ * tabela não é mais usada. Remover numa migration da PRÓXIMA release
+ * (expand/contract), depois que esta versão estiver no ar.
+ */
 export const userFollows = pgTable(
   "user_follows",
   {

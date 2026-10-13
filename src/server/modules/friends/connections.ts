@@ -10,14 +10,15 @@ import { visibleTo } from "@/server/modules/announcements/service";
 import { INTERESTS, INTEREST_KEYS, MAX_INTERESTS } from "@/lib/interests";
 import type { ConnectionCard, ConnectionsCounts, DiscoverFilter } from "@/features/friends/types";
 import { displayName, friendIdsOf, moodsOf, mutualCountSql, onlineSql, relationSql, toCard, type ColleagueRow } from "./shared";
-import { countReceivedRequests, requestFriendship } from "./service";
+import { countReceivedRequests } from "./service";
 
 /**
  * Conexões (área "Amigos"): descobrir pessoas, sugestões, destaques, quem está
- * online, seguir e interesses do perfil.
+ * online e interesses do perfil.
  *
  *  - O cartão mostra só dados profissionais públicos na empresa (como em
- *    service.ts), os interesses em comum, se a pessoa atual segue e a capa.
+ *    service.ts), os interesses em comum e a capa. "Seguir" (destaques) é o
+ *    mesmo pedido de conexão de "Conectar" — não existe vínculo separado.
  *  - Presença ("online agora") só para amigos — mesma regra das conversas.
  *  - Destaques: atividade pública dos últimos 30 dias nos comunicados que a
  *    pessoa atual vê (comunicados publicados, comentários e curtidas recebidas
@@ -51,8 +52,6 @@ async function whoAmI(tx: Tx, actor: AuthenticatedActor): Promise<Me> {
 const commonInterestsSql = (me: string, other: SQL) =>
   sql<string[]>`coalesce((select array_agg(o.interest_key order by o.interest_key) from user_interests o where o.user_id = ${other} and o.interest_key in (select m.interest_key from user_interests m where m.user_id = ${me})), '{}')`;
 
-const followingSql = (me: string, other: SQL) => sql<boolean>`exists (select 1 from user_follows f where f.follower_id = ${me} and f.followee_id = ${other})`;
-
 /** Mesmo time: mesma área, mesmo gestor, ou gestor / liderado direto. */
 function sameTeamSql(actor: AuthenticatedActor, me: Me, other: SQL): SQL<boolean> {
   const parts: SQL[] = [
@@ -79,7 +78,6 @@ function cards(tx: Tx, actor: AuthenticatedActor, me: Me) {
       mutualCount: mutualCountSql(actor.userId, other),
       online: onlineSql(other),
       commonInterests: commonInterestsSql(actor.userId, other),
-      following: followingSql(actor.userId, other),
       sameTeam: sameTeamSql(actor, me, other),
     })
     .from(s.users)
@@ -102,7 +100,6 @@ async function toCards(tx: Tx, rows: CardRow[]): Promise<ConnectionCard[]> {
     ...toCard(r as unknown as ColleagueRow, moods),
     commonInterests: r.commonInterests ?? [],
     sameTeam: r.sameTeam,
-    following: r.following,
     cover: r.cover,
   }));
 }
@@ -194,7 +191,7 @@ export async function dismissSuggestion(actor: AuthenticatedActor, userId: strin
   });
 }
 
-/** Pessoas em destaque: mais atividade pública recente nos comunicados que a pessoa atual vê. */
+/** Pessoas em destaque: quem ainda não é conexão, com mais atividade pública recente nos comunicados que a pessoa atual vê. */
 export async function listFeatured(actor: AuthenticatedActor, limit: number): Promise<ConnectionCard[]> {
   return withTenant(actor, async (tx) => {
     const since = sql`now() - ${WINDOW}`;
@@ -226,14 +223,15 @@ export async function listFeatured(actor: AuthenticatedActor, limit: number): Pr
     const ranked = [...scores.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id);
 
     const me = await whoAmI(tx, actor);
-    const followers = sql`(select count(*) from user_follows f where f.followee_id = ${s.users.id})`;
-    const top = ranked.length ? await cards(tx, actor, me).where(and(activeOthers(actor), inArray(s.users.id, ranked.slice(0, limit * 2)))) : [];
+    // Quem já é conexão não entra: os destaques servem para descobrir (e "Seguir" = pedir conexão).
+    const notFriend = sql`${s.users.id} not in ${friendIdsOf(actor.userId)}`;
+    const top = ranked.length ? await cards(tx, actor, me).where(and(activeOthers(actor), notFriend, inArray(s.users.id, ranked.slice(0, limit * 4)))) : [];
     const ordered = top.sort((a, b) => ranked.indexOf(a.id) - ranked.indexOf(b.id)).slice(0, limit);
-    // Pouca atividade ainda: completa com quem tem mais seguidores.
+    // Pouca atividade ainda: completa com quem tem mais amigos em comum.
     if (ordered.length < limit) {
       const extra = await cards(tx, actor, me)
-        .where(and(activeOthers(actor), ordered.length ? notInArray(s.users.id, ordered.map((r) => r.id)) : undefined))
-        .orderBy(desc(followers), asc(displayName))
+        .where(and(activeOthers(actor), notFriend, ordered.length ? notInArray(s.users.id, ordered.map((r) => r.id)) : undefined))
+        .orderBy(desc(mutualCountSql(actor.userId, sql`${s.users.id}`)), asc(displayName))
         .limit(limit - ordered.length);
       ordered.push(...extra);
     }
@@ -276,17 +274,6 @@ async function assertColleague(tx: Tx, actor: AuthenticatedActor, userId: string
   if (!row) throw notFound("Pessoa não encontrada.");
 }
 
-/** Seguir / deixar de seguir (sem aprovação). Devolve o estado e quantos seguidores a pessoa tem. */
-export async function setFollowing(actor: AuthenticatedActor, userId: string, follow: boolean): Promise<{ following: boolean; followers: number }> {
-  return withTenant(actor, async (tx) => {
-    await assertColleague(tx, actor, userId);
-    if (follow) await tx.insert(s.userFollows).values({ tenantId: actor.tenantId, followerId: actor.userId, followeeId: userId }).onConflictDoNothing();
-    else await tx.delete(s.userFollows).where(and(eq(s.userFollows.followerId, actor.userId), eq(s.userFollows.followeeId, userId)));
-    const [row] = await tx.select({ n: count() }).from(s.userFollows).where(eq(s.userFollows.followeeId, userId));
-    return { following: follow, followers: row?.n ?? 0 };
-  });
-}
-
 export async function getMyInterests(actor: AuthenticatedActor): Promise<string[]> {
   return withTenant(actor, async (tx) =>
     (
@@ -310,14 +297,4 @@ export async function setMyInterests(actor: AuthenticatedActor, keys: string[]):
     if (wanted.length) await tx.insert(s.userInterests).values(wanted.map((interestKey) => ({ tenantId: actor.tenantId, userId: actor.userId, interestKey }))).onConflictDoNothing();
     return wanted;
   });
-}
-
-/** Convidar colegas: pede amizade a várias pessoas de uma vez (ignora quem já tem vínculo). */
-export async function requestMany(actor: AuthenticatedActor, userIds: string[]): Promise<{ sent: number }> {
-  let sent = 0;
-  for (const id of [...new Set(userIds)].filter((id) => id !== actor.userId)) {
-    const { relation } = await requestFriendship(actor, id);
-    if (relation === "sent" || relation === "friends") sent += 1;
-  }
-  return { sent };
 }

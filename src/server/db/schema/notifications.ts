@@ -8,7 +8,7 @@ import { organizations } from "./tenancy";
 
 /**
  * Notificações in-app. Amizade (pedido recebido e pedido aceito) também é
- * CALCULADA, a partir de `friendships` (chaves `friend:<id>` e `friendok:<id>`), assim como "novo seguidor" (`follow:<id>`, de `user_follows`).
+ * CALCULADA, a partir de `friendships` (chaves `friend:<id>` e `friendok:<id>`).
  *
  * Dois tipos de origem:
  *  - CALCULADAS na leitura (novo comunicado, nova pesquisa, lembrete de

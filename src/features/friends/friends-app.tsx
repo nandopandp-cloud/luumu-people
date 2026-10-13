@@ -18,6 +18,7 @@ import { ChatPanel } from "./chat-panel";
 import { chatDock } from "./dock-store";
 import { errorMessage, friendsApi } from "./client";
 import { AddMembersDialog, ConfirmDialog, NewGroupDialog, RenameGroupDialog } from "./group-dialogs";
+import { NewConversationDialog } from "./new-conversation-dialog";
 import { MoodMark, PresenceAvatar, shortWhen } from "./person-bits";
 import { GroupPanel, PersonPanel, type FriendActions } from "./profile-panel";
 import type { ConversationDetail, ConversationSummary, FriendRequests, MessagesPage } from "./types";
@@ -77,6 +78,7 @@ export function FriendsApp({ meId, initial }: { meId: string; initial: Initial }
   const [panelOpen, setPanelOpen] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [newGroup, setNewGroup] = useState(false);
+  const [composing, setComposing] = useState(false);
   const [addMembers, setAddMembers] = useState(false);
   const [rename, setRename] = useState(false);
   const [confirm, setConfirm] = useState<{ title: string; description: string; label: string; run: () => Promise<void> } | null>(null);
@@ -287,9 +289,14 @@ export function FriendsApp({ meId, initial }: { meId: string; initial: Initial }
           <h1 id="amigos-titulo" className="text-h1 font-extrabold tracking-[-0.02em] text-neutral-900">
             Conversas
           </h1>
-          <IconButton label="Nova conversa em grupo" variant="soft" size="lg" onClick={() => setNewGroup(true)}>
-            <UsersRound />
-          </IconButton>
+          <div className="flex items-center gap-2">
+            <IconButton label="Nova conversa em grupo" variant="soft" size="lg" onClick={() => setNewGroup(true)}>
+              <UsersRound />
+            </IconButton>
+            <Button onClick={() => setComposing(true)}>
+              <MessageCirclePlus aria-hidden /> Nova conversa
+            </Button>
+          </div>
         </header>
         {/* Pessoas e pedidos de conexão vivem em Conexões (/amigos): aqui, só as mensagens. */}
         <nav aria-label="Atalhos de conexões" className="flex flex-wrap gap-2 px-5 pt-3 sm:px-6">
@@ -345,7 +352,7 @@ export function FriendsApp({ meId, initial }: { meId: string; initial: Initial }
             <Skeleton className="h-10 w-48" />
           </div>
         ) : (
-          <NoConversation onNewGroup={() => setNewGroup(true)} />
+          <NoConversation onNew={() => setComposing(true)} onNewGroup={() => setNewGroup(true)} />
         )}
       </div>
 
@@ -361,6 +368,15 @@ export function FriendsApp({ meId, initial }: { meId: string; initial: Initial }
         </Drawer>
       ) : null}
 
+      <NewConversationDialog
+        open={composing}
+        onOpenChange={setComposing}
+        onNewGroup={() => setNewGroup(true)}
+        onOpened={async (id) => {
+          await refreshList();
+          openConversation(id);
+        }}
+      />
       <NewGroupDialog
         open={newGroup}
         onOpenChange={setNewGroup}
@@ -406,7 +422,7 @@ export function FriendsApp({ meId, initial }: { meId: string; initial: Initial }
   );
 }
 
-function NoConversation({ onNewGroup }: { onNewGroup: () => void }) {
+function NoConversation({ onNew, onNewGroup }: { onNew: () => void; onNewGroup: () => void }) {
   return (
     <section aria-label="Nenhuma conversa aberta" className="card flex h-full min-h-[420px] flex-col items-center justify-center px-6 text-center">
       <div className="relative mb-3">
@@ -414,10 +430,10 @@ function NoConversation({ onNewGroup }: { onNewGroup: () => void }) {
         <Mascot className="relative h-28" />
       </div>
       <p className="text-h3 font-bold text-neutral-900">Conecte-se e compartilhe ideias com seu time! 💜</p>
-      <p className="mt-2 max-w-sm text-body-sm text-neutral-600">Escolha uma conversa ao lado, encontre colegas para adicionar como amigos ou crie um grupo.</p>
+      <p className="mt-2 max-w-sm text-body-sm text-neutral-600">Escolha uma conversa ao lado, comece uma nova com uma conexão ou crie um grupo.</p>
       <div className="mt-5 flex flex-wrap justify-center gap-3">
-        <Button asChild>
-          <Link href="/amigos">Encontrar pessoas</Link>
+        <Button onClick={onNew}>
+          <MessageCirclePlus aria-hidden /> Nova conversa
         </Button>
         <Button variant="secondary" onClick={onNewGroup}>
           <MessageCirclePlus aria-hidden /> Novo grupo

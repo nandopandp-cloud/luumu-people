@@ -72,6 +72,3 @@ export const listLimitSchema = z.strictObject({ limit: z.coerce.number().int().m
 export const interestsSchema = z.strictObject({
   keys: z.array(interestKey).max(MAX_INTERESTS, `Escolha até ${MAX_INTERESTS} interesses.`),
 });
-
-/** Convidar colegas: vários pedidos de amizade de uma vez. */
-export const requestManySchema = z.strictObject({ userIds: z.array(z.uuid()).min(1, "Escolha ao menos uma pessoa.").max(30) });

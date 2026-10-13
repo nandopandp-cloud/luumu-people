@@ -10,12 +10,16 @@ import { useSyncExternalStore } from "react";
  */
 
 export type DockWindow = { id: string; minimized: boolean };
-export type DockState = { listOpen: boolean; windows: DockWindow[] };
+/**
+ * `hiddenAt`: a pessoa fechou o widget (X) neste instante. Ele fica escondido
+ * até ela iniciar uma conversa ou receber uma mensagem depois disso.
+ */
+export type DockState = { listOpen: boolean; windows: DockWindow[]; hiddenAt: string | null };
 
 /** Janelas guardadas (as que não cabem na tela ficam fora até haver espaço). */
 const MAX_WINDOWS = 3;
 const KEY = "luumu:chat-dock";
-const EMPTY: DockState = { listOpen: false, windows: [] };
+const EMPTY: DockState = { listOpen: false, windows: [], hiddenAt: null };
 
 let state: DockState = EMPTY;
 let loaded = false;
@@ -29,6 +33,7 @@ function load() {
     if (saved && Array.isArray(saved.windows)) {
       state = {
         listOpen: Boolean(saved.listOpen),
+        hiddenAt: typeof saved.hiddenAt === "string" && !Number.isNaN(Date.parse(saved.hiddenAt)) ? saved.hiddenAt : null,
         windows: saved.windows.filter((w) => typeof w?.id === "string" && /^[0-9a-f-]{36}$/.test(w.id)).slice(0, MAX_WINDOWS).map((w) => ({ id: w.id, minimized: Boolean(w.minimized) })),
       };
     }
@@ -48,10 +53,19 @@ function set(next: DockState) {
 }
 
 export const chatDock = {
-  /** Abre (ou traz para a frente, restaurada) a conversa numa janela flutuante. */
+  /** Abre (ou traz para a frente, restaurada) a conversa numa janela flutuante — e mostra o widget, se estava escondido. */
   open(id: string) {
     load();
-    set({ ...state, windows: [{ id, minimized: false }, ...state.windows.filter((w) => w.id !== id)].slice(0, MAX_WINDOWS) });
+    set({ ...state, hiddenAt: null, windows: [{ id, minimized: false }, ...state.windows.filter((w) => w.id !== id)].slice(0, MAX_WINDOWS) });
+  },
+  /** O X do widget: some (lista e janelas) até chegar ou ser iniciada uma conversa. */
+  hide() {
+    load();
+    set({ listOpen: false, windows: [], hiddenAt: new Date().toISOString() });
+  },
+  show() {
+    load();
+    if (state.hiddenAt) set({ ...state, hiddenAt: null });
   },
   close(id: string) {
     load();

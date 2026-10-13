@@ -79,7 +79,7 @@ Paleta categórica em ordem fixa, validada para daltonismo: `--color-chart-1..5`
 - **Duas colunas** em telas largas: conteúdo + coluna lateral de ~380 px.
 - **Estados:** toda tela trata carregamento (skeleton no formato final), vazio (mascote + próximo passo), erro (mensagem humana + código), permissão negada (`forbidden.tsx`) e "em breve" (`ComingSoon`, nunca dados falsos).
 - **Responsivo:** a sidebar vira barra inferior (colaborador) ou gaveta (gestão); tabelas viram listas.
-- **Chat flutuante:** a barra "Conversas" fica no canto inferior direito em toda a plataforma (fora da página /conversas), com janelas de conversa que acompanham a navegação; o fim do conteúdo reserva o espaço dela. Listas com rolagem própria são `relative` (textos `sr-only` absolutos não podem esticar a página).
+- **Chat flutuante:** a barra "Conversas" fica no canto inferior direito em toda a plataforma (fora da página /conversas), com janelas de conversa que acompanham a navegação; o fim do conteúdo reserva o espaço dela. "Nova conversa" (na barra, na lista e no topo de /conversas) abre a escolha de uma conexão. O **x** da barra esconde o widget (estado da aba, `sessionStorage`) até a pessoa iniciar uma conversa ou receber uma mensagem nova. Listas com rolagem própria são `relative` (textos `sr-only` absolutos não podem esticar a página).
 - **Acessibilidade:** link "Pular para o conteúdo", foco visível, `aria-current` na navegação, `prefers-reduced-motion` respeitado, estado nunca comunicado só por cor.
 
 ## Linguagem

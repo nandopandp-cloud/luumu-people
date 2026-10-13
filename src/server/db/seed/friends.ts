@@ -153,19 +153,6 @@ const INTERESTS_BY_PERSON: Record<string, string[]> = {
   simone: ["dados", "culinaria", "natureza"],
 };
 
-/** Quem segue quem: [seguidor, seguido]. */
-const FOLLOWS: [string, string][] = [
-  ["carla", "fernando"],
-  ["juliana", "fernando"],
-  ["camila", "fernando"],
-  ["fernando", "rafael"],
-  ["fernando", "renata"],
-  ["larissa", "rafael"],
-  ["pedro", "rafael"],
-  ["gabriel", "carla"],
-  ["helena", "carla"],
-  ["roberta", "juliana"],
-];
 
 export async function seedFriends(db: Database, tenantId: string, users: Map<string, { id: string }>) {
   const id = (key: string) => users.get(key)?.id;
@@ -179,8 +166,6 @@ export async function seedFriends(db: Database, tenantId: string, users: Map<str
 
   const interests = Object.entries(INTERESTS_BY_PERSON).flatMap(([key, list]) => (id(key) ? list.map((interestKey) => ({ tenantId, userId: id(key)!, interestKey })) : []));
   if (interests.length) await db.insert(s.userInterests).values(interests);
-  const follows = FOLLOWS.map(pair).filter((p): p is readonly [string, string] => Boolean(p[0] && p[1]));
-  if (follows.length) await db.insert(s.userFollows).values(follows.map(([followerId, followeeId], i) => ({ tenantId, followerId, followeeId, createdAt: new Date(Date.now() - (i + 1) * 5 * 60 * MINUTE) })));
 
   const joinedAt = new Date(Date.now() - 30 * DAY);
   for (const c of conversations().map((c) => ({ ...c, messages: inThePast(c.messages) }))) {

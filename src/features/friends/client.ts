@@ -57,8 +57,6 @@ export const connectionsApi = {
   featured: (limit: number) => api<{ items: ConnectionCard[] }>(`/api/v1/connections/featured${q({ limit })}`),
   online: (limit: number) => api<{ items: ConnectionCard[]; total: number }>(`/api/v1/connections/online${q({ limit })}`),
   counts: () => api<ConnectionsCounts>("/api/v1/connections/counts"),
-  follow: (userId: string, follow: boolean) => api<{ following: boolean; followers: number }>(`/api/v1/connections/follows/${userId}`, { method: follow ? "PUT" : "DELETE" }),
-  requestMany: (userIds: string[]) => api<{ sent: number }>("/api/v1/friends/requests/batch", { method: "POST", body: { userIds } }),
 };
 
 export const errorMessage = (error: unknown) => (error instanceof ApiError ? error.message : "Algo deu errado. Tente novamente.");

@@ -111,9 +111,7 @@ Paginação por cursor: `?cursor=…&limit=…` → `{ items, nextCursor }`.
 | GET | `/api/v1/connections/featured?limit=` | autenticado | pessoas em destaque (atividade pública recente nos comunicados que a pessoa vê) |
 | GET | `/api/v1/connections/online?limit=` | autenticado | amigos online agora |
 | GET | `/api/v1/connections/counts` | autenticado | amigos, pedidos recebidos/enviados e amigos online |
-| PUT / DELETE | `/api/v1/connections/follows/:userId` | autenticado | seguir / deixar de seguir (sem aprovação); devolve `{ following, followers }` |
 | GET / PUT | `/api/v1/me/interests` | autenticado | interesses do próprio perfil `{ keys }` (catálogo em `src/lib/interests.ts`, até 12) |
-| POST | `/api/v1/friends/requests/batch` | autenticado | convidar colegas: pedidos de amizade em lote `{ userIds }` (até 30) |
 | POST | `/api/v1/me/presence` | autenticado | sinal de atividade ("online agora"), gravado no máximo a cada 30 s |
 | POST | `/api/v1/me/surveys/:id/responses` | autenticado (convidado) | envio anônimo `{ answers }` — sem log de payload/usuário, rate limit só em memória, sem auditoria |
 

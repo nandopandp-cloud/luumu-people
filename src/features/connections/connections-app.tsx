@@ -1,13 +1,12 @@
 "use client";
 
-import { Bell, Copy, Filter, Search, Sparkles, UserPlus, UserRoundSearch, UsersRound, X } from "lucide-react";
+import { Bell, Filter, Search, Sparkles, UserPlus, UserRoundSearch, UsersRound, X } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Avatar } from "@/design-system/components/avatar";
 import { Button } from "@/design-system/components/button";
-import { Checkbox } from "@/design-system/components/choice";
 import { Modal } from "@/design-system/components/dialog";
 import { Skeleton } from "@/design-system/components/feedback";
 import { Field, Input } from "@/design-system/components/field";
@@ -22,6 +21,7 @@ import { MoodMark } from "@/features/friends/person-bits";
 import type { ConnectionCard, ConnectionsCounts, DiscoverFilter, FriendRequests } from "@/features/friends/types";
 import { MoodArt } from "@/features/wellbeing/mood-art";
 import { NOTIFICATIONS_CHANGED } from "@/features/notifications/labels";
+import { InterestChip } from "./interest-icon";
 import { InterestsDialog } from "./interests-dialog";
 import { FeaturedTile, FriendMenu, PersonTile, type PersonActions } from "./person-tiles";
 
@@ -58,7 +58,7 @@ function setTabUrl(tab: ConnectionsTab) {
 
 /** Cartões de solicitação: relação "recebida" ou "enviada" (o pedido carrega o cartão básico). */
 function asCard(person: FriendRequests["received"][number]["person"]): ConnectionCard {
-  return { ...person, commonInterests: [], sameTeam: false, following: false, cover: null };
+  return { ...person, commonInterests: [], sameTeam: false, cover: null };
 }
 
 export function ConnectionsApp({ initial }: { initial: Initial }) {
@@ -74,7 +74,6 @@ export function ConnectionsApp({ initial }: { initial: Initial }) {
   const [online, setOnline] = useState(initial.online);
   const [myInterests, setMyInterests] = useState(initial.myInterests);
   const [interestsOpen, setInterestsOpen] = useState(false);
-  const [inviteOpen, setInviteOpen] = useState(false);
   const [unfriending, setUnfriending] = useState<ConnectionCard | null>(null);
 
   // Busca e filtros (aba Descobrir).
@@ -147,15 +146,6 @@ export function ConnectionsApp({ initial }: { initial: Initial }) {
       },
       unfriend(card) {
         setUnfriending(card);
-      },
-      async follow(card) {
-        try {
-          const { following } = await connectionsApi.follow(card.id, !card.following);
-          patch(card.id, { following });
-          if (following) toast({ tone: "success", title: `Você está seguindo ${card.name.split(" ")[0]}.` });
-        } catch (error) {
-          toast({ tone: "error", title: "Não foi possível seguir.", description: errorMessage(error) });
-        }
       },
       async message(card) {
         try {
@@ -308,7 +298,7 @@ export function ConnectionsApp({ initial }: { initial: Initial }) {
                       </ul>
                     </div>
                   ) : (
-                    <EmptyLine>Você já se conectou com todo mundo por aqui. Que tal convidar colegas? 💜</EmptyLine>
+                    <EmptyLine>Você já se conectou com todo mundo por aqui. 💜</EmptyLine>
                   )}
 
                   <SectionHeader
@@ -346,7 +336,7 @@ export function ConnectionsApp({ initial }: { initial: Initial }) {
       <aside aria-label="Resumo de conexões" className="space-y-5">
         <RequestsCard requests={requests} count={counts.received} actions={actions} onSeeAll={() => go("solicitacoes")} />
         <OnlineCard online={online} onSeeAll={() => go("conexoes")} />
-        <InviteCard onInvite={() => setInviteOpen(true)} onInterests={() => setInterestsOpen(true)} hasInterests={myInterests.length > 0} />
+        <InterestsCard interests={myInterests} onEdit={() => setInterestsOpen(true)} />
       </aside>
 
       <InterestsDialog
@@ -373,7 +363,6 @@ export function ConnectionsApp({ initial }: { initial: Initial }) {
           setLimit(PAGE);
         }}
       />
-      <InviteDialog open={inviteOpen} onOpenChange={setInviteOpen} onSent={refreshSide} />
       <ConfirmDialog
         open={unfriending !== null}
         onOpenChange={(open) => !open && setUnfriending(null)}
@@ -661,26 +650,33 @@ function OnlineCard({ online, onSeeAll }: { online: { items: ConnectionCard[]; t
   );
 }
 
-function InviteCard({ onInvite, onInterests, hasInterests }: { onInvite: () => void; onInterests: () => void; hasInterests: boolean }) {
+/** "Meus interesses": as afinidades que alimentam sugestões e o filtro "Mesmos interesses". */
+function InterestsCard({ interests, onEdit }: { interests: string[]; onEdit: () => void }) {
   return (
-    <section aria-labelledby="convide-colegas" className="rounded-xl border border-purple-100 bg-gradient-to-br from-purple-50 to-purple-100/60 p-5 shadow-sm">
+    <section aria-labelledby="meus-interesses" className="rounded-xl border border-purple-100 bg-gradient-to-br from-purple-50 to-purple-100/60 p-5 shadow-sm">
       <div className="flex gap-4">
         <span aria-hidden className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-white text-purple-600 shadow-sm">
-          <UsersRound className="size-7" />
+          <Sparkles className="size-7" />
         </span>
         <div>
-          <h2 id="convide-colegas" className="text-body font-bold text-neutral-900">
-            Convide colegas
+          <h2 id="meus-interesses" className="text-body font-bold text-neutral-900">
+            Meus interesses
           </h2>
-          <p className="mt-1 text-body-sm text-neutral-700">Ajude a sua equipe a se conectar e tornar o Luumu People ainda mais colaborativo.</p>
+          <p className="mt-1 text-body-sm text-neutral-700">Mostram afinidades com colegas e melhoram as sugestões de conexão.</p>
         </div>
       </div>
-      <Button size="lg" block className="mt-4" onClick={onInvite}>
-        <UsersRound aria-hidden /> Convidar pessoas
+      {interests.length ? (
+        <ul className="mt-4 flex flex-wrap gap-2">
+          {interests.map((k) => (
+            <li key={k}>
+              <InterestChip interest={k} />
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <Button size="lg" block variant={interests.length ? "secondary" : "primary"} className="mt-4" onClick={onEdit}>
+        <Sparkles aria-hidden /> {interests.length ? "Editar meus interesses" : "Escolher meus interesses"}
       </Button>
-      <button type="button" onClick={onInterests} className="mt-3 w-full rounded text-center text-body-sm font-semibold text-purple-700 hover:underline focus-visible:outline-2 focus-visible:outline-purple-500">
-        {hasInterests ? "Editar meus interesses" : "Escolher meus interesses"}
-      </button>
     </section>
   );
 }
@@ -769,126 +765,6 @@ function MoreFiltersDialog({
           )}
         </Field>
       </div>
-    </Modal>
-  );
-}
-
-/** Convidar colegas: pedidos de conexão em lote para quem é do time/departamento, e o link da plataforma. */
-function InviteDialog({ open, onOpenChange, onSent }: { open: boolean; onOpenChange: (open: boolean) => void; onSent: () => void }) {
-  const toast = useToast();
-  const [people, setPeople] = useState<ConnectionCard[] | null>(null);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [sending, setSending] = useState(false);
-  const [wasOpen, setWasOpen] = useState(open);
-  if (open !== wasOpen) {
-    setWasOpen(open);
-    if (open) {
-      setPeople(null);
-      setSelected([]);
-    }
-  }
-  useEffect(() => {
-    if (!open) return;
-    let alive = true;
-    Promise.all([connectionsApi.discover({ filtro: "equipe", limit: 60 }), connectionsApi.discover({ filtro: "departamento", limit: 60 })])
-      .then(([team, dept]) => {
-        if (!alive) return;
-        const seen = new Set<string>();
-        setPeople([...team.items, ...dept.items].filter((c) => c.relation === "none" && !seen.has(c.id) && Boolean(seen.add(c.id))));
-      })
-      .catch(() => alive && setPeople([]));
-    return () => {
-      alive = false;
-    };
-  }, [open]);
-
-  async function send() {
-    setSending(true);
-    try {
-      const { sent } = await connectionsApi.requestMany(selected);
-      toast({ tone: "success", title: sent === 1 ? "1 convite de conexão enviado." : `${sent} convites de conexão enviados.` });
-      onOpenChange(false);
-      onSent();
-    } catch (error) {
-      toast({ tone: "error", title: "Não foi possível enviar os convites.", description: errorMessage(error) });
-    } finally {
-      setSending(false);
-    }
-  }
-
-  async function copyLink() {
-    try {
-      await navigator.clipboard.writeText(`${window.location.origin}/amigos`);
-      toast({ tone: "success", title: "Link copiado!", description: "Compartilhe com colegas para que encontrem você em Conexões." });
-    } catch {
-      toast({ tone: "error", title: "Não foi possível copiar o link." });
-    }
-  }
-
-  return (
-    <Modal
-      open={open}
-      onOpenChange={onOpenChange}
-      size="lg"
-      title="Convidar colegas"
-      description="Convide pessoas do seu time e do seu departamento para se conectarem com você."
-      footer={
-        <>
-          <Button variant="ghost" className="mr-auto" onClick={copyLink}>
-            <Copy aria-hidden /> Copiar link
-          </Button>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={send} loading={sending} disabled={selected.length === 0}>
-            <UserPlus aria-hidden /> Convidar {selected.length ? `(${selected.length})` : ""}
-          </Button>
-        </>
-      }
-    >
-      {people === null ? (
-        <div aria-hidden className="space-y-2">
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </div>
-      ) : people.length === 0 ? (
-        <p className="rounded-lg bg-neutral-50 p-4 text-body-sm text-neutral-700">Todo o seu time e departamento já está conectado com você. 💜 Use “Copiar link” para convidar mais gente.</p>
-      ) : (
-        <fieldset>
-          <legend className="mb-2 text-body-sm font-medium text-neutral-700">
-            Colegas <span className="font-normal text-neutral-600">({selected.length} selecionados)</span>
-          </legend>
-          <div className="mb-2 flex justify-end">
-            <button
-              type="button"
-              className="text-caption font-semibold text-purple-700 hover:underline"
-              onClick={() => setSelected(selected.length === people.length ? [] : people.slice(0, 30).map((p) => p.id))}
-            >
-              {selected.length === people.length ? "Desmarcar todos" : "Selecionar todos"}
-            </button>
-          </div>
-          <ul className="relative max-h-80 space-y-1 overflow-y-auto pr-1">
-            {people.map((p) => (
-              <li key={p.id} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-neutral-50">
-                <Avatar name={p.name} src={p.image} size="sm" className="ring-0" />
-                <Checkbox
-                  className="min-w-0 flex-1 flex-row-reverse justify-between"
-                  checked={selected.includes(p.id)}
-                  disabled={!selected.includes(p.id) && selected.length >= 30}
-                  onCheckedChange={(checked) => setSelected((list) => (checked ? [...list, p.id] : list.filter((id) => id !== p.id)))}
-                  label={
-                    <span className="block min-w-0">
-                      <span className="block truncate font-medium text-neutral-900">{p.name}</span>
-                      <span className="block truncate text-caption text-neutral-600">{[p.position, p.orgUnit].filter(Boolean).join(" · ")}</span>
-                    </span>
-                  }
-                />
-              </li>
-            ))}
-          </ul>
-        </fieldset>
-      )}
     </Modal>
   );
 }

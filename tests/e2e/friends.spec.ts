@@ -97,9 +97,8 @@ test.describe("Conversas e amigos", () => {
     await page.getByRole("article", { name: "Rafael Lima" }).getByRole("link", { name: "Rafael Lima" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Rafael Lima" })).toBeVisible();
     await expect(page.getByRole("link", { name: /Designers Luumu/ })).toBeVisible();
-    // Interesses e seguir (o Fernando já segue o Rafael no seed).
+    // Interesses do perfil.
     await expect(page.getByText("Fotografia")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Seguindo" })).toHaveAttribute("aria-pressed", "true");
     await expectAccessible(page);
   });
 
@@ -112,6 +111,54 @@ test.describe("Conversas e amigos", () => {
     await expectAccessible(page);
     await chat.getByRole("button", { name: "Voltar para a lista" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Conversas" })).toBeVisible();
+  });
+
+  test("nova conversa a partir da página de conversas", async ({ page }) => {
+    await signIn(page, "fernando.santos@aurora.example");
+    await gotoHydrated(page, "/conversas");
+    await page.getByRole("button", { name: "Nova conversa", exact: true }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Nova conversa", exact: true });
+    await dialog.getByRole("searchbox", { name: "Buscar conexões" }).fill("helena");
+    await expect(dialog.getByRole("button", { name: "Conversar com Carla Mendes" })).toHaveCount(0);
+    await expectAccessible(page);
+    await dialog.getByRole("button", { name: "Conversar com Helena Duarte" }).click();
+    await expect(dialog).toHaveCount(0);
+    const chat = page.getByRole("region", { name: "Helena Duarte" });
+    await chat.getByRole("textbox", { name: "Mensagem" }).fill("Oi, Helena! Tudo certo? 👋");
+    await chat.getByRole("textbox", { name: "Mensagem" }).press("Enter");
+    await expect(chat.getByText("Oi, Helena! Tudo certo? 👋")).toBeVisible();
+    await expect(page.getByRole("list", { name: "Conversas" }).getByRole("button", { name: /Helena Duarte/ })).toBeVisible();
+  });
+
+  test("chat flutuante: nova conversa, fechar no x e voltar quando chega mensagem", async ({ page, browser }) => {
+    test.setTimeout(120_000);
+    await signIn(page, "fernando.santos@aurora.example");
+    const dock = page.getByRole("region", { name: "Conversas rápidas" });
+    await dock.getByRole("button", { name: "Nova conversa", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Nova conversa", exact: true });
+    await dialog.getByRole("button", { name: "Conversar com Camila Oliveira" }).click();
+    const window = dock.getByRole("region", { name: /Camila Oliveira/ });
+    await window.getByRole("textbox", { name: "Mensagem" }).fill("Camila, tem um minuto?");
+    await window.getByRole("textbox", { name: "Mensagem" }).press("Enter");
+    await expect(window.getByText("Camila, tem um minuto?")).toBeVisible();
+
+    // O x esconde o widget inteiro, inclusive depois de recarregar.
+    await dock.getByRole("button", { name: "Fechar conversas até chegar uma mensagem nova" }).click();
+    await expect(dock).toHaveCount(0);
+    await gotoHydrated(page, "/comunicados");
+    await expect(page.getByRole("region", { name: "Conversas rápidas" })).toHaveCount(0);
+
+    // Uma mensagem recebida traz o widget de volta.
+    const camilaContext = await browser.newContext();
+    const camila = await camilaContext.newPage();
+    await signIn(camila, "camila.oliveira@aurora.example");
+    await gotoHydrated(camila, "/conversas");
+    await camila.getByRole("list", { name: "Conversas" }).getByRole("button", { name: /Fernando Santos/ }).click();
+    const reply = camila.getByRole("region", { name: "Fernando Santos" }).getByRole("textbox", { name: "Mensagem" });
+    await reply.fill("Tenho sim, pode falar!");
+    await reply.press("Enter");
+    await expect(page.getByRole("region", { name: "Conversas rápidas" }).getByRole("button", { name: /^Conversas/ })).toBeVisible({ timeout: 30_000 });
+    await camilaContext.close();
   });
 
   test("chat flutuante: acompanha a navegação, minimiza e sai da página de conversas", async ({ page }) => {

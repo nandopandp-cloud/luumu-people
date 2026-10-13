@@ -32,11 +32,14 @@ test.describe("Conexões", () => {
     await expect(page.getByRole("article").first().getByText(/interesses? em comum/)).toBeVisible();
     await page.getByRole("button", { name: "Limpar busca e filtros" }).click();
 
-    // Seguir alguém em destaque.
+    // "Seguir" em destaque é o mesmo pedido de conexão.
     const follow = page.getByRole("button", { name: /^Seguir / }).first();
     const followed = (await follow.getAttribute("aria-label"))!.replace("Seguir ", "");
     await follow.click();
-    await expect(page.getByRole("button", { name: `Seguindo ${followed}. Deixar de seguir` })).toBeVisible();
+    await expect(page.getByRole("button", { name: `Pedido enviado: cancelar o pedido para ${followed}` }).first()).toBeEnabled();
+    await page.getByRole("button", { name: /^Solicitações/ }).first().click();
+    await expect(page.getByRole("region", { name: "Solicitações" }).getByRole("heading", { name: followed })).toBeVisible();
+    await page.getByRole("button", { name: "Descobrir pessoas" }).click();
 
     // Dispensar uma sugestão.
     const dismiss = page.getByRole("button", { name: /^Dispensar sugestão: / }).first();

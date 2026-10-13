@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, MessageCircle, MoreVertical, UserCheck, UserMinus, UserPlus, UsersRound, X } from "lucide-react";
+import { Check, MessageCircle, MoreVertical, UserMinus, UserPlus, UsersRound, X } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
@@ -13,13 +13,12 @@ import { MoodMark } from "@/features/friends/person-bits";
 import type { ConnectionCard } from "@/features/friends/types";
 import { InterestDot } from "./interest-icon";
 
-/** Ações sobre uma pessoa (pedir, aceitar, recusar/cancelar, desfazer, seguir, mensagem). */
+/** Ações sobre uma pessoa (pedir conexão, aceitar, recusar/cancelar, desfazer, mensagem). */
 export type PersonActions = {
   connect: (card: ConnectionCard) => Promise<void>;
   accept: (card: ConnectionCard) => Promise<void>;
   dismissRequest: (card: ConnectionCard) => Promise<void>;
   unfriend: (card: ConnectionCard) => void;
-  follow: (card: ConnectionCard) => Promise<void>;
   message: (card: ConnectionCard) => Promise<void>;
 };
 
@@ -67,7 +66,11 @@ function Affinity({ card }: { card: ConnectionCard }) {
   );
 }
 
-function RelationButton({ card, actions }: { card: ConnectionCard; actions: PersonActions }) {
+/**
+ * Botão da relação com a pessoa. "Conectar" e "Seguir" (destaques) são a MESMA
+ * ação — o pedido de conexão; só o rótulo muda para seguir a referência.
+ */
+function RelationButton({ card, actions, label = "Conectar", size = "md" }: { card: ConnectionCard; actions: PersonActions; label?: "Conectar" | "Seguir"; size?: "sm" | "md" }) {
   const [busy, setBusy] = useState(false);
   const run = (fn: () => Promise<void>) => async () => {
     setBusy(true);
@@ -80,7 +83,7 @@ function RelationButton({ card, actions }: { card: ConnectionCard; actions: Pers
   const base = "w-full";
   if (card.relation === "friends") {
     return (
-      <Button variant="soft" className={base} loading={busy} onClick={run(() => actions.message(card))} aria-label={`Mensagem para ${card.name}`}>
+      <Button variant="soft" size={size} className={base} loading={busy} onClick={run(() => actions.message(card))} aria-label={`Mensagem para ${card.name}`}>
         <MessageCircle aria-hidden /> Mensagem
       </Button>
     );
@@ -88,10 +91,10 @@ function RelationButton({ card, actions }: { card: ConnectionCard; actions: Pers
   if (card.relation === "received") {
     return (
       <div className="flex w-full gap-2">
-        <Button className="flex-1 px-3" loading={busy} onClick={run(() => actions.accept(card))} aria-label={`Aceitar pedido de ${card.name}`}>
+        <Button size={size} className="flex-1 px-3" loading={busy} onClick={run(() => actions.accept(card))} aria-label={`Aceitar pedido de ${card.name}`}>
           Aceitar
         </Button>
-        <IconButton label={`Recusar pedido de ${card.name}`} disabled={busy} onClick={run(() => actions.dismissRequest(card))}>
+        <IconButton label={`Recusar pedido de ${card.name}`} size={size === "sm" ? "sm" : "md"} disabled={busy} onClick={run(() => actions.dismissRequest(card))}>
           <X />
         </IconButton>
       </div>
@@ -99,14 +102,25 @@ function RelationButton({ card, actions }: { card: ConnectionCard; actions: Pers
   }
   if (card.relation === "sent") {
     return (
-      <Button variant="ghost" className={base} loading={busy} onClick={run(() => actions.dismissRequest(card))} title="Cancelar o pedido" aria-label={`Pedido enviado: cancelar o pedido para ${card.name}`}>
+      <Button variant="ghost" size={size} className={base} loading={busy} onClick={run(() => actions.dismissRequest(card))} title="Cancelar o pedido" aria-label={`Pedido enviado: cancelar o pedido para ${card.name}`}>
         <Check aria-hidden /> Pedido enviado
       </Button>
     );
   }
   return (
-    <Button variant="secondary" className={base} loading={busy} onClick={run(() => actions.connect(card))} aria-label={`Conectar com ${card.name}`}>
-      <UsersRound aria-hidden /> Conectar
+    <Button
+      variant={label === "Seguir" ? "soft" : "secondary"}
+      size={size}
+      className={base}
+      loading={busy}
+      onClick={run(() => actions.connect(card))}
+      aria-label={label === "Seguir" ? `Seguir ${card.name}` : `Conectar com ${card.name}`}
+    >
+      {label === "Seguir" ? "Seguir" : (
+        <>
+          <UsersRound aria-hidden /> Conectar
+        </>
+      )}
     </Button>
   );
 }
@@ -161,17 +175,8 @@ export function FriendMenu({ card, actions }: { card: ConnectionCard; actions: P
   );
 }
 
-/** Cartão de "Pessoas em destaque": capa, avatar, presença e Seguir. */
+/** Cartão de "Pessoas em destaque": capa, avatar, presença e Seguir (= pedido de conexão). */
 export function FeaturedTile({ card, actions }: { card: ConnectionCard; actions: PersonActions }) {
-  const [busy, setBusy] = useState(false);
-  const follow = async () => {
-    setBusy(true);
-    try {
-      await actions.follow(card);
-    } finally {
-      setBusy(false);
-    }
-  };
   return (
     <article aria-labelledby={`destaque-${card.id}`} className="relative flex flex-col overflow-hidden rounded-xl border border-line bg-white transition-shadow hover:shadow-md">
       <div className="relative h-20">
@@ -221,23 +226,7 @@ export function FeaturedTile({ card, actions }: { card: ConnectionCard; actions:
         </h3>
         <p className="line-clamp-1 text-caption text-neutral-600">{card.position ?? "—"}</p>
         <div className="mt-auto pt-3">
-          <Button
-            variant={card.following ? "ghost" : "soft"}
-            size="sm"
-            block
-            loading={busy}
-            onClick={follow}
-            aria-pressed={card.following}
-            aria-label={card.following ? `Seguindo ${card.name}. Deixar de seguir` : `Seguir ${card.name}`}
-          >
-            {card.following ? (
-              <>
-                <UserCheck aria-hidden /> Seguindo
-              </>
-            ) : (
-              "Seguir"
-            )}
-          </Button>
+          <RelationButton card={card} actions={actions} label="Seguir" size="sm" />
         </div>
       </div>
     </article>

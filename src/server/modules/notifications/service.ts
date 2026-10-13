@@ -346,44 +346,8 @@ async function collect(tx: Tx, actor: AuthenticatedActor, now: Date): Promise<No
     }
   }
 
-  // Novos seguidores (calculadas, a partir de `user_follows`, últimos 30 dias).
-  if (!muted.has("friends")) {
-    const follower = alias(s.users, "follower_user");
-    const followerProfile = alias(s.employeeProfiles, "follower_profile");
-    const rows = await tx
-      .select({
-        id: s.userFollows.id,
-        at: s.userFollows.createdAt,
-        followerId: follower.id,
-        name: sql<string>`coalesce(nullif(${followerProfile.preferredName}, ''), ${follower.name})`,
-        image: follower.image,
-      })
-      .from(s.userFollows)
-      .innerJoin(follower, eq(follower.id, s.userFollows.followerId))
-      .leftJoin(followerProfile, eq(followerProfile.userId, follower.id))
-      .where(and(eq(s.userFollows.followeeId, actor.userId), eq(follower.status, "active"), gte(s.userFollows.createdAt, since)))
-      .limit(100);
-    for (const f of rows) {
-      drafts.push({
-        key: `follow:${f.id}`,
-        category: "friends",
-        title: "Novo seguidor",
-        lead: f.name,
-        body: "começou a seguir você.",
-        context: "Conexões",
-        at: f.at,
-        href: `/pessoas/${f.followerId}`,
-        action: "Ver perfil",
-        primary: false,
-        actors: [{ name: f.name, image: f.image }],
-        thumbnail: null,
-        read: false,
-      });
-    }
-  }
-
   // Leitura das calculadas.
-  const derivedKeys = drafts.filter((d) => /^(announcement|survey|reminder|friend|friendok|follow):/.test(d.key)).map((d) => d.key);
+  const derivedKeys = drafts.filter((d) => /^(announcement|survey|reminder|friend|friendok):/.test(d.key)).map((d) => d.key);
   const reads = derivedKeys.length
     ? new Set((await tx.select({ key: s.notificationReads.key }).from(s.notificationReads).where(and(eq(s.notificationReads.userId, actor.userId), inArray(s.notificationReads.key, derivedKeys)))).map((r) => r.key))
     : new Set<string>();
@@ -425,7 +389,7 @@ export async function countUnread(actor: AuthenticatedActor): Promise<number> {
   return withTenant(actor, async (tx) => (await collect(tx, actor, new Date())).filter((n) => n.unread).length);
 }
 
-const DERIVED = /^(announcement|survey|reminder|friend|friendok|follow):[0-9a-f-]{36}$/;
+const DERIVED = /^(announcement|survey|reminder|friend|friendok):[0-9a-f-]{36}$/;
 
 function splitKeys(keys: string[]) {
   return {

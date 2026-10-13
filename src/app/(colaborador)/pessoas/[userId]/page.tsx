@@ -74,7 +74,7 @@ async function Colleague({ params }: { params: PageProps<"/pessoas/[userId]">["p
               </div>
             ) : null}
           </div>
-          <ProfileActions person={{ id: p.id, name: p.name, relation: p.relation, following: p.following, followers: p.followers }} />
+          <ProfileActions person={{ id: p.id, name: p.name, relation: p.relation }} />
         </div>
       </section>
 

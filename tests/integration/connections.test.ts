@@ -1,20 +1,15 @@
-import { and, eq, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import * as countsRoute from "@/app/api/v1/connections/counts/route";
 import * as featuredRoute from "@/app/api/v1/connections/featured/route";
-import * as followRoute from "@/app/api/v1/connections/follows/[userId]/route";
 import * as onlineRoute from "@/app/api/v1/connections/online/route";
 import * as peopleRoute from "@/app/api/v1/connections/people/route";
 import * as dismissRoute from "@/app/api/v1/connections/suggestions/[userId]/dismiss/route";
 import * as suggestionsRoute from "@/app/api/v1/connections/suggestions/route";
-import * as batchRoute from "@/app/api/v1/friends/requests/batch/route";
-import * as profileRoute from "@/app/api/v1/friends/[userId]/profile/route";
 import * as interestsRoute from "@/app/api/v1/me/interests/route";
 import * as presenceRoute from "@/app/api/v1/me/presence/route";
-import { resolveActor } from "@/server/auth/session";
 import * as s from "@/server/db/schema";
-import { listNotifications } from "@/server/modules/notifications/service";
-import { headersWith, signIn } from "../support/auth";
+import { signIn } from "../support/auth";
 import { asRole, expectDbError, tenantOf, testDatabase } from "../support/db";
 import { call } from "../support/http";
 
@@ -35,7 +30,7 @@ async function asUser<T>(key: string, fn: (tx: Parameters<Parameters<typeof asRo
   });
 }
 
-type Card = { id: string; name: string; relation: string; commonInterests: string[]; following: boolean; online: boolean; sameTeam: boolean };
+type Card = { id: string; name: string; relation: string; commonInterests: string[]; online: boolean; sameTeam: boolean };
 
 describe("conexões", () => {
   beforeAll(async () => {
@@ -48,10 +43,8 @@ describe("conexões", () => {
       expect((await call(handler, { path: "/x", params })).status).toBe(401);
     }
     for (const [handler, method] of [
-      [followRoute.PUT, "PUT"],
       [dismissRoute.POST, "POST"],
       [interestsRoute.PUT, "PUT"],
-      [batchRoute.POST, "POST"],
     ] as const) {
       expect((await call(handler, { path: "/x", method, params, body: {} })).status).toBe(401);
     }
@@ -100,32 +93,6 @@ describe("conexões", () => {
     expect(leaked).toEqual([]);
   });
 
-  it("seguir: em nome próprio, contagem de seguidores e notificação de novo seguidor", async () => {
-    const otavio = await idOf("otavio");
-    const res = await call(followRoute.PUT, { path: "/x", method: "PUT", cookie: await cookie("simone"), params: { userId: otavio } });
-    expect(res.json).toEqual({ following: true, followers: 1 });
-    // Idempotente.
-    expect((await call(followRoute.PUT, { path: "/x", method: "PUT", cookie: await cookie("simone"), params: { userId: otavio } })).json.followers).toBe(1);
-
-    const actor = (await resolveActor(headersWith(await cookie("otavio"))))!;
-    const follow = (await listNotifications(actor)).items.find((n) => n.title === "Novo seguidor");
-    expect(follow).toMatchObject({ lead: "Simone Batista", href: `/pessoas/${await idOf("simone")}`, category: "friends" });
-
-    const profile = await call(profileRoute.GET, { path: "/x", cookie: await cookie("simone"), params: { userId: otavio } });
-    expect(profile.json).toMatchObject({ following: true, followers: 1 });
-
-    expect((await call(followRoute.DELETE, { path: "/x", method: "DELETE", cookie: await cookie("simone"), params: { userId: otavio } })).json).toEqual({ following: false, followers: 0 });
-    expect((await call(followRoute.PUT, { path: "/x", method: "PUT", cookie: await cookie("simone"), params: { userId: await idOf("simone") } })).status).toBe(404);
-    expect((await call(followRoute.PUT, { path: "/x", method: "PUT", cookie: await cookie("simone"), params: { userId: await idOf("igor", "horizonte") } })).status).toBe(404);
-
-    const { tenantId } = await tenantOf("aurora");
-    const [carla, otavioId] = [await idOf("carla"), otavio];
-    await expectDbError(
-      asUser("simone", (tx) => tx.insert(s.userFollows).values({ tenantId, followerId: carla, followeeId: otavioId })),
-      /row-level security/,
-    );
-  });
-
   it("interesses: só do catálogo, até 12, e cada pessoa altera só os seus", async () => {
     const saved = await call(interestsRoute.PUT, { path: "/x", method: "PUT", cookie: await cookie("caio"), body: { keys: ["musica", "games", "cafe"] } });
     expect(saved.json).toEqual({ keys: ["musica", "games", "cafe"] });
@@ -160,19 +127,11 @@ describe("conexões", () => {
     const featured = await call(featuredRoute.GET, { path: "/x?limit=4", cookie: await cookie("fernando") });
     expect(featured.json.items).toHaveLength(4);
     expect(featured.json.items.map((c: Card) => c.id)).not.toContain(await idOf("fernando"));
+    // "Seguir" é o próprio pedido de conexão: o cartão traz a relação, não um vínculo à parte.
+    expect(featured.json.items.every((c: Card & { following?: unknown }) => typeof c.relation === "string" && c.following === undefined)).toBe(true);
 
     const counts = await call(countsRoute.GET, { path: "/x", cookie: await cookie("fernando") });
     expect(counts.json).toMatchObject({ friends: expect.any(Number), received: expect.any(Number), online: expect.any(Number) });
     expect(counts.json.friends).toBeGreaterThanOrEqual(10);
-  });
-
-  it("convidar colegas: pedidos em lote, ignorando quem já tem vínculo", async () => {
-    const [vanessa, caio, otavio] = [await idOf("vanessa"), await idOf("caio"), await idOf("otavio")];
-    const res = await call(batchRoute.POST, { path: "/x", method: "POST", cookie: await cookie("simone"), body: { userIds: [vanessa, caio, otavio] } });
-    expect(res.json.sent).toBe(3);
-    const { db } = await testDatabase();
-    const rows = await db.select().from(s.friendships).where(and(eq(s.friendships.requesterId, await idOf("simone")), eq(s.friendships.status, "pending")));
-    expect(rows.length).toBeGreaterThanOrEqual(3);
-    expect((await call(batchRoute.POST, { path: "/x", method: "POST", cookie: await cookie("simone"), body: { userIds: [] } })).status).toBe(400);
   });
 });

@@ -213,14 +213,7 @@ export async function getColleagueProfile(actor: AuthenticatedActor, userId: str
     const direct = sharedRows.find((c) => c.kind === "direct");
 
     const moods = await moodsOf(tx, [userId]);
-    const [interests, mine, follow] = await Promise.all([
-      interestsOf(tx, userId),
-      interestsOf(tx, actor.userId),
-      tx.execute(
-        sql`select (select count(*)::int from user_follows f where f.followee_id = ${userId}) as followers, exists (select 1 from user_follows f where f.follower_id = ${actor.userId} and f.followee_id = ${userId}) as following`,
-      ),
-    ]);
-    const followRow = (follow as unknown as { rows: { followers: number; following: boolean }[] }).rows[0];
+    const [interests, mine] = await Promise.all([interestsOf(tx, userId), interestsOf(tx, actor.userId)]);
     return {
       ...toCard(row, moods, sharedRows.length > 0),
       headline: extra?.headline ?? null,
@@ -230,8 +223,6 @@ export async function getColleagueProfile(actor: AuthenticatedActor, userId: str
       directConversationId: direct?.id ?? null,
       interests,
       commonInterests: interests.filter((k) => mine.includes(k)),
-      followers: followRow?.followers ?? 0,
-      following: Boolean(followRow?.following),
     };
   });
 }

@@ -22,13 +22,12 @@ export type PersonCard = PersonLite & {
   mood: MoodView | null;
 };
 
-/** Cartão de Conexões: o cartão de colega com afinidades, capa e se a pessoa atual segue. */
+/** Cartão de Conexões: o cartão de colega com afinidades e capa. */
 export type ConnectionCard = PersonCard & {
   /** Chaves de interesses em comum (src/lib/interests.ts). */
   commonInterests: string[];
   /** Mesmo time: mesma área, mesmo gestor, ou gestor/liderado direto. */
   sameTeam: boolean;
-  following: boolean;
   cover: string | null;
 };
 
@@ -52,8 +51,6 @@ export type PersonProfile = PersonCard & {
   /** Interesses do perfil e os em comum com a pessoa atual (chaves do catálogo). */
   interests: string[];
   commonInterests: string[];
-  followers: number;
-  following: boolean;
 };
 
 export type ConversationKind = "direct" | "group";

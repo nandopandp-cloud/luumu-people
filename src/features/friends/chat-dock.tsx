@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ChevronUp, MessagesSquare, Search, UsersRound, X } from "lucide-react";
+import { ChevronDown, ChevronUp, MessageCirclePlus, MessagesSquare, Search, UsersRound, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useId, useState } from "react";
@@ -8,12 +8,14 @@ import { Avatar } from "@/design-system/components/avatar";
 import { IconButton } from "@/design-system/components/button";
 import { Skeleton } from "@/design-system/components/feedback";
 import { Input } from "@/design-system/components/field";
+import { Tooltip } from "@/design-system/components/tooltip";
 import { useToast } from "@/design-system/components/toast";
 import { cn } from "@/design-system/cn";
 import { ChatPanel } from "./chat-panel";
 import { errorMessage, friendsApi } from "./client";
 import { chatDock, useChatDock } from "./dock-store";
 import { ConversationRow } from "./friends-app";
+import { NewConversationDialog } from "./new-conversation-dialog";
 import type { ConversationDetail, ConversationSummary } from "./types";
 
 /**
@@ -23,7 +25,8 @@ import type { ConversationDetail, ConversationSummary } from "./types";
  * Celular: a conversa aberta (ex.: "Mensagem" no perfil) ocupa a tela cheia;
  * na gestão, que não tem barra inferior, há também um botão flutuante com a lista.
  * Na página /conversas a barra some (a página já é o chat), mas as janelas
- * levadas para fora ("Abrir em janela flutuante") continuam.
+ * levadas para fora ("Abrir em janela flutuante") continuam. O X da barra
+ * esconde o widget até a pessoa iniciar uma conversa ou receber mensagem nova.
  */
 
 const LIST_POLL_MS = 15_000;
@@ -64,13 +67,15 @@ function UnreadBadge({ count, className }: { count: number; className?: string }
  */
 export function ChatDockSpacer() {
   const pathname = usePathname();
-  if (pathname === "/conversas" || pathname.startsWith("/conversas/")) return null;
+  const { hiddenAt } = useChatDock();
+  if (hiddenAt || pathname === "/conversas" || pathname.startsWith("/conversas/")) return null;
   return <div aria-hidden className="hidden h-16 lg:block" />;
 }
 
 export function ChatDock({ environment = "employee" }: { environment?: "employee" | "management" }) {
   const pathname = usePathname();
-  const { listOpen, windows } = useChatDock();
+  const { listOpen, windows, hiddenAt } = useChatDock();
+  const [composing, setComposing] = useState(false);
   const desktop = useMedia("(min-width: 1024px)");
   const roomy = useMedia("(min-width: 1700px)");
   const [conversations, setConversations] = useState<ConversationSummary[] | null>(null);
@@ -104,6 +109,13 @@ export function ChatDock({ environment = "employee" }: { environment?: "employee
     };
   }, [showLauncher, windows.length]);
 
+  // Widget fechado (X): volta sozinho quando chega mensagem depois disso.
+  useEffect(() => {
+    if (!hiddenAt || !conversations) return;
+    const since = Date.parse(hiddenAt);
+    if (conversations.some((c) => c.lastMessage && !c.lastMessage.mine && !c.lastMessage.deleted && Date.parse(c.lastMessage.at) > since)) chatDock.show();
+  }, [hiddenAt, conversations]);
+
   const onRead = useCallback((id: string) => setConversations((list) => list?.map((c) => (c.id === id ? { ...c, unread: 0 } : c)) ?? list), []);
   const unread = conversations?.filter((c) => c.unread > 0).length ?? 0;
   const summaryOf = (id: string) => conversations?.find((c) => c.id === id);
@@ -111,6 +123,19 @@ export function ChatDock({ environment = "employee" }: { environment?: "employee
     chatDock.open(id);
     chatDock.setListOpen(false);
   };
+
+  const newConversation = (
+    <NewConversationDialog
+      open={composing}
+      onOpenChange={setComposing}
+      onOpened={(id) => {
+        chatDock.open(id);
+        chatDock.setListOpen(false);
+        void refresh();
+      }}
+    />
+  );
+  if (hiddenAt) return null;
 
   if (!desktop) {
     const current = windows[0] && !windows[0].minimized ? windows[0] : null;
@@ -132,13 +157,14 @@ export function ChatDock({ environment = "employee" }: { environment?: "employee
         ) : null}
         {listOpen ? (
           <div className="fixed inset-0 z-50 flex flex-col bg-white">
-            <DockList conversations={conversations} onOpen={open} onClose={() => chatDock.setListOpen(false)} unread={unread} />
+            <DockList conversations={conversations} onOpen={open} onClose={() => chatDock.setListOpen(false)} onNew={() => setComposing(true)} unread={unread} />
           </div>
         ) : current ? (
           <div className="fixed inset-0 z-50 flex flex-col bg-white">
             <DockConversation id={current.id} onRead={onRead} onActivity={refresh} />
           </div>
         ) : null}
+        {newConversation}
       </>
     );
   }
@@ -152,9 +178,9 @@ export function ChatDock({ environment = "employee" }: { environment?: "employee
       {showLauncher ? (
         <div className={cn("pointer-events-auto flex w-[320px] flex-col overflow-hidden rounded-t-xl border border-b-0 border-line bg-white shadow-lg", listOpen && "h-[min(560px,calc(100dvh-6rem))]")}>
           {listOpen ? (
-            <DockList conversations={conversations} onOpen={open} onClose={() => chatDock.setListOpen(false)} unread={unread} />
+            <DockList conversations={conversations} onOpen={open} onClose={() => chatDock.setListOpen(false)} onNew={() => setComposing(true)} unread={unread} />
           ) : (
-            <LauncherBar unread={unread} onClick={() => chatDock.setListOpen(true)} />
+            <LauncherBar unread={unread} onClick={() => chatDock.setListOpen(true)} onNew={() => setComposing(true)} />
           )}
         </div>
       ) : null}
@@ -167,29 +193,41 @@ export function ChatDock({ environment = "employee" }: { environment?: "employee
           </div>
         ),
       )}
+      {newConversation}
     </section>
   );
 }
 
-function LauncherBar({ unread, onClick }: { unread: number; onClick: () => void }) {
+/** Barra recolhida: abre a lista; "+" inicia conversa; X esconde o widget até chegar mensagem nova. */
+function LauncherBar({ unread, onClick, onNew }: { unread: number; onClick: () => void; onNew: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-expanded={false}
-      className="flex h-14 w-full items-center gap-3 px-4 text-left transition-colors hover:bg-purple-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-purple-500"
-    >
-      <span aria-hidden className="flex size-9 items-center justify-center rounded-full bg-purple-500 text-white shadow-sm">
-        <MessagesSquare className="size-[18px]" />
-      </span>
-      <span className="flex-1 text-body-sm font-bold text-neutral-900">Conversas</span>
-      <UnreadBadge count={unread} />
-      <ChevronUp aria-hidden className="size-5 text-neutral-600" />
-    </button>
+    <div className="flex h-14 items-center pr-1.5">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-expanded={false}
+        className="flex h-full min-w-0 flex-1 items-center gap-3 pl-4 pr-2 text-left transition-colors hover:bg-purple-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-purple-500"
+      >
+        <span aria-hidden className="flex size-9 items-center justify-center rounded-full bg-purple-500 text-white shadow-sm">
+          <MessagesSquare className="size-[18px]" />
+        </span>
+        <span className="flex-1 text-body-sm font-bold text-neutral-900">Conversas</span>
+        <UnreadBadge count={unread} />
+        <ChevronUp aria-hidden className="size-5 text-neutral-600" />
+      </button>
+      <IconButton label="Nova conversa" variant="plain" size="sm" onClick={onNew}>
+        <MessageCirclePlus />
+      </IconButton>
+      <Tooltip content="Fechar — volta quando chegar uma mensagem nova">
+        <IconButton label="Fechar conversas até chegar uma mensagem nova" variant="plain" size="sm" onClick={() => chatDock.hide()}>
+          <X />
+        </IconButton>
+      </Tooltip>
+    </div>
   );
 }
 
-function DockList({ conversations, onOpen, onClose, unread }: { conversations: ConversationSummary[] | null; onOpen: (id: string) => void; onClose: () => void; unread: number }) {
+function DockList({ conversations, onOpen, onClose, onNew, unread }: { conversations: ConversationSummary[] | null; onOpen: (id: string) => void; onClose: () => void; onNew: () => void; unread: number }) {
   const [search, setSearch] = useState("");
   const headingId = useId();
   const term = normalize(search);
@@ -203,6 +241,9 @@ function DockList({ conversations, onOpen, onClose, unread }: { conversations: C
         <h2 id={headingId} className="flex flex-1 items-center gap-2 text-body font-bold text-neutral-900">
           Conversas <UnreadBadge count={unread} />
         </h2>
+        <IconButton label="Nova conversa" variant="soft" size="sm" onClick={onNew}>
+          <MessageCirclePlus />
+        </IconButton>
         <IconButton label="Fechar lista de conversas" variant="plain" size="sm" onClick={onClose} aria-expanded>
           <ChevronDown className="max-lg:hidden" />
           <X className="lg:hidden" />

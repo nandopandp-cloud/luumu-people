@@ -68,7 +68,7 @@ A CSP é estática e permite `'unsafe-inline'` em scripts. Nonces exigiriam rend
 
 ## Conexões
 
-- **Interesses e seguir** são visíveis na empresa (afinidades e contagem de seguidores); cada pessoa grava e apaga só os próprios (policies `RESTRICTIVE`). Sugestões dispensadas são estritamente pessoais.
+- **Interesses** são visíveis na empresa (afinidades); cada pessoa grava e apaga só os próprios (policies `RESTRICTIVE`). "Seguir" nos destaques é o próprio pedido de conexão, não um vínculo à parte. Sugestões dispensadas são estritamente pessoais.
 - **Destaques** usam só atividade pública nos comunicados que a pessoa vê (comunicados publicados, comentários e curtidas recebidas em comentários). Mensagens privadas nunca entram em cálculo algum.
 - **Presença** continua só entre amigos (o "online" não aparece em cartões de quem não é amigo).
 
