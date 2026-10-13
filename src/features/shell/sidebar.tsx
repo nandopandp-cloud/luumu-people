@@ -47,7 +47,7 @@ async function SidebarMood() {
 const visible = (items: NavItem[], modules: EnabledModules) => items.filter((item) => !item.module || modules[item.module]);
 const NO_MODULES: EnabledModules = { learning: false, library: false };
 
-function EmployeeNavItems({ live, modules, achievements = false, conversations = 0 }: { live: boolean; modules: EnabledModules; achievements?: boolean; conversations?: number }) {
+function EmployeeNavItems({ live, modules, achievements = false, badges = { conversations: 0, requests: 0 } }: { live: boolean; modules: EnabledModules; achievements?: boolean; badges?: { conversations: number; requests: number } }) {
   const Item = live ? NavLink : NavLinkView;
   const secondary = EMPLOYEE_NAV_SECONDARY.filter((item) => achievements || item.href !== "/minhas-conquistas");
   return (
@@ -55,7 +55,15 @@ function EmployeeNavItems({ live, modules, achievements = false, conversations =
       <ul className="space-y-1">
         {visible(EMPLOYEE_NAV, modules).map((item) => (
           <li key={item.href}>
-            <Item item={item.href === "/conversas" ? { ...item, badge: conversations, badgeLabel: ["novidade", "novidades"] } : item} />
+            <Item
+              item={
+                item.href === "/conversas"
+                  ? { ...item, badge: badges.conversations, badgeLabel: ["conversa não lida", "conversas não lidas"] }
+                  : item.href === "/amigos"
+                    ? { ...item, badge: badges.requests, badgeLabel: ["pedido de conexão", "pedidos de conexão"] }
+                    : item
+              }
+            />
           </li>
         ))}
       </ul>
@@ -78,8 +86,8 @@ function EmployeeNavItems({ live, modules, achievements = false, conversations =
 /** Itens dependem dos módulos ligados (flags), da flag `gamification` e da URL: ficam atrás de <Suspense>. */
 async function LiveEmployeeNavItems() {
   const actor = await getCurrentActor();
-  const [modules, achievements, conversations] = await Promise.all([actor ? getEnabledModules(actor) : NO_MODULES, achievementsEnabled(), getFriendsBadgeCount()]);
-  return <EmployeeNavItems live modules={modules} achievements={achievements} conversations={conversations} />;
+  const [modules, achievements, badges] = await Promise.all([actor ? getEnabledModules(actor) : NO_MODULES, achievementsEnabled(), getFriendsBadgeCount()]);
+  return <EmployeeNavItems live modules={modules} achievements={achievements} badges={badges} />;
 }
 
 export function EmployeeNavList() {

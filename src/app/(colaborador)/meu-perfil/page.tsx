@@ -19,6 +19,8 @@ import { getDevelopment } from "@/server/modules/development/service";
 import { getEnabledModules } from "@/server/modules/flags/modules";
 import { CompetencyBarsCard, GoalsCard, OverviewCards } from "@/features/development/sections";
 import { getMyProfile } from "@/server/modules/people/service";
+import { getMyInterests } from "@/server/modules/friends/connections";
+import { MyInterestsCard } from "@/features/connections/my-interests-card";
 
 export const metadata: Metadata = { title: "Meu perfil" };
 
@@ -55,7 +57,7 @@ async function Profile({ searchParams }: { searchParams: PageProps<"/meu-perfil"
       <div className="mb-6">
         <LinkTabs label="Seções do perfil" current={tab} items={tabs.map((t) => ({ ...t, href: { pathname: "/meu-perfil", query: t.value === "visao-geral" ? {} : { aba: t.value } } }))} />
       </div>
-      {tab === "visao-geral" ? <Overview profile={profile} development={await getDevelopment(actor)} /> : null}
+      {tab === "visao-geral" ? <Overview profile={profile} development={await getDevelopment(actor)} interests={await getMyInterests(actor)} /> : null}
       {tab === "meus-dados" ? <MyData profile={profile} /> : null}
       {tab === "desenvolvimento" ? <ProfileDevelopment development={await getDevelopment(actor)} /> : null}
       {tab === "conquistas" && achievements ? (
@@ -163,7 +165,7 @@ function ProfileDevelopment({ development }: { development: Awaited<ReturnType<t
   );
 }
 
-function Overview({ profile, development }: { profile: Profile; development: Awaited<ReturnType<typeof getDevelopment>> }) {
+function Overview({ profile, development, interests }: { profile: Profile; development: Awaited<ReturnType<typeof getDevelopment>>; interests: string[] }) {
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
       <Card>
@@ -181,7 +183,10 @@ function Overview({ profile, development }: { profile: Profile; development: Awa
           <InfoRow icon={UsersRound} label="Gestor(a)" value={profile.managerName ?? "—"} />
         </dl>
       </Card>
-      <CompetencyBarsCard development={development} href={"/desenvolvimento?aba=competencias" as Route} />
+      <div className="space-y-6">
+        <CompetencyBarsCard development={development} href={"/desenvolvimento?aba=competencias" as Route} />
+        <MyInterestsCard interests={interests} />
+      </div>
     </div>
   );
 }

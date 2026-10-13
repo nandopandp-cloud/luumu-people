@@ -552,8 +552,8 @@ export async function listSharedMedia(actor: AuthenticatedActor, conversationId:
   });
 }
 
-/** Contador do menu "Conversas": conversas com mensagens não lidas + pedidos de amizade recebidos. */
-export async function friendsBadgeCount(actor: AuthenticatedActor): Promise<number> {
+/** Contadores do menu: "Conversas" (conversas com mensagens não lidas) e "Amigos" (pedidos de conexão recebidos). */
+export async function friendsBadgeCount(actor: AuthenticatedActor): Promise<{ conversations: number; requests: number }> {
   return withTenant(actor, async (tx) => {
     const result = await tx.execute(sql`
       select count(*)::int as n from conversation_members m
@@ -565,7 +565,7 @@ export async function friendsBadgeCount(actor: AuthenticatedActor): Promise<numb
         )
     `);
     const unread = (result as unknown as { rows: { n: number }[] }).rows[0]?.n ?? 0;
-    return unread + (await countReceivedRequests(tx, actor));
+    return { conversations: unread, requests: await countReceivedRequests(tx, actor) };
   });
 }
 

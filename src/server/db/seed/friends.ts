@@ -119,6 +119,54 @@ function conversations(): ConversationSeed[] {
   ];
 }
 
+/** Interesses do perfil (catálogo em src/lib/interests.ts). */
+const INTERESTS_BY_PERSON: Record<string, string[]> = {
+  fernando: ["produto", "design", "dados", "leitura", "cafe", "viagens"],
+  carla: ["produto", "lideranca", "design", "leitura", "viagens", "corrida"],
+  camila: ["produto", "dados", "cafe", "musica", "viagens"],
+  gabriel: ["dados", "games", "tecnologia", "cafe"],
+  lucas: ["produto", "tecnologia", "ciclismo", "fotografia"],
+  helena: ["produto", "design", "leitura", "pets"],
+  rafael: ["design", "fotografia", "musica", "cafe", "cinema"],
+  larissa: ["design", "fotografia", "viagens", "leitura", "pets"],
+  pedro: ["tecnologia", "design", "games", "musica"],
+  bruno: ["tecnologia", "dados", "corrida", "cafe"],
+  isabela: ["tecnologia", "idiomas", "viagens", "leitura"],
+  diego: ["tecnologia", "games", "cinema"],
+  amanda: ["tecnologia", "design", "produto", "bem-estar", "viagens"],
+  vinicius: ["tecnologia", "ciclismo", "natureza"],
+  renata: ["dados", "lideranca", "leitura", "cafe"],
+  felipe: ["dados", "tecnologia", "esportes"],
+  juliana: ["educacao", "comunicacao", "leitura", "bem-estar", "viagens", "cafe"],
+  eduardo: ["educacao", "lideranca", "esportes"],
+  roberta: ["educacao", "escrita", "leitura", "voluntariado"],
+  paula: ["tecnologia", "dados", "culinaria"],
+  patricia: ["lideranca", "comunicacao", "voluntariado", "bem-estar"],
+  marcos: ["esportes", "culinaria", "pets"],
+  tatiane: ["comunicacao", "musica", "cinema"],
+  thiago: ["lideranca", "tecnologia", "corrida", "cafe"],
+  joao: ["comunicacao", "esportes", "viagens"],
+  natalia: ["comunicacao", "idiomas", "fotografia"],
+  daniela: ["lideranca", "comunicacao", "bem-estar"],
+  leonardo: ["comunicacao", "games", "natureza"],
+  luiza: ["escrita", "leitura", "idiomas"],
+  simone: ["dados", "culinaria", "natureza"],
+};
+
+/** Quem segue quem: [seguidor, seguido]. */
+const FOLLOWS: [string, string][] = [
+  ["carla", "fernando"],
+  ["juliana", "fernando"],
+  ["camila", "fernando"],
+  ["fernando", "rafael"],
+  ["fernando", "renata"],
+  ["larissa", "rafael"],
+  ["pedro", "rafael"],
+  ["gabriel", "carla"],
+  ["helena", "carla"],
+  ["roberta", "juliana"],
+];
+
 export async function seedFriends(db: Database, tenantId: string, users: Map<string, { id: string }>) {
   const id = (key: string) => users.get(key)?.id;
   const pair = ([a, b]: [string, string]) => [id(a), id(b)] as const;
@@ -128,6 +176,11 @@ export async function seedFriends(db: Database, tenantId: string, users: Map<str
   await db.insert(s.friendships).values(accepted.map(([requesterId, addresseeId]) => ({ tenantId, requesterId, addresseeId, status: "accepted" as const, createdAt: new Date(Date.now() - 40 * DAY), respondedAt: new Date(Date.now() - 39 * DAY) })));
   const pending = PENDING.map(pair).filter((p): p is readonly [string, string] => Boolean(p[0] && p[1]));
   if (pending.length) await db.insert(s.friendships).values(pending.map(([requesterId, addresseeId], i) => ({ tenantId, requesterId, addresseeId, createdAt: new Date(Date.now() - (i + 1) * 3 * 60 * MINUTE) })));
+
+  const interests = Object.entries(INTERESTS_BY_PERSON).flatMap(([key, list]) => (id(key) ? list.map((interestKey) => ({ tenantId, userId: id(key)!, interestKey })) : []));
+  if (interests.length) await db.insert(s.userInterests).values(interests);
+  const follows = FOLLOWS.map(pair).filter((p): p is readonly [string, string] => Boolean(p[0] && p[1]));
+  if (follows.length) await db.insert(s.userFollows).values(follows.map(([followerId, followeeId], i) => ({ tenantId, followerId, followeeId, createdAt: new Date(Date.now() - (i + 1) * 5 * 60 * MINUTE) })));
 
   const joinedAt = new Date(Date.now() - 30 * DAY);
   for (const c of conversations().map((c) => ({ ...c, messages: inThePast(c.messages) }))) {

@@ -2,14 +2,15 @@ import { expect, test } from "@playwright/test";
 import { expectAccessible, gotoHydrated, signIn } from "./helpers";
 
 test.describe("Conversas e amigos", () => {
-  test("conversa privada em tempo real, pedidos, busca de pessoas e grupo", async ({ page, browser }) => {
+  test("conversa privada em tempo real, curtir, editar, anexo e grupo", async ({ page, browser }) => {
     test.setTimeout(180_000);
     await signIn(page, "fernando.santos@aurora.example");
     await page.getByRole("navigation", { name: "Navegação principal" }).first().getByRole("link", { name: /^Conversas/ }).click();
     await page.waitForURL("**/conversas");
     await page.waitForLoadState("networkidle");
     await expect(page.getByRole("heading", { level: 1, name: "Conversas" })).toBeVisible();
-    await expect(page.getByRole("tab", { name: /Solicitações 2/ })).toBeVisible();
+    // Pessoas e pedidos ficam em Conexões: aqui, só os atalhos.
+    await expect(page.getByRole("link", { name: /^Solicitações/ })).toHaveAttribute("href", "/amigos?aba=solicitacoes");
     await expectAccessible(page);
 
     // Conversa com a Carla: histórico, perfil ao lado e envio.
@@ -66,25 +67,11 @@ test.describe("Conversas e amigos", () => {
     await expect(chat.getByText("Fechado, até amanhã!")).toBeVisible({ timeout: 20_000 });
     await carlaContext.close();
 
-    // O sino avisa dos pedidos de amizade recebidos.
-    await page.getByRole("button", { name: /^Notificações:/ }).click();
-    const bell = page.getByRole("dialog", { name: "Notificações" });
-    await expect(bell.getByText("Novo pedido de amizade").first()).toBeVisible();
-    await page.keyboard.press("Escape");
-
-    // Pedidos recebidos: aceitar a Amanda.
-    await page.getByRole("tab", { name: /Solicitações/ }).click();
-    await page.getByRole("button", { name: "Aceitar pedido de Amanda Teixeira" }).click();
-    await expect(page.getByText("Agora vocês são amigos! 💜").first()).toBeVisible();
-    await expectAccessible(page);
-
-    // Pessoas: buscar e adicionar.
-    await page.getByRole("tab", { name: "Pessoas" }).click();
-    await page.getByRole("searchbox", { name: "Buscar pessoas" }).fill("Marcos");
-    await page.getByRole("button", { name: "Adicionar Marcos Vieira como amigo" }).click();
-    await expect(page.getByText("Pedido de amizade enviado.").first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "Pedido enviado: cancelar o pedido para Marcos Vieira" })).toBeEnabled();
-    await expectAccessible(page);
+    // Os pedidos de amizade recebidos chegam às notificações (central filtrada por Conexões).
+    const central = await page.context().newPage();
+    await central.goto("/notificacoes?tipos=friends");
+    await expect(central.getByText("Novo pedido de amizade").first()).toBeVisible();
+    await central.close();
 
     // Novo grupo com amigos.
     await page.getByRole("button", { name: "Nova conversa em grupo" }).click();
@@ -105,12 +92,14 @@ test.describe("Conversas e amigos", () => {
 
   test("perfil do colega", async ({ page }) => {
     await signIn(page, "fernando.santos@aurora.example");
-    await gotoHydrated(page, "/conversas?aba=pessoas");
+    await gotoHydrated(page, "/amigos");
     await page.getByRole("searchbox", { name: "Buscar pessoas" }).fill("Rafael");
-    await page.getByRole("button", { name: /Rafael Lima/ }).first().click();
-    await page.getByRole("complementary", { name: "Perfil" }).getByRole("link", { name: "Ver perfil" }).click();
+    await page.getByRole("article", { name: "Rafael Lima" }).getByRole("link", { name: "Rafael Lima" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Rafael Lima" })).toBeVisible();
     await expect(page.getByRole("link", { name: /Designers Luumu/ })).toBeVisible();
+    // Interesses e seguir (o Fernando já segue o Rafael no seed).
+    await expect(page.getByText("Fotografia")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Seguindo" })).toHaveAttribute("aria-pressed", "true");
     await expectAccessible(page);
   });
 

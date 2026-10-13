@@ -15,6 +15,17 @@ export async function listOrgUnits(actor: AuthenticatedActor) {
   );
 }
 
+/** Unidades/localidades (não sensível): filtros de Conexões. */
+export async function listLocations(actor: AuthenticatedActor) {
+  return withTenant(actor, (tx) =>
+    tx
+      .select({ id: s.businessUnits.id, name: s.businessUnits.name, city: s.businessUnits.city, state: s.businessUnits.state })
+      .from(s.businessUnits)
+      .where(isNull(s.businessUnits.archivedAt))
+      .orderBy(asc(s.businessUnits.name)),
+  );
+}
+
 export async function getOrganization(actor: AuthenticatedActor) {
   return withTenant(actor, async (tx) => {
     const [org] = await tx.select({ id: s.organizations.id, name: s.organizations.name, slug: s.organizations.slug }).from(s.organizations);

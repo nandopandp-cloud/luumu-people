@@ -1,7 +1,7 @@
 "use client";
 
 import { api, ApiError } from "@/lib/api-client";
-import type { ChatFile, ChatMessage, ConversationDetail, ConversationSummary, FriendRequests, MessagesPage, PersonCard, PersonProfile, Relation, SharedMedia } from "./types";
+import type { ChatFile, ChatMessage, ConnectionCard, ConnectionsCounts, ConversationDetail, ConversationSummary, DiscoverFilter, FriendRequests, MessagesPage, PersonCard, PersonProfile, Relation, SharedMedia } from "./types";
 
 /** Chamadas da área "Amigos" à API (mesma origem, cookie de sessão). */
 
@@ -46,6 +46,19 @@ export const friendsApi = {
     if (!response?.ok) throw new ApiError(response?.status ?? 0, data?.detail ?? "Não foi possível enviar o arquivo. Tente novamente.");
     return { id: data.id, url: data.url, name: file.name, mimeType: data.mimeType, sizeBytes: data.sizeBytes };
   },
+};
+
+/** Conexões (área "Amigos"). */
+export const connectionsApi = {
+  discover: (params: { q?: string; filtro?: DiscoverFilter; area?: string; local?: string; interesse?: string; limit?: number }) =>
+    api<{ items: ConnectionCard[]; total: number }>(`/api/v1/connections/people${q(params)}`),
+  suggestions: (limit: number) => api<{ items: ConnectionCard[] }>(`/api/v1/connections/suggestions${q({ limit })}`),
+  dismiss: (userId: string) => api<void>(`/api/v1/connections/suggestions/${userId}/dismiss`, { method: "POST" }),
+  featured: (limit: number) => api<{ items: ConnectionCard[] }>(`/api/v1/connections/featured${q({ limit })}`),
+  online: (limit: number) => api<{ items: ConnectionCard[]; total: number }>(`/api/v1/connections/online${q({ limit })}`),
+  counts: () => api<ConnectionsCounts>("/api/v1/connections/counts"),
+  follow: (userId: string, follow: boolean) => api<{ following: boolean; followers: number }>(`/api/v1/connections/follows/${userId}`, { method: follow ? "PUT" : "DELETE" }),
+  requestMany: (userIds: string[]) => api<{ sent: number }>("/api/v1/friends/requests/batch", { method: "POST", body: { userIds } }),
 };
 
 export const errorMessage = (error: unknown) => (error instanceof ApiError ? error.message : "Algo deu errado. Tente novamente.");

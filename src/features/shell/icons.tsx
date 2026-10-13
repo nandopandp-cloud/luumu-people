@@ -31,6 +31,7 @@ export const NAV_ICONS: Record<NavIcon, LucideIcon> = {
   surveys: SquareCheckBig,
   announcements: Megaphone,
   chat: MessagesSquare,
+  friends: UsersRound,
   notifications: Bell,
   library: Library,
   profile: UserRound,

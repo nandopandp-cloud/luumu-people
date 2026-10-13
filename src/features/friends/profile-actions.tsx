@@ -1,19 +1,19 @@
 "use client";
 
-import { ArrowLeft, UserMinus } from "lucide-react";
+import { ArrowLeft, UserCheck, UserMinus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/design-system/components/button";
 import { useToast } from "@/design-system/components/toast";
-import { errorMessage, friendsApi } from "./client";
+import { connectionsApi, errorMessage, friendsApi } from "./client";
 import { chatDock } from "./dock-store";
 import { ConfirmDialog } from "./group-dialogs";
 import { RelationActions, type FriendActions } from "./profile-panel";
 import type { Relation } from "./types";
 
 /** Ações da página de perfil do colega (pedir, aceitar, mensagem, desfazer amizade). */
-export function ProfileActions({ person }: { person: { id: string; name: string; relation: Relation } }) {
+export function ProfileActions({ person }: { person: { id: string; name: string; relation: Relation; following: boolean; followers: number } }) {
   const router = useRouter();
   const toast = useToast();
   const [confirm, setConfirm] = useState(false);
@@ -42,8 +42,35 @@ export function ProfileActions({ person }: { person: { id: string; name: string;
     },
     openConversation: (id) => chatDock.open(id),
   };
+  const [following, setFollowing] = useState(person.following);
+  const [followers, setFollowers] = useState(person.followers);
+  const [followBusy, setFollowBusy] = useState(false);
+  async function toggleFollow() {
+    setFollowBusy(true);
+    try {
+      const result = await connectionsApi.follow(person.id, !following);
+      setFollowing(result.following);
+      setFollowers(result.followers);
+    } catch (error) {
+      toast({ tone: "error", title: "Não foi possível seguir.", description: errorMessage(error) });
+    } finally {
+      setFollowBusy(false);
+    }
+  }
   return (
     <div className="flex flex-wrap items-center gap-3">
+      <span className="text-body-sm text-neutral-600">
+        <strong className="font-semibold text-neutral-900">{followers}</strong> {followers === 1 ? "seguidor" : "seguidores"}
+      </span>
+      <Button variant={following ? "ghost" : "soft"} loading={followBusy} onClick={toggleFollow} aria-pressed={following}>
+        {following ? (
+          <>
+            <UserCheck aria-hidden /> Seguindo
+          </>
+        ) : (
+          "Seguir"
+        )}
+      </Button>
       <RelationActions person={person} actions={actions} />
       {person.relation === "friends" ? (
         <Button variant="ghost" onClick={() => setConfirm(true)}>
@@ -65,8 +92,8 @@ export function ProfileActions({ person }: { person: { id: string; name: string;
 export function BackToFriends() {
   return (
     <Button asChild variant="ghost" size="sm">
-      <Link href="/conversas">
-        <ArrowLeft aria-hidden /> Conversas
+      <Link href="/amigos">
+        <ArrowLeft aria-hidden /> Conexões
       </Link>
     </Button>
   );

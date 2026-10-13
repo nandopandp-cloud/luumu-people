@@ -184,7 +184,7 @@ describe("amigos e conversas", () => {
 
   it("leitura, digitação, presença e contador do menu", async () => {
     const fernando = (await resolveActor(headersWith(await cookie("fernando"))))!;
-    const before = await friendsBadgeCount(fernando);
+    const before = (await friendsBadgeCount(fernando)).conversations;
     expect(before).toBeGreaterThanOrEqual(2); // Carla e Rafael (não lidas)
 
     const list = await call(conversationsRoute.GET, { path: "/x", cookie: await cookie("fernando") });
@@ -193,7 +193,7 @@ describe("amigos e conversas", () => {
     expect(list.json.items.find((c: { title: string }) => c.title === "Time Produto")).toMatchObject({ kind: "group", memberCount: 6 });
 
     expect((await call(readRoute.POST, { path: "/x", method: "POST", cookie: await cookie("fernando"), params: { id: carla.id } })).status).toBe(204);
-    expect(await friendsBadgeCount(fernando)).toBe(before - 1);
+    expect((await friendsBadgeCount(fernando)).conversations).toBe(before - 1);
 
     await call(typingRoute.POST, { path: "/x", method: "POST", cookie: await cookie("carla"), params: { id: carla.id } });
     await call(presenceRoute.POST, { path: "/x", method: "POST", cookie: await cookie("carla") });
@@ -360,7 +360,7 @@ describe("amigos e conversas", () => {
     const actorOf = async (key: string) => (await resolveActor(headersWith(await cookie(key))))!;
     const inbox = await listNotifications(await actorOf("otavio"));
     const request = inbox.items.find((n) => n.category === "friends")!;
-    expect(request).toMatchObject({ title: "Novo pedido de amizade", lead: "Simone Batista", href: "/conversas?aba=solicitacoes", unread: true });
+    expect(request).toMatchObject({ title: "Novo pedido de amizade", lead: "Simone Batista", href: "/amigos?aba=solicitacoes", unread: true });
 
     await call(acceptRoute.POST, { path: "/x", method: "POST", cookie: await cookie("otavio"), params: { userId: simone } });
     expect((await listNotifications(await actorOf("otavio"))).items.some((n) => n.key === request.key)).toBe(false);

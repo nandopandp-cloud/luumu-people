@@ -10,6 +10,7 @@ export type NavIcon =
   | "surveys"
   | "announcements"
   | "chat"
+  | "friends"
   | "notifications"
   | "library"
   | "profile"
@@ -46,6 +47,7 @@ export const EMPLOYEE_NAV: NavItem[] = [
   { href: "/desenvolvimento", label: "Desenvolvimento", icon: "development" },
   { href: "/pesquisas", label: "Pesquisas", icon: "surveys" },
   { href: "/comunicados", label: "Comunicados", icon: "announcements" },
+  { href: "/amigos", label: "Amigos", icon: "friends" },
   { href: "/conversas", label: "Conversas", icon: "chat" },
   { href: "/biblioteca", label: "Biblioteca", icon: "library", module: "library" },
 ];

@@ -232,6 +232,20 @@
       "when": 1791843366414,
       "tag": "0032_chat_likes_edit_security",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1791847742519,
+      "tag": "0033_connections",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1791847753213,
+      "tag": "0034_connections_security",
+      "breakpoints": true
     }
   ]
 }

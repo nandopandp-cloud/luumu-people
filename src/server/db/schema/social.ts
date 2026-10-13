@@ -164,3 +164,55 @@ export const userPresence = pgTable(
     foreignKey({ name: "user_presence_user_fk", columns: [t.tenantId, t.userId], foreignColumns: [users.tenantId, users.id] }),
   ],
 );
+
+/** Interesses do perfil (catálogo em src/lib/interests.ts). Visíveis na empresa; cada pessoa edita os seus. */
+export const userInterests = pgTable(
+  "user_interests",
+  {
+    tenantId: tenantId().references(() => organizations.id),
+    userId: uuid("user_id").notNull(),
+    interestKey: text("interest_key").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    primaryKey({ name: "user_interests_pk", columns: [t.tenantId, t.userId, t.interestKey] }),
+    foreignKey({ name: "user_interests_user_fk", columns: [t.tenantId, t.userId], foreignColumns: [users.tenantId, users.id] }),
+    index("user_interests_key_idx").on(t.tenantId, t.interestKey),
+    check("user_interests_key_format", sql`${t.interestKey} ~ '^[a-z][a-z-]{1,31}$'`),
+  ],
+);
+
+/** Seguir: vínculo de mão única, sem aprovação (diferente da amizade). */
+export const userFollows = pgTable(
+  "user_follows",
+  {
+    id: id(),
+    tenantId: tenantId().references(() => organizations.id),
+    followerId: uuid("follower_id").notNull(),
+    followeeId: uuid("followee_id").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique("user_follows_pair_key").on(t.tenantId, t.followerId, t.followeeId),
+    foreignKey({ name: "user_follows_follower_fk", columns: [t.tenantId, t.followerId], foreignColumns: [users.tenantId, users.id] }),
+    foreignKey({ name: "user_follows_followee_fk", columns: [t.tenantId, t.followeeId], foreignColumns: [users.tenantId, users.id] }),
+    index("user_follows_followee_idx").on(t.tenantId, t.followeeId),
+    check("user_follows_not_self", sql`${t.followerId} <> ${t.followeeId}`),
+  ],
+);
+
+/** Sugestões de conexão dispensadas (o "x" do cartão). Estritamente pessoal. */
+export const connectionSuggestionDismissals = pgTable(
+  "connection_suggestion_dismissals",
+  {
+    tenantId: tenantId().references(() => organizations.id),
+    userId: uuid("user_id").notNull(),
+    dismissedUserId: uuid("dismissed_user_id").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    primaryKey({ name: "connection_suggestion_dismissals_pk", columns: [t.tenantId, t.userId, t.dismissedUserId] }),
+    foreignKey({ name: "connection_suggestion_dismissals_user_fk", columns: [t.tenantId, t.userId], foreignColumns: [users.tenantId, users.id] }),
+    foreignKey({ name: "connection_suggestion_dismissals_dismissed_fk", columns: [t.tenantId, t.dismissedUserId], foreignColumns: [users.tenantId, users.id] }),
+  ],
+);

@@ -8,7 +8,7 @@ import { organizations } from "./tenancy";
 
 /**
  * Notificações in-app. Amizade (pedido recebido e pedido aceito) também é
- * CALCULADA, a partir de `friendships` (chaves `friend:<id>` e `friendok:<id>`).
+ * CALCULADA, a partir de `friendships` (chaves `friend:<id>` e `friendok:<id>`), assim como "novo seguidor" (`follow:<id>`, de `user_follows`).
  *
  * Dois tipos de origem:
  *  - CALCULADAS na leitura (novo comunicado, nova pesquisa, lembrete de
@@ -64,7 +64,7 @@ export const notificationReads = pgTable(
   (t) => [
     primaryKey({ name: "notification_reads_pk", columns: [t.tenantId, t.userId, t.key] }),
     foreignKey({ name: "notification_reads_user_fk", columns: [t.tenantId, t.userId], foreignColumns: [users.tenantId, users.id] }),
-    check("notification_reads_key_format", sql`${t.key} ~ '^(announcement|survey|reminder|friend|friendok):[0-9a-f-]{36}$'`),
+    check("notification_reads_key_format", sql`${t.key} ~ '^(announcement|survey|reminder|friend|friendok|follow):[0-9a-f-]{36}$'`),
   ],
 );
 

@@ -66,6 +66,12 @@ A CSP é estática e permite `'unsafe-inline'` em scripts. Nonces exigiriam rend
 - **Anexos:** finalidade `chat_attachment` (PDF ou imagem até 4 MB, tipo pelos bytes); entrega só para quem enviou e quem vê a mensagem.
 - **Presença:** "online agora" vem de um sinal de atividade gravado no máximo a cada 30 s, enquanto a aba está visível; é mostrado só a amigos e a quem conversa com a pessoa.
 
+## Conexões
+
+- **Interesses e seguir** são visíveis na empresa (afinidades e contagem de seguidores); cada pessoa grava e apaga só os próprios (policies `RESTRICTIVE`). Sugestões dispensadas são estritamente pessoais.
+- **Destaques** usam só atividade pública nos comunicados que a pessoa vê (comunicados publicados, comentários e curtidas recebidas em comentários). Mensagens privadas nunca entram em cálculo algum.
+- **Presença** continua só entre amigos (o "online" não aparece em cartões de quem não é amigo).
+
 ## Auditoria
 
 `audit_logs` é append-only: a role de runtime só tem `INSERT`/`SELECT`, e um trigger rejeita `UPDATE`, `DELETE` e `TRUNCATE`. A lista de ações é fechada (`AUDIT_ACTIONS`). Hoje registra login (com o método: senha ou Google), vínculo de login corporativo, logout, sessão revogada, redefinição de senha, concessão e revogação de papel, edição de perfil, criação/edição/publicação/arquivamento de comunicados, remoção de comentário por moderação (sem o texto), criação/edição/exclusão de eventos e links rápidos e criação/edição/lançamento/encerramento de pesquisas. As ações de pessoas, estrutura, configurações e exportação entram com seus módulos. **Nunca** registra resposta de pesquisa anônima nem o vínculo entre pessoa e resposta.

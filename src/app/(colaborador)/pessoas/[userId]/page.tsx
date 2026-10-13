@@ -7,6 +7,7 @@ import { Avatar } from "@/design-system/components/avatar";
 import { Card, CardHeader } from "@/design-system/components/card";
 import { Skeleton } from "@/design-system/components/feedback";
 import { ProfileCoverArt } from "@/design-system/illustrations/profile-cover";
+import { InterestChip } from "@/features/connections/interest-icon";
 import { MoodStatusPill, OnlinePill, PresenceAvatar } from "@/features/friends/person-bits";
 import { BackToFriends, ProfileActions } from "@/features/friends/profile-actions";
 import { requireActor } from "@/server/dal";
@@ -73,7 +74,7 @@ async function Colleague({ params }: { params: PageProps<"/pessoas/[userId]">["p
               </div>
             ) : null}
           </div>
-          <ProfileActions person={{ id: p.id, name: p.name, relation: p.relation }} />
+          <ProfileActions person={{ id: p.id, name: p.name, relation: p.relation, following: p.following, followers: p.followers }} />
         </div>
       </section>
 
@@ -81,6 +82,25 @@ async function Colleague({ params }: { params: PageProps<"/pessoas/[userId]">["p
         <Card>
           <CardHeader title="Sobre" />
           <p className="text-body text-neutral-700">{p.headline ? `“${p.headline}”` : `${p.name.split(" ")[0]} ainda não escreveu uma frase no perfil.`}</p>
+          <h3 className="mb-2 mt-5 text-body-sm font-bold text-neutral-900">Interesses</h3>
+          {p.interests.length ? (
+            <>
+              <ul className="flex flex-wrap gap-2">
+                {p.interests.map((k) => (
+                  <li key={k}>
+                    <InterestChip interest={k} className={p.commonInterests.includes(k) ? "ring-2 ring-purple-300" : undefined} />
+                  </li>
+                ))}
+              </ul>
+              {p.commonInterests.length ? (
+                <p className="mt-2 text-caption text-neutral-600">
+                  {p.commonInterests.length} {p.commonInterests.length === 1 ? "interesse em comum com você (destacado)" : "interesses em comum com você (destacados)"}
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <p className="text-body-sm text-neutral-600">Ainda sem interesses no perfil.</p>
+          )}
         </Card>
         <Card>
           <CardHeader title="Amigos em comum" description={p.mutualCount ? `${p.mutualCount} ${p.mutualCount === 1 ? "amigo" : "amigos"} em comum` : undefined} />

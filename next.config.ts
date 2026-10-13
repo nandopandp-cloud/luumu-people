@@ -63,11 +63,8 @@ const nextConfig: NextConfig = {
     },
   },
   async redirects() {
-    // "Amigos" virou "Conversas" (out/2026). Temporário: /amigos fica livre para a futura área de conexões.
-    return [
-      { source: "/amigos", destination: "/conversas", permanent: false },
-      { source: "/amigos/:userId", destination: "/pessoas/:userId", permanent: false },
-    ];
+    // O perfil de colega saiu de /amigos/:id para /pessoas/:id (out/2026); /amigos agora é Conexões.
+    return [{ source: "/amigos/:userId", destination: "/pessoas/:userId", permanent: false }];
   },
   async headers() {
     return [

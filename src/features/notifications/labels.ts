@@ -9,7 +9,7 @@ export const CATEGORY: Record<NotificationCategory, { label: string; icon: Lucid
   mentions: { label: "Menções", icon: AtSign, tile: "bg-purple-100 text-purple-600" },
   comments: { label: "Comentários", icon: MessageSquare, tile: "bg-blue-100 text-blue-700" },
   likes: { label: "Curtidas e reações", icon: Heart, tile: "bg-pink-100 text-red-500", filled: true },
-  friends: { label: "Amizades", icon: UserPlus, tile: "bg-yellow-100 text-yellow-800" },
+  friends: { label: "Conexões", icon: UserPlus, tile: "bg-yellow-100 text-yellow-800" },
   reminders: { label: "Lembretes", icon: CalendarClock, tile: "bg-orange-100 text-orange-700" },
 };
 

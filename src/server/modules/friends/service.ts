@@ -6,8 +6,9 @@ import { withTenant, type Tx } from "@/server/db/tenant";
 import { containsText } from "@/server/db/text-search";
 import { notFound } from "@/server/http/errors";
 import type { FriendRequests, GroupInCommon, PersonCard, PersonLite, PersonProfile, Relation } from "@/features/friends/types";
-import { colleagues, displayName, friendIdsOf, moodsOf, relationSql, toCard } from "./shared";
+import { colleagues, displayName, friendIdsOf, interestsOf, moodsOf, relationSql, toCard } from "./shared";
 import type { ColleagueQuery } from "./schemas";
+
 
 /**
  * Amigos: descobrir colegas, pedir, aceitar, recusar e desfazer amizade.
@@ -212,6 +213,14 @@ export async function getColleagueProfile(actor: AuthenticatedActor, userId: str
     const direct = sharedRows.find((c) => c.kind === "direct");
 
     const moods = await moodsOf(tx, [userId]);
+    const [interests, mine, follow] = await Promise.all([
+      interestsOf(tx, userId),
+      interestsOf(tx, actor.userId),
+      tx.execute(
+        sql`select (select count(*)::int from user_follows f where f.followee_id = ${userId}) as followers, exists (select 1 from user_follows f where f.follower_id = ${actor.userId} and f.followee_id = ${userId}) as following`,
+      ),
+    ]);
+    const followRow = (follow as unknown as { rows: { followers: number; following: boolean }[] }).rows[0];
     return {
       ...toCard(row, moods, sharedRows.length > 0),
       headline: extra?.headline ?? null,
@@ -219,6 +228,10 @@ export async function getColleagueProfile(actor: AuthenticatedActor, userId: str
       mutualFriends,
       groupsInCommon,
       directConversationId: direct?.id ?? null,
+      interests,
+      commonInterests: interests.filter((k) => mine.includes(k)),
+      followers: followRow?.followers ?? 0,
+      following: Boolean(followRow?.following),
     };
   });
 }

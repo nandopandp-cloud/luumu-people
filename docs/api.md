@@ -105,6 +105,15 @@ Paginação por cursor: `?cursor=…&limit=…` → `{ items, nextCursor }`.
 | PUT / DELETE | `/api/v1/conversations/:id/messages/:messageId/like` | quem participa | curte / descurte a mensagem em nome próprio; devolve a mensagem com `likes`, `likedByMe`, `likedBy` |
 | POST | `/api/v1/conversations/:id/read` · `/typing` | quem participa | marca como lida · sinal de "digitando…" |
 | GET | `/api/v1/conversations/:id/media` | quem participa | fotos, arquivos e links compartilhados |
+| GET | `/api/v1/connections/people?q=&filtro=&area=&local=&interesse=&limit=` | autenticado | Conexões — descobrir pessoas: busca por nome, cargo, área ou interesse; `filtro` = `todos`, `equipe`, `departamento`, `interesses`, `conexoes`; afinidade primeiro |
+| GET | `/api/v1/connections/suggestions?limit=` | autenticado | pessoas que você talvez conheça (sem vínculo, por time, departamento, amigos e interesses em comum) |
+| POST | `/api/v1/connections/suggestions/:userId/dismiss` | autenticado | dispensa a sugestão (pessoal) |
+| GET | `/api/v1/connections/featured?limit=` | autenticado | pessoas em destaque (atividade pública recente nos comunicados que a pessoa vê) |
+| GET | `/api/v1/connections/online?limit=` | autenticado | amigos online agora |
+| GET | `/api/v1/connections/counts` | autenticado | amigos, pedidos recebidos/enviados e amigos online |
+| PUT / DELETE | `/api/v1/connections/follows/:userId` | autenticado | seguir / deixar de seguir (sem aprovação); devolve `{ following, followers }` |
+| GET / PUT | `/api/v1/me/interests` | autenticado | interesses do próprio perfil `{ keys }` (catálogo em `src/lib/interests.ts`, até 12) |
+| POST | `/api/v1/friends/requests/batch` | autenticado | convidar colegas: pedidos de amizade em lote `{ userIds }` (até 30) |
 | POST | `/api/v1/me/presence` | autenticado | sinal de atividade ("online agora"), gravado no máximo a cada 30 s |
 | POST | `/api/v1/me/surveys/:id/responses` | autenticado (convidado) | envio anônimo `{ answers }` — sem log de payload/usuário, rate limit só em memória, sem auditoria |
 

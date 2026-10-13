@@ -1,7 +1,8 @@
 import "server-only";
-import { and, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import * as s from "@/server/db/schema";
 import type { Tx } from "@/server/db/tenant";
+import { INTEREST_KEYS } from "@/lib/interests";
 import { todayInBrazil } from "@/lib/moods";
 import type { MoodView, PersonCard, Relation } from "@/features/friends/types";
 
@@ -86,6 +87,16 @@ export function toCard(row: ColleagueRow, moods: Map<string, MoodView>, sharesCo
     online: (row.relation === "friends" || sharesConversation) && row.online,
     mood: moods.get(row.id) ?? null,
   };
+}
+
+/** Interesses do perfil de uma pessoa (só chaves do catálogo atual), na ordem em que foram escolhidos. */
+export async function interestsOf(tx: Tx, userId: string): Promise<string[]> {
+  const rows = await tx
+    .select({ key: s.userInterests.interestKey })
+    .from(s.userInterests)
+    .where(eq(s.userInterests.userId, userId))
+    .orderBy(asc(s.userInterests.createdAt), asc(s.userInterests.interestKey));
+  return rows.map((r) => r.key).filter((k) => (INTEREST_KEYS as string[]).includes(k));
 }
 
 /** Pares de ids de forma canônica (conversa privada única por par). */

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { INTEREST_KEYS, MAX_INTERESTS } from "@/lib/interests";
 import { GROUP_TITLE_MAX, MESSAGE_MAX } from "@/server/db/schema/social";
 
 /** Limite de pessoas num grupo (incluindo quem criou). */
@@ -53,3 +54,24 @@ export type SendMessage = z.infer<typeof sendMessageSchema>;
 export const editMessageSchema = z.strictObject({
   body: z.string().max(MESSAGE_MAX, `Use no máximo ${MESSAGE_MAX} caracteres.`),
 });
+
+const interestKey = z.string().refine((k) => (INTEREST_KEYS as string[]).includes(k), "Interesse desconhecido.");
+
+/** Descobrir pessoas (Conexões): busca, filtro rápido e "Mais filtros". */
+export const discoverQuerySchema = z.strictObject({
+  q: z.string().trim().max(80).optional().default(""),
+  filtro: z.enum(["todos", "equipe", "departamento", "interesses", "conexoes"]).optional().default("todos"),
+  area: z.uuid().optional(),
+  local: z.uuid().optional(),
+  interesse: interestKey.optional(),
+  limit: z.coerce.number().int().min(1).max(60).optional().default(24),
+});
+
+export const listLimitSchema = z.strictObject({ limit: z.coerce.number().int().min(1).max(30).optional().default(5) });
+
+export const interestsSchema = z.strictObject({
+  keys: z.array(interestKey).max(MAX_INTERESTS, `Escolha até ${MAX_INTERESTS} interesses.`),
+});
+
+/** Convidar colegas: vários pedidos de amizade de uma vez. */
+export const requestManySchema = z.strictObject({ userIds: z.array(z.uuid()).min(1, "Escolha ao menos uma pessoa.").max(30) });

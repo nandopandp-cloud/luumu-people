@@ -1,8 +1,10 @@
 "use client";
 
-import { MessageCirclePlus, Search, UsersRound } from "lucide-react";
+import { Bell, MessageCirclePlus, Search, UserPlus, UsersRound } from "lucide-react";
+import type { Route } from "next";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AvatarGroup } from "@/design-system/components/avatar";
 import { Mascot } from "@/design-system/components/brand";
 import { Button, IconButton } from "@/design-system/components/button";
@@ -17,14 +19,12 @@ import { chatDock } from "./dock-store";
 import { errorMessage, friendsApi } from "./client";
 import { AddMembersDialog, ConfirmDialog, NewGroupDialog, RenameGroupDialog } from "./group-dialogs";
 import { MoodMark, PresenceAvatar, shortWhen } from "./person-bits";
-import { GroupPanel, PersonPanel, RelationActions, type FriendActions } from "./profile-panel";
-import type { ConversationDetail, ConversationSummary, FriendRequest, FriendRequests, MessagesPage, PersonCard } from "./types";
+import { GroupPanel, PersonPanel, type FriendActions } from "./profile-panel";
+import type { ConversationDetail, ConversationSummary, FriendRequests, MessagesPage } from "./types";
 
-export type FriendsTab = "conversas" | "pessoas" | "solicitacoes";
 type Filter = "todas" | "nao-lidas" | "grupos";
 
 const LIST_POLL_MS = 10_000;
-const PEOPLE_PAGE = 24;
 
 type Initial = {
   conversations: ConversationSummary[];
@@ -46,7 +46,7 @@ function useWide() {
   return wide;
 }
 
-function setUrl(params: { conversa?: string | null; aba?: FriendsTab; pessoa?: string | null }, push = false) {
+function setUrl(params: { conversa?: string | null; aba?: string | null; pessoa?: string | null }, push = false) {
   const url = new URL(window.location.href);
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined) continue;
@@ -67,9 +67,7 @@ export function FriendsApp({ meId, initial }: { meId: string; initial: Initial }
   const toast = useToast();
   const params = useSearchParams();
   const wide = useWide();
-  const tab = (["pessoas", "solicitacoes"].includes(params.get("aba") ?? "") ? params.get("aba") : "conversas") as FriendsTab;
   const activeId = params.get("conversa");
-  const personId = params.get("pessoa");
 
   const [conversations, setConversations] = useState(initial.conversations);
   const [requests, setRequests] = useState(initial.requests);
@@ -83,7 +81,6 @@ export function FriendsApp({ meId, initial }: { meId: string; initial: Initial }
   const [rename, setRename] = useState(false);
   const [confirm, setConfirm] = useState<{ title: string; description: string; label: string; run: () => Promise<void> } | null>(null);
   const [profileVersion, setProfileVersion] = useState(0);
-  const [peopleVersion, setPeopleVersion] = useState(0);
 
   const refreshList = useCallback(async () => {
     try {
@@ -150,7 +147,6 @@ export function FriendsApp({ meId, initial }: { meId: string; initial: Initial }
     // O sino recalcula: pedido aceito/recusado sai das notificações.
     window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED));
     setProfileVersion((v) => v + 1);
-    setPeopleVersion((v) => v + 1);
     await refreshList();
     if (activeId) await loadDetail(activeId);
   }, [refreshList, loadDetail, activeId]);
@@ -203,7 +199,7 @@ export function FriendsApp({ meId, initial }: { meId: string; initial: Initial }
         try {
           const { id } = await friendsApi.open({ kind: "direct", userId });
           await refreshList();
-          setUrl({ aba: "conversas", conversa: id, pessoa: null }, true);
+          setUrl({ conversa: id, pessoa: null }, true);
           setDrawerOpen(false);
         } catch (error) {
           toast({ tone: "error", title: "Não foi possível abrir a conversa.", description: errorMessage(error) });
@@ -257,15 +253,10 @@ export function FriendsApp({ meId, initial }: { meId: string; initial: Initial }
     [detail, loadDetail, refreshList, toast],
   );
 
-  const changeTab = (next: FriendsTab) => setUrl({ aba: next, pessoa: null });
-  const selectPerson = (userId: string) => {
-    setUrl({ pessoa: userId, conversa: null });
-    if (!wide) setDrawerOpen(true);
-  };
   const togglePanel = () => (wide ? setPanelOpen((open) => !open) : setDrawerOpen(true));
 
   const unreadConversations = conversations.filter((c) => c.unread > 0).length;
-  const showPanel = wide && panelOpen && (detail || (personId && !activeId));
+  const showPanel = wide && panelOpen && detail;
   const panelContent = detail ? (
     detail.kind === "group" ? (
       <GroupPanel
@@ -280,8 +271,6 @@ export function FriendsApp({ meId, initial }: { meId: string; initial: Initial }
     ) : detail.otherId ? (
       <PersonPanel userId={detail.otherId} conversationId={detail.id} actions={actions} onClose={wide ? () => setPanelOpen(false) : undefined} version={profileVersion} />
     ) : null
-  ) : personId ? (
-    <PersonPanel userId={personId} actions={actions} onClose={wide ? () => setUrl({ pessoa: null }) : undefined} version={profileVersion} />
   ) : null;
 
   return (
@@ -302,41 +291,29 @@ export function FriendsApp({ meId, initial }: { meId: string; initial: Initial }
             <UsersRound />
           </IconButton>
         </header>
-        <div role="tablist" aria-label="Seções de conversas" className="mt-3 flex gap-1 border-b border-line px-3 sm:px-4">
-          {(
-            [
-              { value: "conversas", label: "Mensagens" },
-              { value: "pessoas", label: "Pessoas" },
-              { value: "solicitacoes", label: "Solicitações", count: requests.received.length },
-            ] as { value: FriendsTab; label: string; count?: number }[]
-          ).map((t) => (
-            <button
-              key={t.value}
-              type="button"
-              role="tab"
-              id={`aba-${t.value}`}
-              aria-selected={tab === t.value}
-              aria-controls={`painel-${t.value}`}
-              onClick={() => changeTab(t.value)}
-              className={cn(
-                "relative -mb-px inline-flex items-center gap-1.5 rounded-t-lg px-3.5 py-3 text-body-sm font-medium transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-purple-500",
-                tab === t.value ? "border-b-2 border-purple-500 bg-purple-50 font-semibold text-purple-700" : "border-b-2 border-transparent text-neutral-700 hover:text-purple-700",
-              )}
-            >
-              {t.label}
-              {t.count ? (
-                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold text-white">
-                  {t.count}
-                  <span className="sr-only"> {t.count === 1 ? "pedido novo" : "pedidos novos"}</span>
-                </span>
-              ) : null}
-            </button>
-          ))}
-        </div>
-        <div id={`painel-${tab}`} role="tabpanel" aria-labelledby={`aba-${tab}`} className="flex min-h-0 flex-1 flex-col">
-          {tab === "conversas" ? <ConversationsTab conversations={conversations} activeId={activeId} unread={unreadConversations} onOpen={openConversation} onFindPeople={() => changeTab("pessoas")} /> : null}
-          {tab === "pessoas" ? <PeopleTab selectedId={personId} onSelect={selectPerson} actions={actions} version={peopleVersion} /> : null}
-          {tab === "solicitacoes" ? <RequestsTab requests={requests} selectedId={personId} onSelect={selectPerson} actions={actions} /> : null}
+        {/* Pessoas e pedidos de conexão vivem em Conexões (/amigos): aqui, só as mensagens. */}
+        <nav aria-label="Atalhos de conexões" className="flex flex-wrap gap-2 px-5 pt-3 sm:px-6">
+          <Link
+            href="/amigos"
+            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-white px-3.5 text-caption font-semibold text-neutral-800 hover:border-purple-200 hover:bg-purple-50 hover:text-purple-700 focus-visible:outline-2 focus-visible:outline-purple-500"
+          >
+            <UserPlus aria-hidden className="size-4" /> Encontrar pessoas
+          </Link>
+          <Link
+            href={"/amigos?aba=solicitacoes" as Route}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-white px-3.5 text-caption font-semibold text-neutral-800 hover:border-purple-200 hover:bg-purple-50 hover:text-purple-700 focus-visible:outline-2 focus-visible:outline-purple-500"
+          >
+            <Bell aria-hidden className="size-4" /> Solicitações
+            {requests.received.length ? (
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold text-white">
+                {requests.received.length}
+                <span className="sr-only"> {requests.received.length === 1 ? "pedido novo" : "pedidos novos"}</span>
+              </span>
+            ) : null}
+          </Link>
+        </nav>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <ConversationsTab conversations={conversations} activeId={activeId} unread={unreadConversations} onOpen={openConversation} />
         </div>
       </section>
 
@@ -368,7 +345,7 @@ export function FriendsApp({ meId, initial }: { meId: string; initial: Initial }
             <Skeleton className="h-10 w-48" />
           </div>
         ) : (
-          <NoConversation onNewGroup={() => setNewGroup(true)} onFindPeople={() => changeTab("pessoas")} />
+          <NoConversation onNewGroup={() => setNewGroup(true)} />
         )}
       </div>
 
@@ -389,7 +366,7 @@ export function FriendsApp({ meId, initial }: { meId: string; initial: Initial }
         onOpenChange={setNewGroup}
         onCreated={async (id) => {
           await refreshList();
-          setUrl({ aba: "conversas", conversa: id }, true);
+          setUrl({ conversa: id }, true);
         }}
       />
       {detail?.kind === "group" ? (
@@ -429,7 +406,7 @@ export function FriendsApp({ meId, initial }: { meId: string; initial: Initial }
   );
 }
 
-function NoConversation({ onNewGroup, onFindPeople }: { onNewGroup: () => void; onFindPeople: () => void }) {
+function NoConversation({ onNewGroup }: { onNewGroup: () => void }) {
   return (
     <section aria-label="Nenhuma conversa aberta" className="card flex h-full min-h-[420px] flex-col items-center justify-center px-6 text-center">
       <div className="relative mb-3">
@@ -439,7 +416,9 @@ function NoConversation({ onNewGroup, onFindPeople }: { onNewGroup: () => void; 
       <p className="text-h3 font-bold text-neutral-900">Conecte-se e compartilhe ideias com seu time! 💜</p>
       <p className="mt-2 max-w-sm text-body-sm text-neutral-600">Escolha uma conversa ao lado, encontre colegas para adicionar como amigos ou crie um grupo.</p>
       <div className="mt-5 flex flex-wrap justify-center gap-3">
-        <Button onClick={onFindPeople}>Encontrar pessoas</Button>
+        <Button asChild>
+          <Link href="/amigos">Encontrar pessoas</Link>
+        </Button>
         <Button variant="secondary" onClick={onNewGroup}>
           <MessageCirclePlus aria-hidden /> Novo grupo
         </Button>
@@ -456,7 +435,7 @@ function SearchBox({ label, placeholder, value, onChange }: { label: string; pla
   );
 }
 
-function ConversationsTab({ conversations, activeId, unread, onOpen, onFindPeople }: { conversations: ConversationSummary[]; activeId: string | null; unread: number; onOpen: (id: string) => void; onFindPeople: () => void }) {
+function ConversationsTab({ conversations, activeId, unread, onOpen }: { conversations: ConversationSummary[]; activeId: string | null; unread: number; onOpen: (id: string) => void }) {
   const [filter, setFilter] = useState<Filter>("todas");
   const [search, setSearch] = useState("");
   const visible = conversations.filter((c) => {
@@ -502,8 +481,8 @@ function ConversationsTab({ conversations, activeId, unread, onOpen, onFindPeopl
             <p className="text-body-sm font-semibold text-neutral-900">{conversations.length === 0 ? "Nenhuma conversa ainda" : "Nenhuma conversa encontrada"}</p>
             <p className="mt-1 text-body-sm text-neutral-600">{conversations.length === 0 ? "Adicione amigos para começar a conversar." : "Ajuste a busca ou os filtros."}</p>
             {conversations.length === 0 ? (
-              <Button variant="soft" size="sm" className="mt-3" onClick={onFindPeople}>
-                Encontrar pessoas
+              <Button asChild variant="soft" size="sm" className="mt-3">
+                <Link href="/amigos">Encontrar pessoas</Link>
               </Button>
             ) : null}
           </li>
@@ -558,141 +537,6 @@ export function ConversationRow({ conversation: c, active, onOpen, compact = fal
         </span>
       </span>
     </button>
-  );
-}
-
-function PersonRow({ person, selected, onSelect, actions }: { person: PersonCard; selected: boolean; onSelect: (id: string) => void; actions: FriendActions }) {
-  return (
-    <div className={cn("flex items-center gap-3 px-5 py-3 sm:px-6", selected ? "bg-purple-50" : "hover:bg-neutral-50")}>
-      <button type="button" onClick={() => onSelect(person.id)} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-500">
-        <PresenceAvatar name={person.name} image={person.image} online={person.online} />
-        <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-1.5">
-            <span className="truncate text-body-sm font-semibold text-neutral-900">{person.name}</span>
-            {person.relation === "friends" ? <span className="sr-only">(amigo)</span> : null}
-            <MoodMark mood={person.mood} inline className="size-5" />
-          </span>
-          <span className="block truncate text-caption text-neutral-600">{[person.position, person.orgUnit].filter(Boolean).join(" · ") || "—"}</span>
-          {person.mutualCount > 0 && person.relation !== "friends" ? (
-            <span className="block text-caption text-purple-700">
-              {person.mutualCount} {person.mutualCount === 1 ? "amigo em comum" : "amigos em comum"}
-            </span>
-          ) : null}
-        </span>
-      </button>
-      <div className="shrink-0">
-        <RelationActions person={person} actions={actions} size="sm" compact />
-      </div>
-    </div>
-  );
-}
-
-function PeopleTab({ selectedId, onSelect, actions, version }: { selectedId: string | null; onSelect: (id: string) => void; actions: FriendActions; version: number }) {
-  const [search, setSearch] = useState("");
-  const [limit, setLimit] = useState(PEOPLE_PAGE);
-  const [data, setData] = useState<{ items: PersonCard[]; total: number } | null>(null);
-  const [error, setError] = useState(false);
-  const lastQuery = useRef("");
-
-  useEffect(() => {
-    let alive = true;
-    const term = search.trim();
-    const timer = window.setTimeout(
-      () => {
-        friendsApi
-          .people(term, limit)
-          .then((r) => {
-            if (!alive) return;
-            lastQuery.current = term;
-            setData(r);
-            setError(false);
-          })
-          .catch(() => alive && setError(true));
-      },
-      term === lastQuery.current ? 0 : 300,
-    );
-    return () => {
-      alive = false;
-      window.clearTimeout(timer);
-    };
-  }, [search, limit, version]);
-
-  const friends = data?.items.filter((p) => p.relation === "friends") ?? [];
-  const others = data?.items.filter((p) => p.relation !== "friends") ?? [];
-  return (
-    <>
-      <SearchBox
-        label="Buscar pessoas"
-        placeholder="Buscar por nome, cargo ou área…"
-        value={search}
-        onChange={(v) => {
-          setSearch(v);
-          setLimit(PEOPLE_PAGE);
-        }}
-      />
-      <div className="relative min-h-0 flex-1 overflow-y-auto py-3" aria-busy={!data}>
-        {error ? <p className="px-6 py-6 text-body-sm text-neutral-600">Não foi possível carregar as pessoas. Tente novamente.</p> : null}
-        {!data && !error ? (
-          <div aria-hidden className="space-y-3 px-6">
-            {[0, 1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-12 w-full" />
-            ))}
-          </div>
-        ) : null}
-        {data && data.items.length === 0 ? <p className="px-6 py-6 text-body-sm text-neutral-600">Ninguém encontrado com “{search.trim()}”.</p> : null}
-        {[
-          { title: "Seus amigos", list: friends },
-          { title: search.trim() ? "Outras pessoas" : "Pessoas da empresa", list: others },
-        ].map((group) =>
-          group.list.length ? (
-            <section key={group.title} aria-label={group.title} className="mb-2">
-              <h2 className="px-6 pb-1 pt-2 text-caption font-semibold uppercase tracking-wide text-neutral-600">{group.title}</h2>
-              <ul>
-                {group.list.map((p) => (
-                  <li key={p.id}>
-                    <PersonRow person={p} selected={p.id === selectedId} onSelect={onSelect} actions={actions} />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null,
-        )}
-        {data && data.total > data.items.length ? (
-          <div className="px-6 pt-2 text-center">
-            <Button variant="ghost" size="sm" onClick={() => setLimit((l) => Math.min(60, l + PEOPLE_PAGE))} disabled={limit >= 60}>
-              {limit >= 60 ? "Refine a busca para ver mais pessoas" : `Ver mais (${data.total - data.items.length})`}
-            </Button>
-          </div>
-        ) : null}
-      </div>
-    </>
-  );
-}
-
-function RequestsTab({ requests, selectedId, onSelect, actions }: { requests: FriendRequests; selectedId: string | null; onSelect: (id: string) => void; actions: FriendActions }) {
-  const section = (title: string, list: FriendRequest[], empty: string) => (
-    <section aria-label={title} className="mb-3">
-      <h2 className="px-6 pb-1 pt-2 text-caption font-semibold uppercase tracking-wide text-neutral-600">
-        {title} ({list.length})
-      </h2>
-      {list.length ? (
-        <ul>
-          {list.map((r) => (
-            <li key={r.person.id}>
-              <PersonRow person={r.person} selected={r.person.id === selectedId} onSelect={onSelect} actions={actions} />
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="px-6 py-2 text-body-sm text-neutral-600">{empty}</p>
-      )}
-    </section>
-  );
-  return (
-    <div className="relative min-h-0 flex-1 overflow-y-auto py-3">
-      {section("Recebidas", requests.received, "Nenhum pedido de amizade no momento.")}
-      {section("Enviadas", requests.sent, "Você não tem pedidos aguardando resposta.")}
-    </div>
   );
 }
 
