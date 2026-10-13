@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { Database } from "../client";
 import * as s from "../schema";
 import type { Illustration, Theme } from "../schema/learning";
@@ -445,7 +445,7 @@ function hashScore(seed: string, min: number, max: number): number {
 }
 
 /** Varia o andamento do PDI por pessoa (determinístico pelo nome) para a demo não parecer clonada. */
-function varyProgress(goals: { actions: { title: string; status: (typeof s.ACTION_STATUSES)[number]; due: number }[] }[], stage: number) {
+function varyProgress(goals: { actions: { title: string; status: (typeof s.ACTION_STATUSES)[number]; due: number; doneDaysAgo?: number }[] }[], stage: number) {
   const set = (title: string, status: (typeof s.ACTION_STATUSES)[number], due: number) => {
     const action = goals.flatMap((g) => g.actions).find((a) => a.title === title);
     if (action) Object.assign(action, { status, due });
@@ -465,6 +465,13 @@ function varyProgress(goals: { actions: { title: string; status: (typeof s.ACTIO
 }
 
 const isoDays = (n: number) => new Date(Date.now() + n * DAY).toISOString().slice(0, 10);
+
+/** Mensagens da mentoria (demonstrativas), escolhidas de forma determinística por pessoa. */
+const MENTOR_NOTES = [
+  "Seu potencial é gigante. Continue explorando desafios que te tiram da zona de conforto.",
+  "Cada conversa difícil é um degrau. Conte comigo para destravar os próximos passos.",
+  "Consistência vale mais que intensidade: um passo por semana já muda o jogo.",
+];
 
 /**
  * Competências (com nível esperado por cargo), avaliações com histórico e um
@@ -494,6 +501,11 @@ export async function seedDevelopment(db: Database, tenantId: string): Promise<b
   }
 
   const people = await db.select({ id: s.users.id, name: s.users.name }).from(s.users).where(and(eq(s.users.tenantId, tenantId), eq(s.users.status, "active")));
+  const managers = new Map(
+    (await db.select({ userId: s.managerRelationships.userId, managerId: s.managerRelationships.managerId }).from(s.managerRelationships).where(and(eq(s.managerRelationships.tenantId, tenantId), isNull(s.managerRelationships.validTo)))).map(
+      (r) => [r.userId, r.managerId] as const,
+    ),
+  );
   const year = new Date().getFullYear();
   for (const person of people) {
     // Histórico de avaliações: três momentos (há ~5 meses, ~3 meses e ~3 semanas).
@@ -509,34 +521,54 @@ export async function seedDevelopment(db: Database, tenantId: string): Promise<b
       );
     }
 
+    // Mentoria: a liderança da liderança (ou a própria liderança, no topo da área).
+    const manager = managers.get(person.id);
+    const mentor = (manager && managers.get(manager)) ?? manager;
     const pdiId = randomUUID();
-    await db.insert(s.pdis).values({ id: pdiId, tenantId, userId: person.id, title: `PDI ${year}`, periodStart: `${year}-01-01`, periodEnd: `${year}-12-31`, createdBy: person.id });
-    const goals: { title: string; competency: string; target: number; actions: { title: string; type: (typeof s.ACTION_TYPES)[number]; status: (typeof s.ACTION_STATUSES)[number]; due: number }[] }[] = [
+    await db.insert(s.pdis).values({
+      id: pdiId,
+      tenantId,
+      userId: person.id,
+      title: `PDI ${year}`,
+      periodStart: `${year}-01-01`,
+      periodEnd: `${year}-12-31`,
+      mentorUserId: mentor && mentor !== person.id ? mentor : null,
+      mentorNote: mentor && mentor !== person.id ? MENTOR_NOTES[hashScore(person.id, 0, MENTOR_NOTES.length - 1)]! : null,
+      createdBy: person.id,
+    });
+    type SeedAction = { title: string; type: (typeof s.ACTION_TYPES)[number]; status: (typeof s.ACTION_STATUSES)[number]; due: number; doneDaysAgo?: number };
+    const goals: { title: string; description: string; tags: string[]; competency: string; target: number; actions: SeedAction[] }[] = [
       {
         title: "Evoluir para posição de liderança",
+        description: "Desenvolver competências de liderança, comunicação e visão estratégica para estar preparado(a) para assumir novos desafios.",
+        tags: ["Liderança", "Carreira", "Crescimento"],
         competency: "Liderança",
         target: 120,
         actions: [
-          { title: "Mentoria mensal com uma liderança sênior", type: "mentoria", status: "done", due: -40 },
-          { title: "Conduzir a reunião de planejamento do time", type: "pratica", status: "done", due: -15 },
+          { title: "Mentoria mensal com uma liderança sênior", type: "mentoria", status: "done", due: -130, doneDaysAgo: 135 },
+          { title: "Conduzir a reunião de planejamento do time", type: "pratica", status: "done", due: -15, doneDaysAgo: 18 },
           { title: "Liderar um projeto transversal", type: "projeto", status: "in_progress", due: 20 },
         ],
       },
       {
         title: "Melhorar comunicação",
+        description: "Ganhar clareza e confiança ao apresentar ideias e resultados para o time e para a liderança.",
+        tags: ["Comunicação", "Apresentações"],
         competency: "Comunicação",
         target: 60,
         actions: [
-          { title: "Apresentar resultados na reunião mensal", type: "pratica", status: "done", due: -20 },
+          { title: "Apresentar resultados na reunião mensal", type: "pratica", status: "done", due: -95, doneDaysAgo: 100 },
           { title: "Pedir feedback sobre a clareza das apresentações", type: "feedback", status: "not_started", due: -5 },
         ],
       },
       {
         title: "Desenvolver visão estratégica",
+        description: "Conectar o trabalho do dia a dia aos objetivos da área e da empresa.",
+        tags: ["Estratégia", "Negócio"],
         competency: "Pensamento Estratégico",
         target: 150,
         actions: [
-          { title: "Mapear os indicadores da área", type: "pratica", status: "done", due: -30 },
+          { title: "Mapear os indicadores da área", type: "pratica", status: "done", due: -55, doneDaysAgo: 60 },
           { title: "Ler um livro sobre estratégia e compartilhar aprendizados", type: "leitura", status: "in_progress", due: 45 },
           { title: "Participar do planejamento trimestral", type: "projeto", status: "not_started", due: 60 },
         ],
@@ -545,7 +577,17 @@ export async function seedDevelopment(db: Database, tenantId: string): Promise<b
     varyProgress(goals, hashScore(person.name, 0, 3));
     for (const [index, g] of goals.entries()) {
       const goalId = randomUUID();
-      await db.insert(s.pdiGoals).values({ id: goalId, tenantId, pdiId, title: g.title, competencyId: competencyIds.get(g.competency)!, targetDate: isoDays(g.target), position: index + 1 });
+      await db.insert(s.pdiGoals).values({
+        id: goalId,
+        tenantId,
+        pdiId,
+        title: g.title,
+        description: g.description,
+        tags: g.tags,
+        competencyId: competencyIds.get(g.competency)!,
+        targetDate: isoDays(g.target),
+        position: index + 1,
+      });
       await db.insert(s.pdiActions).values(
         g.actions.map((a) => ({
           tenantId,
@@ -557,7 +599,7 @@ export async function seedDevelopment(db: Database, tenantId: string): Promise<b
           dueDate: isoDays(a.due),
           ownerUserId: person.id,
           createdBy: person.id,
-          completedAt: a.status === "done" ? daysAgo(Math.max(1, -a.due)) : null,
+          completedAt: a.status === "done" ? daysAgo(a.doneDaysAgo ?? Math.max(1, -a.due)) : null,
           evidence: a.status === "done" ? "Concluído conforme combinado com a liderança." : null,
         })),
       );

@@ -4,29 +4,58 @@ import { expectAccessible, gotoHydrated, signIn } from "./helpers";
 
 test.describe("Desenvolvimento", () => {
   test("colaborador acompanha o PDI e conclui uma ação com evidência, sem lançar metas", async ({ page }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(150_000);
     await signIn(page, "camila.oliveira@aurora.example");
     await gotoHydrated(page, "/desenvolvimento");
-    await expect(page.getByRole("heading", { level: 1, name: "Desenvolvimento" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Meu PDI" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: /Seu crescimento/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Meus objetivos de desenvolvimento" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Progresso geral do PDI" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Conquistas recentes" })).toBeVisible();
+    // Objetivo recolhível.
+    const goalCard = page.getByRole("article", { name: "Desenvolver visão estratégica" });
+    await goalCard.getByRole("button", { name: "Recolher Desenvolver visão estratégica" }).click();
+    await expect(goalCard.getByText("Participar do planejamento trimestral")).toBeHidden();
+    await goalCard.getByRole("button", { name: "Expandir Desenvolver visão estratégica" }).click();
+    await expect(goalCard.getByText("Participar do planejamento trimestral")).toBeVisible();
+    // Metas e ações são lançadas pela liderança.
+    await expect(page.getByRole("button", { name: "Nova ação" })).toHaveCount(0);
     await expectAccessible(page);
 
     await gotoHydrated(page, "/desenvolvimento?aba=pdi");
-    const goal = page.locator("article").filter({ has: page.getByRole("heading", { name: "Desenvolver visão estratégica" }) });
-    await expect(goal).toBeVisible();
-    // Metas e ações são lançadas pela liderança.
-    await expect(page.getByRole("button", { name: "Adicionar meta" })).toHaveCount(0);
-    await expect(goal.getByRole("button", { name: "Adicionar ação" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { level: 1, name: "Meu PDI" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Evoluir para posição de liderança" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Editar objetivo" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Novo objetivo" })).toHaveCount(0);
     await expectAccessible(page);
+    // Passa pelos objetivos até o de visão estratégica.
+    await page.getByRole("button", { name: "Próximo objetivo" }).click();
+    await page.getByRole("button", { name: "Próximo objetivo" }).click();
+    await expect(page.getByRole("heading", { name: "Desenvolver visão estratégica" })).toBeVisible();
 
-    const action = goal.getByRole("listitem").filter({ hasText: "Participar do planejamento trimestral" });
-    await action.getByRole("button", { name: "Concluir" }).click();
+    const plans = page.getByRole("list", { name: "Ações de Desenvolver visão estratégica" });
+    const action = plans.getByRole("listitem").filter({ hasText: "Participar do planejamento trimestral" });
+    await action.getByRole("button", { name: "Opções da ação Participar do planejamento trimestral" }).click();
+    await page.getByRole("menuitem", { name: "Concluir" }).click();
     const done = page.getByRole("dialog", { name: "Concluir ação" });
     await done.getByLabel("Evidência (opcional)", { exact: true }).fill("Participei e apresentei os indicadores.");
     await done.getByRole("button", { name: "Concluir" }).click();
     await expect(done).toBeHidden();
     await expect(action.getByLabel("Concluída")).toBeVisible();
     await expect(action.getByText("Com evidência")).toBeVisible();
+    // Filtro por situação.
+    await page.getByRole("group", { name: "Filtrar ações por situação" }).getByRole("button", { name: /^Concluídos/ }).click();
+    await expect(plans.getByRole("listitem").filter({ hasText: "Participar do planejamento trimestral" })).toBeVisible();
+    await expect(plans.getByRole("listitem").filter({ hasText: "Participar do planejamento trimestral" }).getByRole("img", { name: "Não iniciada" })).toHaveCount(0);
+
+    // Mentoria: "Agendar conversa" abre o chat flutuante com a pessoa mentora.
+    const mentorship = page.getByRole("region", { name: "Minha mentoria" });
+    await mentorship.getByRole("button", { name: /^Agendar conversa com/ }).click();
+    await expect(page.getByRole("region", { name: "Conversas rápidas" }).getByRole("textbox", { name: "Mensagem" })).toBeVisible();
+
+    await gotoHydrated(page, "/desenvolvimento?aba=conquistas");
+    await expect(page.getByRole("heading", { name: "Meus níveis por competência" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Linha do tempo" }).getByRole("listitem").first()).toBeVisible();
+    await expectAccessible(page);
   });
 
   test("competências e evolução são acessíveis e sem autoavaliação", async ({ page }) => {
@@ -53,24 +82,48 @@ test.describe("Desenvolvimento", () => {
 
     await row.getByRole("link", { name: "Ver desenvolvimento de Camila Oliveira" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Camila Oliveira" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Metas de desenvolvimento" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Objetivos de desenvolvimento" })).toBeVisible();
     await page.waitForLoadState("networkidle");
     await expectAccessible(page);
     const base = new URL(page.url()).pathname;
 
     await gotoHydrated(page, `${base}?aba=pdi`);
-    await page.getByRole("button", { name: "Adicionar meta" }).click();
+    await page.getByRole("button", { name: "Novo objetivo" }).click();
     const goalDialog = page.getByRole("dialog", { name: "Nova meta de desenvolvimento" });
     await goalDialog.getByLabel("Objetivo").fill("Conduzir rituais do time");
+    await goalDialog.getByLabel("Etiquetas (opcional)").fill("Rituais, Time");
     await goalDialog.getByRole("button", { name: "Adicionar meta" }).click();
     await expect(goalDialog).toBeHidden();
-    const goal = page.locator("article").filter({ has: page.getByRole("heading", { name: "Conduzir rituais do time" }) });
-    await goal.getByRole("button", { name: "Adicionar ação" }).click();
+    // O novo objetivo é o último: avança até ele.
+    for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Próximo objetivo" }).click();
+    await expect(page.getByRole("heading", { name: "Conduzir rituais do time" })).toBeVisible();
+    await expect(page.getByText("Rituais", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Nova ação" }).click();
     const actionDialog = page.getByRole("dialog", { name: "Nova ação" });
     await actionDialog.getByLabel("O que será feito?").fill("Facilitar a retrospectiva");
     await actionDialog.getByRole("button", { name: "Adicionar ação" }).click();
     await expect(actionDialog).toBeHidden();
-    await expect(goal.getByText("Facilitar a retrospectiva")).toBeVisible();
+    await expect(page.getByRole("list", { name: "Ações de Conduzir rituais do time" }).getByText("Facilitar a retrospectiva")).toBeVisible();
+
+    // Editar o objetivo e definir a mentoria.
+    await page.getByRole("button", { name: "Editar objetivo" }).click();
+    const edit = page.getByRole("dialog", { name: "Editar objetivo" });
+    await edit.getByLabel("Descrição (opcional)").fill("Facilitar as cerimônias do time com autonomia.");
+    await edit.getByRole("button", { name: "Salvar" }).click();
+    await expect(edit).toBeHidden();
+    await expect(page.getByText("Facilitar as cerimônias do time com autonomia.")).toBeVisible();
+    const mentorship = page.getByRole("region", { name: "Mentoria", exact: true });
+    await mentorship.getByRole("button", { name: "Opções da mentoria" }).click();
+    await page.getByRole("menuitem", { name: "Alterar mentoria" }).click();
+    const mentorDialog = page.getByRole("dialog", { name: "Alterar mentoria" });
+    await mentorDialog.getByRole("searchbox", { name: "Buscar colaboradores" }).fill("Juliana");
+    await mentorDialog.getByRole("button", { name: /Juliana Mendes/ }).click();
+    await mentorDialog.getByLabel("Mensagem para a pessoa (opcional)").fill("Conte comigo nos rituais!");
+    await expectAccessible(page);
+    await mentorDialog.getByRole("button", { name: "Salvar" }).click();
+    await expect(mentorDialog).toBeHidden();
+    await expect(mentorship.getByText("Juliana Mendes").first()).toBeVisible();
+    await expect(mentorship.getByText("“Conte comigo nos rituais!”")).toBeVisible();
 
     await gotoHydrated(page, `${base}?aba=competencias`);
     const card = page.getByRole("listitem").filter({ hasText: "Gestão do Tempo" });

@@ -1,9 +1,23 @@
-import { Crown, Leaf, MessageCircleMore, Star, Trophy, UsersRound, type LucideIcon } from "lucide-react";
+import { Brain, Clock3, Crown, HeartHandshake, Leaf, Lightbulb, MessageCircleMore, Puzzle, Star, Target, Trophy, UsersRound, type LucideIcon } from "lucide-react";
 import { useId } from "react";
 import { cn } from "../cn";
 
 /** Selo hexagonal de conquista (mockups "Minhas conquistas"). */
-const ICONS: Record<string, LucideIcon> = { star: Star, leaf: Leaf, people: UsersRound, crown: Crown, chat: MessageCircleMore, trophy: Trophy };
+const ICONS: Record<string, LucideIcon> = {
+  star: Star,
+  leaf: Leaf,
+  people: UsersRound,
+  crown: Crown,
+  chat: MessageCircleMore,
+  trophy: Trophy,
+  // Ícones do catálogo de competências (conquistas do desenvolvimento).
+  target: Target,
+  clock: Clock3,
+  heart: HeartHandshake,
+  lightbulb: Lightbulb,
+  puzzle: Puzzle,
+  brain: Brain,
+};
 
 const GRADIENTS: Record<string, [string, string]> = {
   purple: ["#c4b5fd", "#8b5cf6"],

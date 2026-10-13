@@ -56,7 +56,9 @@ Paginação por cursor: `?cursor=…&limit=…` → `{ items, nextCursor }`.
 | POST | `/api/v1/courses/:id/enroll` | autenticado | matrícula voluntária em curso publicado; devolve a próxima aula |
 | POST | `/api/v1/courses/:id/lessons/:lessonId/complete` | autenticado | conclui a aula (idempotente), recalcula o progresso e emite o certificado ao chegar a 100% |
 | POST | `/api/v1/development/pdis` | `development.pdi.manage` no escopo (nunca sobre si) | cria o PDI ativo `{ userId, title, periodStart, periodEnd }` (409 se já existir) |
-| POST | `/api/v1/development/pdis/:pdiId/goals` | idem | nova meta `{ title, description?, competencyId?, targetDate? }` |
+| POST | `/api/v1/development/pdis/:pdiId/goals` | idem | nova meta `{ title, description?, competencyId?, targetDate?, tags? }` (até 5 etiquetas de 24 caracteres, sem repetir) |
+| PATCH | `/api/v1/development/goals/:goalId` | idem | edita o objetivo (mesmos campos, todos opcionais) |
+| PUT | `/api/v1/development/pdis/:pdiId/mentor` | idem | mentoria do ciclo `{ mentorUserId \| null, mentorNote? }` (até 280 caracteres): colega ativo da empresa, nunca a própria pessoa; `null` remove |
 | POST | `/api/v1/development/goals/:goalId/actions` | idem | nova ação `{ title, type, dueDate?, ownerUserId? }` |
 | PATCH | `/api/v1/development/actions/:actionId` | liderança; titular só `status` (sem cancelar), `evidence`, `evidenceUrl` | atualiza status, prazo e evidência (`evidenceUrl` só `https://`) |
 | POST | `/api/v1/development/assessments` | `development.pdi.manage` no escopo (nunca sobre si) | registra avaliação `{ userId, competencyId, score 0..100, note? }`; a origem (manager/people) é definida pelo servidor |
@@ -69,7 +71,7 @@ Paginação por cursor: `?cursor=…&limit=…` → `{ items, nextCursor }`.
 | PUT / DELETE | `/api/v1/announcements/:id/reaction` | autenticado (quem vê o comunicado) | reage `{ kind: love \| cheer \| sad }` (trocar atualiza) ou remove a reação, em nome próprio; devolve `{ counts, total, mine }` |
 | GET / POST | `/api/v1/announcements/:id/comments` | autenticado (quem vê o comunicado) | lista / cria comentário `{ body, parentId? }` — resposta de um nível; menções `@[Nome](user:id)` só de quem vê o comunicado (as demais viram texto) |
 | POST / DELETE | `/api/v1/announcements/:id/comments/:commentId/like` | autenticado (quem vê o comunicado) | curte/descurte comentário em nome próprio; avisa quem escreveu |
-| GET | `/api/v1/announcements/:id/mentionable?q=` | autenticado (quem vê o comunicado) | sugestões de menção: até 8 pessoas do público, só `{ id, name, image }` |
+| GET | `/api/v1/announcements/:id/mentionable?q=` | autenticado (quem vê o comunicado) | sugestões de menção, só `{ id, name, image }`, em ordem alfabética: sem `q` (o "@" sozinho), todo o público do comunicado; com `q`, filtra pelo nome |
 | GET | `/api/v1/me/notifications?aba=&tipos=&limite=` | autenticado | notificações da própria pessoa (`todas`, `nao-lidas`, `mencoes`; categorias) + contadores |
 | GET | `/api/v1/me/notifications/unread-count` | autenticado | não lidas (sino) |
 | POST | `/api/v1/me/notifications/read` | autenticado | `{ keys[], read? }` marca como lida/não lida (só as próprias) |

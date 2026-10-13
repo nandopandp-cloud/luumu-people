@@ -54,7 +54,8 @@ export const commentInputSchema = z.strictObject({
 });
 
 export const mentionableQuerySchema = z.strictObject({
-  q: z.string().trim().min(1).max(40),
+  /** Vazio: todas as pessoas que podem ser mencionadas (o "@" sozinho abre a lista). */
+  q: z.string().trim().max(40).optional().default(""),
 });
 export const commentParamsSchema = z.strictObject({ id: z.uuid(), commentId: z.uuid() });
 

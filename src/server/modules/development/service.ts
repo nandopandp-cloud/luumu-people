@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { recordAudit } from "@/server/audit/audit";
 import type { AuthenticatedActor } from "@/server/auth/session";
 import { can, hasTenantWide } from "@/server/authz/policy";
@@ -7,7 +7,7 @@ import { accessibleUsersCondition, dbScopeResolver } from "@/server/authz/resolv
 import * as s from "@/server/db/schema";
 import { withTenant, type Tx } from "@/server/db/tenant";
 import { badRequest, conflict, forbidden, notFound } from "@/server/http/errors";
-import type { ActionInput, ActionUpdate, AssessmentInput, CompetencyInput, GoalInput, PdiInput } from "./schemas";
+import type { ActionInput, ActionUpdate, AssessmentInput, CompetencyInput, GoalInput, GoalUpdate, PdiInput, PdiMentorInput } from "./schemas";
 
 /**
  * Desenvolvimento de pessoas.
@@ -68,6 +68,10 @@ export type CompetencyRow = {
   category: string;
   icon: string;
   score: number | null;
+  /** Nota da avaliação anterior (para a variação "↑ 12%"). */
+  previousScore: number | null;
+  /** Variação em pontos desde a avaliação anterior (null sem duas avaliações). */
+  delta: number | null;
   expected: number;
   source: string | null;
   assessedAt: Date | null;
@@ -75,25 +79,61 @@ export type CompetencyRow = {
 };
 
 async function loadCompetencies(tx: Tx, userId: string): Promise<CompetencyRow[]> {
-  const result = rows<Omit<CompetencyRow, "level">>(
+  const result = rows<Omit<CompetencyRow, "level" | "delta">>(
     await tx.execute(sql`
       with current_position as (
         select ea.position_id from employment_assignments ea where ea.user_id = ${userId} and ea.valid_to is null
-      ), latest as (
-        select distinct on (ca.competency_id) ca.competency_id, ca.score, ca.source, ca.assessed_at
+      ), ranked as (
+        select ca.competency_id, ca.score, ca.source, ca.assessed_at,
+               row_number() over (partition by ca.competency_id order by ca.assessed_at desc, ca.id desc) as n
         from competency_assessments ca where ca.user_id = ${userId}
-        order by ca.competency_id, ca.assessed_at desc
       )
       select c.id, c.name, c.category, c.icon,
-             latest.score::int as score, latest.source, latest.assessed_at as "assessedAt",
+             latest.score::int as score, previous.score::int as "previousScore", latest.source, latest.assessed_at as "assessedAt",
              coalesce(pc.expected_score, 70)::int as expected
       from competencies c
-      left join latest on latest.competency_id = c.id
+      left join ranked latest on latest.competency_id = c.id and latest.n = 1
+      left join ranked previous on previous.competency_id = c.id and previous.n = 2
       left join position_competencies pc on pc.competency_id = c.id and pc.position_id = (select position_id from current_position)
       where c.archived_at is null
       order by c.name`),
   );
-  return result.map((c) => ({ ...c, level: classify(c.score, c.expected) }));
+  return result.map((c) => ({
+    ...c,
+    delta: c.score !== null && c.previousScore !== null ? c.score - c.previousScore : null,
+    level: classify(c.score, c.expected),
+  }));
+}
+
+/** Nível de proficiência (0–5) de uma nota: 20 = Iniciante … 100 = Referência. */
+export function proficiencyLevel(score: number): number {
+  return Math.max(0, Math.min(5, Math.floor(score / 20)));
+}
+
+export type CompetencyMilestone = { competencyId: string; name: string; icon: string; level: number; achievedAt: Date };
+
+/**
+ * Conquistas do desenvolvimento, DERIVADAS do histórico de avaliações: cada vez
+ * que uma competência alcança um nível de proficiência inédito. Mais recentes primeiro.
+ */
+async function loadMilestones(tx: Tx, userId: string): Promise<CompetencyMilestone[]> {
+  const history = rows<{ competencyId: string; name: string; icon: string; score: number; assessedAt: Date }>(
+    await tx.execute(sql`
+      select ca.competency_id as "competencyId", c.name, c.icon, ca.score::int as score, ca.assessed_at as "assessedAt"
+      from competency_assessments ca join competencies c on c.id = ca.competency_id
+      where ca.user_id = ${userId} and c.archived_at is null
+      order by ca.competency_id, ca.assessed_at, ca.id`),
+  );
+  const reached = new Map<string, number>();
+  const milestones: CompetencyMilestone[] = [];
+  for (const h of history) {
+    const level = proficiencyLevel(h.score);
+    if (level > (reached.get(h.competencyId) ?? 0)) {
+      reached.set(h.competencyId, level);
+      milestones.push({ competencyId: h.competencyId, name: h.name, icon: h.icon, level, achievedAt: new Date(h.assessedAt) });
+    }
+  }
+  return milestones.sort((a, b) => b.achievedAt.getTime() - a.achievedAt.getTime());
 }
 
 export type PdiAction = {
@@ -118,23 +158,91 @@ export type PdiGoal = {
   description: string | null;
   competencyId: string | null;
   competencyName: string | null;
+  competencyIcon: string | null;
   targetDate: string | null;
+  tags: string[];
   status: string;
   progress: number;
   actions: PdiAction[];
 };
 
-async function loadPdi(tx: Tx, userId: string) {
-  const [pdi] = await tx
-    .select({ id: s.pdis.id, title: s.pdis.title, periodStart: s.pdis.periodStart, periodEnd: s.pdis.periodEnd })
+export type PdiSummary = { id: string; title: string; status: "active" | "closed"; periodStart: string; periodEnd: string };
+export type PdiMentor = { id: string; name: string; image: string | null; position: string | null; active: boolean; note: string | null };
+/** Um ponto por mês: progresso do PDI ao fim do mês e ações concluídas no mês. */
+export type PdiTimelinePoint = { month: string; progress: number; completed: number };
+
+async function listPdis(tx: Tx, userId: string): Promise<PdiSummary[]> {
+  return tx
+    .select({ id: s.pdis.id, title: s.pdis.title, status: s.pdis.status, periodStart: s.pdis.periodStart, periodEnd: s.pdis.periodEnd })
     .from(s.pdis)
-    .where(and(eq(s.pdis.userId, userId), eq(s.pdis.status, "active")));
+    .where(eq(s.pdis.userId, userId))
+    .orderBy(sql`${s.pdis.status} = 'active' desc`, desc(s.pdis.periodStart));
+}
+
+const monthOf = (date: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit" }).format(date);
+
+function addMonths(month: string, n: number) {
+  const [y, m] = month.split("-").map(Number) as [number, number];
+  const total = y * 12 + (m - 1) + n;
+  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, "0")}`;
+}
+
+/**
+ * Evolução do PDI mês a mês (até 6 meses, dentro do ciclo e até o mês atual):
+ * média do progresso das metas ao fim de cada mês, pelas datas de conclusão.
+ */
+function pdiTimeline(period: { periodStart: string; periodEnd: string }, goals: { actions: PdiAction[] }[]): PdiTimelinePoint[] {
+  const current = todayBR().slice(0, 7);
+  const end = period.periodEnd.slice(0, 7) < current ? period.periodEnd.slice(0, 7) : current;
+  const startCandidate = addMonths(end, -5);
+  const start = period.periodStart.slice(0, 7) > startCandidate ? period.periodStart.slice(0, 7) : startCandidate;
+  const points: PdiTimelinePoint[] = [];
+  for (let month = start; month <= end; month = addMonths(month, 1)) {
+    const progress = goals.length
+      ? goals.reduce((sum, g) => {
+          const countable = g.actions.filter((a) => a.status !== "cancelled");
+          const done = countable.filter((a) => a.status === "done" && a.completedAt && monthOf(new Date(a.completedAt)) <= month).length;
+          return sum + (countable.length ? (done / countable.length) * 100 : 0);
+        }, 0) / goals.length
+      : 0;
+    const completed = goals.flatMap((g) => g.actions).filter((a) => a.status === "done" && a.completedAt && monthOf(new Date(a.completedAt)) === month).length;
+    points.push({ month, progress: Math.round(progress), completed });
+  }
+  return points;
+}
+
+/** O PDI escolhido (`pdiId`, se for da pessoa) ou o ativo. */
+async function loadPdi(tx: Tx, userId: string, pdiId?: string) {
+  const [pdi] = await tx
+    .select({
+      id: s.pdis.id,
+      title: s.pdis.title,
+      status: s.pdis.status,
+      periodStart: s.pdis.periodStart,
+      periodEnd: s.pdis.periodEnd,
+      mentorUserId: s.pdis.mentorUserId,
+      mentorNote: s.pdis.mentorNote,
+    })
+    .from(s.pdis)
+    .where(and(eq(s.pdis.userId, userId), pdiId ? eq(s.pdis.id, pdiId) : eq(s.pdis.status, "active")));
   if (!pdi) return null;
+
+  let mentor: PdiMentor | null = null;
+  if (pdi.mentorUserId) {
+    const [m] = rows<Omit<PdiMentor, "note">>(
+      await tx.execute(sql`
+        select u.id, u.name, u.image, p.name as position, (u.status = 'active') as active from users u
+        left join employment_assignments ea on ea.user_id = u.id and ea.valid_to is null
+        left join positions p on p.id = ea.position_id
+        where u.id = ${pdi.mentorUserId}`),
+    );
+    mentor = m ? { ...m, note: pdi.mentorNote } : null;
+  }
 
   const goals = rows<Omit<PdiGoal, "progress" | "actions">>(
     await tx.execute(sql`
-      select g.id, g.title, g.description, g.competency_id as "competencyId", c.name as "competencyName",
-             to_char(g.target_date, 'YYYY-MM-DD') as "targetDate", g.status
+      select g.id, g.title, g.description, g.competency_id as "competencyId", c.name as "competencyName", c.icon as "competencyIcon",
+             to_char(g.target_date, 'YYYY-MM-DD') as "targetDate", g.tags, g.status
       from pdi_goals g left join competencies c on c.id = g.competency_id
       where g.pdi_id = ${pdi.id} and g.status <> 'cancelled'
       order by g.position, g.created_at`),
@@ -158,11 +266,20 @@ async function loadPdi(tx: Tx, userId: string) {
   });
   const countable = actions.filter((a) => a.status !== "cancelled");
   return {
-    ...pdi,
+    id: pdi.id,
+    title: pdi.title,
+    status: pdi.status,
+    periodStart: pdi.periodStart,
+    periodEnd: pdi.periodEnd,
+    mentor,
     goals: fullGoals,
+    timeline: pdiTimeline(pdi, fullGoals),
     stats: {
       actionsTotal: countable.length,
       actionsDone: countable.filter((a) => a.status === "done").length,
+      /** Em andamento e dentro do prazo (atrasadas contam à parte). */
+      actionsInProgress: actions.filter((a) => a.status === "in_progress" && !a.late).length,
+      actionsNotStarted: actions.filter((a) => a.status === "not_started" && !a.late).length,
       actionsLate: actions.filter((a) => a.late).length,
       progress: fullGoals.length ? Math.round(fullGoals.reduce((sum, g) => sum + g.progress, 0) / fullGoals.length) : 0,
     },
@@ -171,8 +288,8 @@ async function loadPdi(tx: Tx, userId: string) {
 
 export type Development = Awaited<ReturnType<typeof getDevelopment>>;
 
-/** Desenvolvimento completo de uma pessoa (própria ou no escopo do ator). */
-export async function getDevelopment(actor: AuthenticatedActor, userId: string = actor.userId) {
+/** Desenvolvimento completo de uma pessoa (própria ou no escopo do ator); `pdiId` escolhe outro ciclo dela. */
+export async function getDevelopment(actor: AuthenticatedActor, userId: string = actor.userId, options: { pdiId?: string } = {}) {
   return withTenant(actor, async (tx) => {
     await assertCanRead(tx, actor, userId);
     const [person] = rows<{ id: string; name: string; image: string | null; position: string | null; orgUnit: string | null }>(
@@ -184,15 +301,33 @@ export async function getDevelopment(actor: AuthenticatedActor, userId: string =
         where u.id = ${userId}`),
     );
     if (!person) throw notFound();
-    const [competencyList, pdi, competencyOptions] = [await loadCompetencies(tx, userId), await loadPdi(tx, userId), await listCompetencyOptions(tx)];
+    const competencyList = await loadCompetencies(tx, userId);
+    const pdis = await listPdis(tx, userId);
+    // Ciclo pedido que não é da pessoa: cai no ativo (não revela nada de outra pessoa).
+    const pdi = await loadPdi(tx, userId, options.pdiId && pdis.some((p) => p.id === options.pdiId) ? options.pdiId : undefined);
+    const [milestones, competencyOptions] = [await loadMilestones(tx, userId), await listCompetencyOptions(tx)];
     const counts = {
       developed: competencyList.filter((c) => c.level === "developed").length,
       developing: competencyList.filter((c) => c.level === "developing").length,
       toDevelop: competencyList.filter((c) => c.level === "to_develop").length,
+      evolving: competencyList.filter((c) => (c.delta ?? 0) > 0).length,
     };
     const isSelf = userId === actor.userId;
     const manage = await canManage(tx, actor, userId);
-    return { person, competencies: competencyList, counts, pdi, competencyOptions, canManage: manage, canUpdateProgress: manage || isSelf, isSelf };
+    // Ciclo encerrado: só leitura para todo mundo.
+    const editable = pdi?.status !== "closed";
+    return {
+      person,
+      competencies: competencyList,
+      counts,
+      pdi,
+      pdis,
+      milestones,
+      competencyOptions,
+      canManage: manage && editable,
+      canUpdateProgress: (manage || isSelf) && editable,
+      isSelf,
+    };
   });
 }
 
@@ -385,10 +520,56 @@ export async function addGoal(actor: AuthenticatedActor, pdiId: string, input: G
     const [{ next }] = rows<{ next: number }>(await tx.execute(sql`select coalesce(max(position), 0) + 1 as next from pdi_goals where pdi_id = ${pdiId}`));
     const [goal] = await tx
       .insert(s.pdiGoals)
-      .values({ tenantId: actor.tenantId, pdiId, title: input.title, description: input.description ?? null, competencyId: input.competencyId ?? null, targetDate: input.targetDate ?? null, position: Number(next) })
+      .values({
+        tenantId: actor.tenantId,
+        pdiId,
+        title: input.title,
+        description: input.description ?? null,
+        competencyId: input.competencyId ?? null,
+        targetDate: input.targetDate ?? null,
+        tags: input.tags ?? [],
+        position: Number(next),
+      })
       .returning({ id: s.pdiGoals.id });
     await audit(tx, actor, pdi.userId, "goal_added", meta);
     return goal!;
+  });
+}
+
+export async function updateGoal(actor: AuthenticatedActor, goalId: string, input: GoalUpdate, meta: Meta) {
+  return withTenant(actor, async (tx) => {
+    const [goal] = await tx.select({ pdiId: s.pdiGoals.pdiId }).from(s.pdiGoals).where(eq(s.pdiGoals.id, goalId));
+    if (!goal) throw notFound();
+    const pdi = await pdiOwner(tx, goal.pdiId);
+    await assertCanManage(tx, actor, pdi.userId);
+    if (pdi.status !== "active") throw badRequest("Este PDI está encerrado.");
+    const changes: Partial<typeof s.pdiGoals.$inferInsert> = {};
+    if (input.title !== undefined) changes.title = input.title;
+    if (input.description !== undefined) changes.description = input.description;
+    if (input.competencyId !== undefined) changes.competencyId = input.competencyId;
+    if (input.targetDate !== undefined) changes.targetDate = input.targetDate;
+    if (input.tags !== undefined) changes.tags = input.tags;
+    await tx.update(s.pdiGoals).set(changes).where(eq(s.pdiGoals.id, goalId));
+    await audit(tx, actor, pdi.userId, "goal_updated", meta, { fields: Object.keys(changes) });
+    return { id: goalId };
+  });
+}
+
+/** Mentoria do ciclo: a liderança escolhe um colega ativo (nunca a própria pessoa) e deixa uma mensagem. */
+export async function setPdiMentor(actor: AuthenticatedActor, pdiId: string, input: PdiMentorInput, meta: Meta) {
+  return withTenant(actor, async (tx) => {
+    const pdi = await pdiOwner(tx, pdiId);
+    await assertCanManage(tx, actor, pdi.userId);
+    if (pdi.status !== "active") throw badRequest("Este PDI está encerrado.");
+    if (input.mentorUserId) {
+      if (input.mentorUserId === pdi.userId) throw badRequest("A mentoria precisa ser de outra pessoa.");
+      const [mentor] = await tx.select({ status: s.users.status }).from(s.users).where(eq(s.users.id, input.mentorUserId));
+      if (mentor?.status !== "active") throw badRequest("Escolha um colaborador ativo da empresa.");
+    }
+    const note = input.mentorUserId ? (input.mentorNote ?? null) : null;
+    await tx.update(s.pdis).set({ mentorUserId: input.mentorUserId, mentorNote: note }).where(eq(s.pdis.id, pdiId));
+    await audit(tx, actor, pdi.userId, "mentor_updated", meta);
+    return { mentorUserId: input.mentorUserId };
   });
 }
 

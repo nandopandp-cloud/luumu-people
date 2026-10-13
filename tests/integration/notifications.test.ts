@@ -95,6 +95,13 @@ describe("notificações", () => {
     expect((suggestions.json.items as { name: string }[]).map((p) => p.name)).not.toContain("Bruno Martins");
     const all = await call(mentionableRoute.GET, { path: "/x?q=ga", cookie, params: { id } });
     expect(all.json.items[0]).toEqual({ id: gabriel, name: "Gabriel Rocha", image: null });
+    // "@" sozinho: todo o público do comunicado, em ordem alfabética (sem quem está fora dele).
+    const everyone = await call(mentionableRoute.GET, { path: "/x", cookie, params: { id } });
+    const names = (everyone.json.items as { name: string }[]).map((p) => p.name);
+    expect(names.length).toBeGreaterThan(all.json.items.length);
+    expect(names).toContain("Gabriel Rocha");
+    expect(names).not.toContain("Bruno Martins");
+    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b, "pt-BR")));
   });
 
   it("resposta e curtida em comentário geram notificação; descurtir desfaz; removido some", async () => {

@@ -40,11 +40,11 @@ Fontes: o styleguide da Luumu People e os mockups de interface. Código em `src/
 
 | Componente | Arquivo |
 |---|---|
-| Button, IconButton | `button.tsx`: primário, secundário, terciário, soft, fantasma, destrutivo; sm/md/lg; `loading`; `asChild` |
+| Button, IconButton | `button.tsx`: primário, secundário, terciário, soft, fantasma, destrutivo; sm/md/lg; `loading`; `asChild`. IconButton: outline, soft, plain e `solid` (roxo cheio) |
 | Field, Input, Textarea | `field.tsx`: label associado, dica, erro anunciado (`role=alert`) com ícone |
 | Select | `select.tsx` (nativo estilizado) |
 | Switch, Checkbox, RadioGroup | `choice.tsx` (Radix) |
-| Tabs, LinkTabs | `tabs.tsx` (Radix), `link-tabs.tsx` (estado na URL) |
+| Tabs, LinkTabs | `tabs.tsx` (Radix), `link-tabs.tsx` (estado na URL; `variant="soft"`: blocos claros e a aba atual branca, roxa e sublinhada — Desenvolvimento) |
 | Badge | `badge.tsx`: tons da paleta |
 | Avatar, AvatarGroup | `avatar.tsx`: foto ou iniciais com tom estável |
 | Card, CardHeader, SeeAllLink | `card.tsx` |

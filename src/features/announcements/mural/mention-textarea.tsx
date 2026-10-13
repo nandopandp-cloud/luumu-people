@@ -8,12 +8,12 @@ import { api } from "@/lib/api-client";
 
 type Person = { id: string; name: string; image: string | null };
 
-/** "@" + o que foi digitado até o cursor (nomes podem ter espaço). */
-const QUERY = /(?:^|\s)@([\p{L}][\p{L}\p{M}'. -]{0,39})$/u;
+/** "@" + o que foi digitado até o cursor (nomes podem ter espaço); "@" sozinho lista todo mundo. */
+const QUERY = /(?:^|\s)@((?:[\p{L}][\p{L}\p{M}'. -]{0,39})?)$/u;
 
 /**
- * Campo de comentário com sugestões de menção. Ao digitar "@" e parte do nome,
- * lista quem vê o comunicado; escolher insere "@Nome" e guarda o id em
+ * Campo de comentário com sugestões de menção. Ao digitar "@", lista todas as
+ * pessoas que veem o comunicado (digitar parte do nome filtra); escolher insere "@Nome" e guarda o id em
  * `mentions` (nome exibido → id). Quem envia converte com `encodeMentions`.
  */
 export function MentionTextarea({
@@ -65,7 +65,6 @@ export function MentionTextarea({
     const q = match[1]!.trimEnd();
     setQuery(q);
     window.clearTimeout(timer.current);
-    if (!q) return setPeople([]);
     const ticket = ++request.current;
     timer.current = window.setTimeout(async () => {
       try {
@@ -76,7 +75,7 @@ export function MentionTextarea({
       } catch {
         if (ticket === request.current) setPeople([]);
       }
-    }, 200);
+    }, q ? 200 : 0);
   }
 
   function choose(person: Person) {
@@ -124,7 +123,10 @@ export function MentionTextarea({
           if (!open) return;
           if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             e.preventDefault();
-            setActive((i) => (i + (e.key === "ArrowDown" ? 1 : -1) + people.length) % people.length);
+            const next = (active + (e.key === "ArrowDown" ? 1 : -1) + people.length) % people.length;
+            setActive(next);
+            // A lista pode ter a empresa toda: mantém a opção ativa à vista.
+            document.getElementById(`${listId}-${next}`)?.scrollIntoView({ block: "nearest" });
           } else if (e.key === "Enter" || e.key === "Tab") {
             e.preventDefault();
             choose(people[active]!);

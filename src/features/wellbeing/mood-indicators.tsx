@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, SmilePlus } from "lucide-react";
+import { SmilePlus } from "lucide-react";
 import { Tooltip as RadixTooltip } from "radix-ui";
 import type { ReactNode } from "react";
 import { cn } from "@/design-system/cn";
@@ -125,31 +125,6 @@ export function MoodAvatarBadge({ today }: { today: TodayMoodView }) {
         className="absolute -right-1 top-1 flex size-11 items-center justify-center rounded-full bg-white shadow-md ring-4 ring-white transition-transform hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-500"
       >
         <MoodArt slug={mood.slug} className="size-11" />
-      </button>
-    </HoverCard>
-  );
-}
-
-/** Cartão do rodapé do menu lateral: sentimento de hoje (ou convite) e abre o modal. */
-export function MoodSidebarCard({ today }: { today: TodayMoodView }) {
-  const mood = moodOf(today.mood);
-  const title = mood ? moodSentence(mood) : "Como você está hoje?";
-  return (
-    <HoverCard side="right" content={mood ? <MoodDetails mood={mood} at={today.at} note={today.note} /> : <p className="text-body-sm text-neutral-700">Conte como você está hoje.</p>}>
-      <button
-        type="button"
-        onClick={openMoodDialog}
-        aria-label={mood ? `${title} Mudar o sentimento de hoje` : "Como você está se sentindo hoje? Registrar"}
-        className="group flex w-full items-center gap-2.5 rounded-lg border border-line bg-white p-3 text-left shadow-sm transition-colors hover:border-purple-200 hover:bg-purple-50 focus-visible:outline-2 focus-visible:outline-purple-500 sidebar-collapsed:justify-center sidebar-collapsed:p-2"
-      >
-        <MoodArt slug={mood?.slug ?? "ola"} className="size-11 shrink-0 transition-transform group-hover:scale-105" />
-        <span className="min-w-0 flex-1 sidebar-collapsed:sr-only">
-          <span className="block text-[13px] font-semibold leading-snug text-neutral-900">
-            {title} {mood ? <span aria-hidden>💜</span> : null}
-          </span>
-          <span className="mt-0.5 block text-caption text-neutral-600">{mood ? (today.at ? `Registrado às ${moodTime(today.at)}` : "Toque para mudar") : "Conte pra gente"}</span>
-        </span>
-        <ChevronRight aria-hidden className="size-4 shrink-0 text-neutral-500 transition-transform group-hover:translate-x-0.5 sidebar-collapsed:hidden" />
       </button>
     </HoverCard>
   );

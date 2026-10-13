@@ -71,6 +71,8 @@ export const competencyAssessments = pgTable(
 );
 
 export const PDI_STATUSES = ["active", "closed"] as const;
+/** Mensagem da mentoria exibida no PDI. */
+export const PDI_MENTOR_NOTE_MAX = 280;
 
 /** Plano de Desenvolvimento Individual — no máximo um ATIVO por pessoa. */
 export const pdis = pgTable(
@@ -83,11 +85,17 @@ export const pdis = pgTable(
     status: text("status", { enum: PDI_STATUSES }).notNull().default("active"),
     periodStart: date("period_start", { mode: "string" }).notNull(),
     periodEnd: date("period_end", { mode: "string" }).notNull(),
+    /** Mentoria do ciclo (definida pela liderança): quem acompanha e uma mensagem para a pessoa. */
+    mentorUserId: uuid("mentor_user_id"),
+    mentorNote: text("mentor_note"),
     createdBy: uuid("created_by").notNull(),
     ...timestamps(),
   },
   (t) => [
     unique("pdis_tenant_id_id_key").on(t.tenantId, t.id),
+    foreignKey({ name: "pdis_mentor_fk", columns: [t.tenantId, t.mentorUserId], foreignColumns: [users.tenantId, users.id] }),
+    check("pdis_mentor_not_self", sql`${t.mentorUserId} is null or ${t.mentorUserId} <> ${t.userId}`),
+    check("pdis_mentor_note_length", sql`char_length(${t.mentorNote}) <= ${sql.raw(String(PDI_MENTOR_NOTE_MAX))}`),
     foreignKey({ name: "pdis_user_fk", columns: [t.tenantId, t.userId], foreignColumns: [users.tenantId, users.id] }).onDelete("cascade"),
     foreignKey({ name: "pdis_created_by_fk", columns: [t.tenantId, t.createdBy], foreignColumns: [users.tenantId, users.id] }),
     uniqueIndex("pdis_one_active_per_user").on(t.tenantId, t.userId).where(sql`${t.status} = 'active'`),
@@ -96,6 +104,9 @@ export const pdis = pgTable(
 );
 
 export const GOAL_STATUSES = ["active", "achieved", "cancelled"] as const;
+/** Etiquetas do objetivo (ex.: Carreira, Crescimento). */
+export const GOAL_TAGS_MAX = 5;
+export const GOAL_TAG_MAX_LENGTH = 24;
 
 export const pdiGoals = pgTable(
   "pdi_goals",
@@ -107,12 +118,14 @@ export const pdiGoals = pgTable(
     description: text("description"),
     competencyId: uuid("competency_id"),
     targetDate: date("target_date", { mode: "string" }),
+    tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
     status: text("status", { enum: GOAL_STATUSES }).notNull().default("active"),
     position: integer("position").notNull().default(0),
     ...timestamps(),
   },
   (t) => [
     unique("pdi_goals_tenant_id_id_key").on(t.tenantId, t.id),
+    check("pdi_goals_tags_max", sql`cardinality(${t.tags}) <= ${sql.raw(String(GOAL_TAGS_MAX))}`),
     foreignKey({ name: "pdi_goals_pdi_fk", columns: [t.tenantId, t.pdiId], foreignColumns: [pdis.tenantId, pdis.id] }).onDelete("cascade"),
     foreignKey({ name: "pdi_goals_competency_fk", columns: [t.tenantId, t.competencyId], foreignColumns: [competencies.tenantId, competencies.id] }),
     index("pdi_goals_pdi_idx").on(t.pdiId),

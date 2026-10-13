@@ -77,8 +77,11 @@ test.describe("Notificações", () => {
 
     const field = page.getByRole("combobox", { name: "Escreva um comentário" });
     await field.click();
-    await field.pressSequentially("Olha só @Gabr", { delay: 20 });
+    // "@" sozinho já abre a lista com todo o público do comunicado.
+    await field.pressSequentially("Olha só @", { delay: 20 });
     const suggestions = page.getByRole("listbox", { name: "Pessoas para mencionar" });
+    await expect(suggestions.getByRole("option").nth(8)).toBeVisible();
+    await field.pressSequentially("Gabr", { delay: 20 });
     await expect(suggestions.getByRole("option", { name: "Gabriel Rocha" })).toBeVisible();
     await expectAccessible(page);
     await field.press("Enter");

@@ -145,6 +145,9 @@ export async function listComments(actor: AuthenticatedActor, announcementId: st
 }
 
 /** Pessoas que podem ser mencionadas no comunicado (nome e foto apenas). */
+/** Teto da lista do "@": cobre a empresa toda; digitar filtra. */
+const MENTIONABLE_LIMIT = 500;
+
 export async function listMentionable(actor: AuthenticatedActor, announcementId: string, q: string) {
   return withTenant(actor, async (tx) => {
     const announcement = await assertVisible(tx, actor, announcementId);
@@ -156,11 +159,11 @@ export async function listMentionable(actor: AuthenticatedActor, announcementId:
         and(
           audienceCondition(announcement.audienceOrgUnitId),
           ne(s.users.id, actor.userId),
-          or(containsText(sql`${s.users.name}`, q), containsText(sql`${s.employeeProfiles.preferredName}`, q)),
+          q ? or(containsText(sql`${s.users.name}`, q), containsText(sql`${s.employeeProfiles.preferredName}`, q)) : undefined,
         ),
       )
       .orderBy(asc(displayName))
-      .limit(8);
+      .limit(MENTIONABLE_LIMIT);
   });
 }
 

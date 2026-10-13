@@ -3,6 +3,8 @@ import * as actionRoute from "@/app/api/v1/development/actions/[actionId]/route"
 import * as assessmentsRoute from "@/app/api/v1/development/assessments/route";
 import * as competenciesRoute from "@/app/api/v1/development/competencies/route";
 import * as goalActionsRoute from "@/app/api/v1/development/goals/[goalId]/actions/route";
+import * as goalRoute from "@/app/api/v1/development/goals/[goalId]/route";
+import * as mentorRoute from "@/app/api/v1/development/pdis/[pdiId]/mentor/route";
 import * as goalsRoute from "@/app/api/v1/development/pdis/[pdiId]/goals/route";
 import * as pdisRoute from "@/app/api/v1/development/pdis/route";
 import { resolveActor } from "@/server/auth/session";
@@ -39,7 +41,63 @@ describe("desenvolvimento de pessoas", () => {
     expect(dev.counts.developed + dev.counts.developing + dev.counts.toDevelop).toBe(8);
     // Andamento do seed varia por pessoa; Fernando está "começando" (2 de 8, duas atrasadas).
     expect(dev.pdi?.goals.map((g) => g.progress)).toEqual([33, 50, 0]);
-    expect(dev.pdi?.stats).toEqual({ actionsTotal: 8, actionsDone: 2, actionsLate: 2, progress: 28 });
+    expect(dev.pdi?.stats).toEqual({ actionsTotal: 8, actionsDone: 2, actionsInProgress: 3, actionsNotStarted: 1, actionsLate: 2, progress: 28 });
+  });
+
+  it("PDI: ciclos, mentoria, etiquetas, evolução mensal, competências evoluindo e conquistas derivadas", async () => {
+    const { actor } = await actorOf("fernando");
+    const dev = await getDevelopment(actor);
+    const pdi = dev.pdi!;
+    expect(dev.pdis).toEqual([expect.objectContaining({ id: pdi.id, status: "active" })]);
+    expect(pdi.mentor).toMatchObject({ name: expect.any(String), active: true, note: expect.any(String) });
+    expect(pdi.mentor!.id).not.toBe(actor.userId);
+    expect(pdi.goals[0]).toMatchObject({ tags: ["Liderança", "Carreira", "Crescimento"], competencyIcon: "crown", description: expect.any(String) });
+    // Evolução: no máximo 6 meses; o último ponto é o progresso atual.
+    expect(pdi.timeline.length).toBeGreaterThan(0);
+    expect(pdi.timeline.length).toBeLessThanOrEqual(6);
+    expect(pdi.timeline.at(-1)!.progress).toBe(pdi.stats.progress);
+    expect(pdi.timeline.reduce((sum, p) => sum + p.completed, 0)).toBeLessThanOrEqual(pdi.stats.actionsDone);
+    // Variação desde a avaliação anterior.
+    expect(dev.counts.evolving).toBe(dev.competencies.filter((c) => (c.delta ?? 0) > 0).length);
+    expect(dev.counts.evolving).toBeGreaterThan(0);
+    // Conquistas: níveis 1–5 inéditos por competência, mais recentes primeiro.
+    expect(dev.milestones.length).toBeGreaterThan(0);
+    expect(dev.milestones.every((m) => m.level >= 1 && m.level <= 5)).toBe(true);
+    const times = dev.milestones.map((m) => m.achievedAt.getTime());
+    expect(times).toEqual([...times].sort((a, b) => b - a));
+    // Ciclo de outra pessoa na URL: ignorado (mostra o próprio).
+    const other = await getDevelopment((await actorOf("camila")).actor);
+    expect((await getDevelopment(actor, actor.userId, { pdiId: other.pdi!.id })).pdi!.id).toBe(pdi.id);
+  });
+
+  it("objetivo e mentoria: só a liderança edita; mentoria é um colega ativo e nunca a própria pessoa", async () => {
+    const fernando = await actorOf("fernando");
+    const dev = await getDevelopment(fernando.actor);
+    const goal = dev.pdi!.goals[1]!;
+    const patchGoal = (cookie: string, body: unknown) => call(goalRoute.PATCH, { path: "/x", method: "PATCH", cookie, params: { goalId: goal.id }, body });
+    const putMentor = (cookie: string, body: unknown) => call(mentorRoute.PUT, { path: "/x", method: "PUT", cookie, params: { pdiId: dev.pdi!.id }, body });
+
+    expect((await patchGoal(fernando.session.cookie, { tags: ["Minha"] })).status).toBe(403);
+    expect((await putMentor(fernando.session.cookie, { mentorUserId: null })).status).toBe(403);
+    // Fora do escopo de leitura: 404.
+    const helena = await actorOf("helena");
+    expect((await patchGoal(helena.session.cookie, { tags: ["X"] })).status).toBe(404);
+
+    const carla = await actorOf("carla");
+    const edited = await patchGoal(carla.session.cookie, { description: "Falar com clareza.", tags: ["Comunicação", "comunicação", "Palco"] });
+    expect(edited.status).toBe(200);
+    const after = (await getDevelopment(fernando.actor)).pdi!.goals[1]!;
+    expect(after).toMatchObject({ description: "Falar com clareza.", tags: ["Comunicação", "Palco"] });
+    expect((await patchGoal(carla.session.cookie, { tags: ["a", "b", "c", "d", "e", "f"] })).status).toBe(400);
+
+    expect((await putMentor(carla.session.cookie, { mentorUserId: fernando.actor.userId })).status).toBe(400);
+    const sergio = await userOf("horizonte", "sergio");
+    expect((await putMentor(carla.session.cookie, { mentorUserId: sergio.id })).status).toBe(400);
+    const juliana = await userOf("aurora", "juliana");
+    expect((await putMentor(carla.session.cookie, { mentorUserId: juliana.id, mentorNote: "Conte comigo!" })).status).toBe(200);
+    expect((await getDevelopment(fernando.actor)).pdi!.mentor).toMatchObject({ id: juliana.id, note: "Conte comigo!" });
+    expect((await putMentor(carla.session.cookie, { mentorUserId: null, mentorNote: "sobra" })).status).toBe(200);
+    expect((await getDevelopment(fernando.actor)).pdi!.mentor).toBeNull();
   });
 
   it("colaborador conclui a própria ação, mas não acessa o desenvolvimento de colegas", async () => {

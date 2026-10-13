@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ACTION_STATUSES, ACTION_TYPES, COMPETENCY_CATEGORIES } from "@/server/db/schema/development";
+import { ACTION_STATUSES, ACTION_TYPES, COMPETENCY_CATEGORIES, GOAL_TAG_MAX_LENGTH, GOAL_TAGS_MAX, PDI_MENTOR_NOTE_MAX } from "@/server/db/schema/development";
 
 const isoDate = z.iso.date();
 const httpsUrl = z.url({ protocol: /^https$/, hostname: z.regexes.domain }).max(500);
@@ -14,13 +14,34 @@ export const pdiInputSchema = z
   .refine((v) => v.periodEnd >= v.periodStart, { message: "O fim do período deve ser depois do início.", path: ["periodEnd"] });
 export type PdiInput = z.infer<typeof pdiInputSchema>;
 
-export const goalInputSchema = z.strictObject({
+/** Etiquetas do objetivo: sem repetição (ignorando maiúsculas) e no máximo GOAL_TAGS_MAX. */
+const goalTags = z
+  .array(z.string().trim().min(1).max(GOAL_TAG_MAX_LENGTH, `Use no máximo ${GOAL_TAG_MAX_LENGTH} caracteres por etiqueta.`))
+  .transform((tags) => tags.filter((tag, i) => tags.findIndex((other) => other.toLocaleLowerCase("pt-BR") === tag.toLocaleLowerCase("pt-BR")) === i))
+  .pipe(z.array(z.string()).max(GOAL_TAGS_MAX, `Use no máximo ${GOAL_TAGS_MAX} etiquetas.`));
+
+const goalFields = {
   title: z.string().trim().min(3).max(140),
   description: z.string().trim().max(1000).nullable().optional(),
   competencyId: z.uuid().nullable().optional(),
   targetDate: isoDate.nullable().optional(),
-});
+  tags: goalTags.optional(),
+};
+
+export const goalInputSchema = z.strictObject(goalFields);
 export type GoalInput = z.infer<typeof goalInputSchema>;
+
+export const goalUpdateSchema = z
+  .strictObject({ ...goalFields, title: goalFields.title.optional() })
+  .refine((v) => Object.keys(v).length > 0, "Informe ao menos um campo.");
+export type GoalUpdate = z.infer<typeof goalUpdateSchema>;
+
+/** Mentoria do ciclo: quem acompanha (colega ativo, nunca a própria pessoa) e uma mensagem. */
+export const pdiMentorSchema = z.strictObject({
+  mentorUserId: z.uuid().nullable(),
+  mentorNote: z.string().trim().max(PDI_MENTOR_NOTE_MAX, `Use no máximo ${PDI_MENTOR_NOTE_MAX} caracteres.`).nullable().optional(),
+});
+export type PdiMentorInput = z.infer<typeof pdiMentorSchema>;
 
 export const actionInputSchema = z.strictObject({
   title: z.string().trim().min(3).max(140),

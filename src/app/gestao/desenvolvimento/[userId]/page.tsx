@@ -1,27 +1,20 @@
-import type { Metadata, Route } from "next";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { z } from "zod";
 import { Avatar } from "@/design-system/components/avatar";
 import { Badge } from "@/design-system/components/badge";
 import { Skeleton } from "@/design-system/components/feedback";
-import { LinkTabs } from "@/design-system/components/link-tabs";
 import { Breadcrumb } from "@/design-system/components/navigation";
-import { PdiBoard } from "@/features/development/pdi-board";
-import { AssessmentHistory, CompetencyBarsCard, CompetencyGrid, EvolutionPanel, GoalsCard, OverviewCards } from "@/features/development/sections";
+import { AssessmentHistory } from "@/features/development/sections";
+import { DEVELOPMENT_TABS, DevelopmentTabContent, DevelopmentTabs, type DevelopmentTab } from "@/features/development/view";
 import { requirePermission } from "@/server/dal";
 import { HttpError } from "@/server/http/errors";
 import { getCompetencyEvolution, getDevelopment, listAssessmentHistory } from "@/server/modules/development/service";
 
 export const metadata: Metadata = { title: "Desenvolvimento da pessoa" };
 
-const TABS = [
-  { value: "visao-geral", label: "Visão geral" },
-  { value: "pdi", label: "PDI" },
-  { value: "competencias", label: "Competências" },
-  { value: "evolucao", label: "Evolução" },
-  { value: "historico", label: "Histórico" },
-] as const;
+const TABS = [...DEVELOPMENT_TABS.map((t) => (t.value === "pdi" ? { ...t, label: "PDI" } : t)), { value: "historico", label: "Histórico" }] as const;
 
 export default function PersonDevelopmentPage({ params, searchParams }: PageProps<"/gestao/desenvolvimento/[userId]">) {
   return (
@@ -36,11 +29,13 @@ async function Person({ params, searchParams }: PageProps<"/gestao/desenvolvimen
   const [{ userId }, sp] = await Promise.all([params, searchParams]);
   if (!z.uuid().safeParse(userId).success) notFound();
   const raw = Array.isArray(sp.aba) ? sp.aba[0] : sp.aba;
-  const tab = TABS.some((t) => t.value === raw) ? raw! : "visao-geral";
+  const tab = (TABS.some((t) => t.value === raw) ? raw : "visao-geral") as DevelopmentTab;
+  const rawPdi = Array.isArray(sp.pdi) ? sp.pdi[0] : sp.pdi;
+  const pdiId = z.uuid().safeParse(rawPdi).success ? rawPdi : undefined;
 
   let development: Awaited<ReturnType<typeof getDevelopment>>;
   try {
-    development = await getDevelopment(actor, userId);
+    development = await getDevelopment(actor, userId, { pdiId });
   } catch (error) {
     if (error instanceof HttpError && error.status === 404) notFound();
     throw error;
@@ -48,9 +43,9 @@ async function Person({ params, searchParams }: PageProps<"/gestao/desenvolvimen
   const base = `/gestao/desenvolvimento/${userId}`;
 
   return (
-    <div className="space-y-6">
+    <div>
       <Breadcrumb items={[{ label: "Desenvolvimento", href: "/gestao/desenvolvimento" }, { label: development.person.name }]} />
-      <header className="flex flex-wrap items-center gap-4">
+      <header className="mb-6 mt-6 flex flex-wrap items-center gap-4">
         <Avatar name={development.person.name} src={development.person.image} size="lg" />
         <div className="min-w-0 flex-1">
           <h1 className="text-h1 font-extrabold tracking-[-0.02em] text-neutral-900">{development.person.name}</h1>
@@ -58,21 +53,12 @@ async function Person({ params, searchParams }: PageProps<"/gestao/desenvolvimen
         </div>
         <Badge tone={development.canManage ? "purple" : "neutral"}>{development.canManage ? "Você lança metas e avaliações" : "Somente leitura"}</Badge>
       </header>
-      <LinkTabs label="Seções" current={tab} items={TABS.map((t) => ({ ...t, href: (t.value === "visao-geral" ? base : `${base}?aba=${t.value}`) as Route }))} />
-      {tab === "visao-geral" ? (
-        <div className="space-y-6">
-          <OverviewCards development={development} pdiHref={`${base}?aba=pdi` as Route} />
-          <div className="grid gap-6 xl:grid-cols-2">
-            <GoalsCard development={development} pdiHref={`${base}?aba=pdi` as Route} />
-            <CompetencyBarsCard development={development} href={`${base}?aba=competencias` as Route} />
-          </div>
-          <EvolutionPanel points={await getCompetencyEvolution(actor, userId)} />
-        </div>
-      ) : null}
-      {tab === "historico" ? <AssessmentHistory items={await listAssessmentHistory(actor, userId)} /> : null}
-      {tab === "pdi" ? <PdiBoard development={development} managedUserId={userId} /> : null}
-      {tab === "competencias" ? <CompetencyGrid development={development} assessAs={development.canManage ? "manager" : null} /> : null}
-      {tab === "evolucao" ? <EvolutionPanel points={await getCompetencyEvolution(actor, userId)} /> : null}
+      <DevelopmentTabs base={base} tab={tab} development={development} items={TABS} />
+      {tab === "historico" ? (
+        <AssessmentHistory items={await listAssessmentHistory(actor, userId)} />
+      ) : (
+        <DevelopmentTabContent tab={tab} development={development} base={base} managedUserId={userId} evolution={tab === "evolucao" ? await getCompetencyEvolution(actor, userId) : undefined} />
+      )}
     </div>
   );
 }
