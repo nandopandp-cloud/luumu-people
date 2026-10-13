@@ -13,7 +13,7 @@ import { HexBadge } from "@/design-system/illustrations/hex-badge";
 import { JourneySignpost } from "@/design-system/illustrations/journey-signpost";
 import { formatDate } from "@/lib/format";
 import type { AuthenticatedActor } from "@/server/auth/session";
-import { achievementsEnabled, getMyMoodToday } from "@/server/dal";
+import { achievementsEnabled } from "@/server/dal";
 import { listMyAchievements } from "@/server/modules/achievements/service";
 import { listAnnouncementFeed } from "@/server/modules/announcements/service";
 import { listLiveBanners } from "@/server/modules/banners/service";
@@ -25,9 +25,7 @@ import { myTeamMoods } from "@/server/modules/wellbeing/service";
 import { Avatar } from "@/design-system/components/avatar";
 import { moodOf } from "@/lib/moods";
 import { greetingNow } from "@/lib/format";
-import { toMoodView } from "@/features/wellbeing/events";
 import { MoodArt } from "@/features/wellbeing/mood-art";
-import { MoodChip } from "@/features/wellbeing/mood-indicators";
 import { HeroCarousel } from "./hero-banner";
 import { getDevelopment } from "@/server/modules/development/service";
 import { formatDay } from "@/features/development/labels";
@@ -62,9 +60,9 @@ function RoundArrow({ label }: { label: string }) {
 
 /* ------------------------------------------------------------------ hero */
 
-/** Saudação personalizada: período do dia, sentimento de hoje e atalhos do que há de novo. */
+/** Saudação personalizada: período do dia e atalhos do que há de novo (o sentimento fica no topo). */
 async function Greeting({ actor, firstName }: { actor: AuthenticatedActor; firstName: string }) {
-  const [mood, unread] = await Promise.all([getMyMoodToday(), unreadHighlights(actor)]);
+  const unread = await unreadHighlights(actor);
   const shortcuts = [
     unread.surveys > 0 ? { href: "/pesquisas" as Route, icon: BarChart3, tile: "text-purple-600", label: unread.surveys === 1 ? "Nova pesquisa disponível" : `${unread.surveys} pesquisas disponíveis` } : null,
     unread.announcements > 0
@@ -80,7 +78,6 @@ async function Greeting({ actor, firstName }: { actor: AuthenticatedActor; first
           </h1>
           <p className="mt-1.5 text-body text-neutral-600">Que bom ver você por aqui.</p>
         </div>
-        {mood ? <MoodChip today={toMoodView(mood)} className="max-w-[17rem]" /> : null}
       </div>
       {shortcuts.length ? (
         <ul className="flex flex-wrap gap-3">

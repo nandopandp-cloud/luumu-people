@@ -54,7 +54,9 @@ test.describe("Início do colaborador", () => {
 
     // Saudação personalizada com o sentimento; não reabre ao recarregar.
     await expect(page.getByRole("heading", { level: 1, name: /^(Bom dia|Boa tarde|Boa noite), Sofia!/ })).toBeVisible();
-    const greetingChip = page.getByRole("main").getByRole("button", { name: /^Hoje você está se sentindo bem!/ });
+    // O dashboard não repete o sentimento: ele fica no topo.
+    await expect(page.getByRole("main").getByRole("button", { name: /^Hoje você está se sentindo/ })).toHaveCount(0);
+    const greetingChip = page.getByRole("banner").getByRole("button", { name: /^Hoje você está se sentindo bem!/ });
     await expect(greetingChip).toBeVisible();
     await page.reload();
     await page.waitForLoadState("networkidle");
@@ -71,7 +73,7 @@ test.describe("Início do colaborador", () => {
     await modal.getByRole("radio", { name: "Muito bem", exact: true }).check();
     await modal.getByRole("button", { name: "Enviar" }).click();
     await page.getByRole("button", { name: "Continuar" }).click();
-    await expect(page.getByRole("main").getByRole("button", { name: /^Hoje você está se sentindo muito bem!/ })).toBeVisible();
+    await expect(page.getByRole("banner").getByRole("button", { name: /^Hoje você está se sentindo muito bem!/ })).toBeVisible();
 
     // Perfil.
     await page.getByRole("button", { name: /^Menu da conta de / }).click();
