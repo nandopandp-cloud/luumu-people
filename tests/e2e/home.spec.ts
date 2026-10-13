@@ -5,8 +5,13 @@ test.describe("Início do colaborador", () => {
   test("sem o módulo de cursos, mostra o desenvolvimento e é acessível", async ({ page }) => {
     await signIn(page, "camila.oliveira@aurora.example");
     await expect(page.getByRole("heading", { name: "Comunicados para você" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Metas do meu PDI" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Evoluir para posição de liderança" })).toBeVisible();
+    // "Meu desenvolvimento" no lugar das metas: anel, ciclo e ações por situação.
+    await expect(page.getByRole("heading", { name: "Metas do meu PDI" })).toHaveCount(0);
+    const development = page.getByRole("region", { name: "Meu desenvolvimento" });
+    await expect(development.getByRole("heading", { name: /^PDI \d{4}$/ })).toBeVisible();
+    await expect(development.getByText(/\d+ de \d+ ações concluídas/)).toBeVisible();
+    await expect(development.getByText("Em andamento")).toBeVisible();
+    await expect(development.getByRole("link", { name: /Ver meu PDI/ })).toHaveAttribute("href", "/desenvolvimento?aba=pdi");
     await expect(page.getByRole("heading", { name: "Minhas próximas atividades" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Meus cursos" })).toHaveCount(0);
     await expectAccessible(page);

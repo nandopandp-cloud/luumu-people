@@ -4,10 +4,9 @@ import { Skeleton } from "@/design-system/components/feedback";
 import {
   AchievementsCard,
   AnnouncementsSection,
-  DevelopmentGoalsSection,
-  DevelopmentProgressCard,
   FeaturedContentSection,
   HomeHero,
+  MyDevelopmentSection,
   MyProgressCard,
   MyTeamMoodCard,
   NextActivitiesCard,
@@ -29,13 +28,13 @@ export default function HomePage() {
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
       <div className="min-w-0 space-y-7">
         <Block fallback={<Skeleton className="h-[318px] rounded-[28px]" />}>{(actor) => <HomeHero actor={actor} />}</Block>
+        <Block fallback={<RowSkeleton height="h-[136px]" columns={1} />}>{(actor) => <MyDevelopmentSection actor={actor} />}</Block>
         <Block fallback={<RowSkeleton height="h-[230px]" />}>{(actor) => <AnnouncementsSection actor={actor} />}</Block>
-        <Block fallback={<RowSkeleton height="h-[150px]" />}>{(actor) => <DevelopmentGoalsSection actor={actor} />}</Block>
         <Block fallback={null}>{(actor, m) => (m.learning ? <RecommendedPathsSection actor={actor} /> : null)}</Block>
         <Block fallback={null}>{(actor, m) => (m.library ? <FeaturedContentSection actor={actor} /> : null)}</Block>
       </div>
       <aside className="min-w-0 space-y-5" aria-label="Seu resumo">
-        <Block fallback={<Skeleton className="h-[160px] rounded-xl" />}>{(actor, m) => (m.learning ? <MyProgressCard actor={actor} /> : <DevelopmentProgressCard actor={actor} />)}</Block>
+        <Block fallback={<Skeleton className="h-[160px] rounded-xl" />}>{(actor, m) => (m.learning ? <MyProgressCard actor={actor} /> : null)}</Block>
         <Block fallback={<Skeleton className="h-[360px] rounded-xl" />}>{(actor, m) => (m.learning ? <NextActivitiesCard actor={actor} /> : <NextPdiActionsCard actor={actor} />)}</Block>
         <Block fallback={null}>{(actor) => <MyTeamMoodCard actor={actor} />}</Block>
         <Block fallback={null}>{(actor) => <AchievementsCard actor={actor} />}</Block>
@@ -61,7 +60,7 @@ function RowSkeleton({ height, columns = 3 }: { height: string; columns?: number
   return (
     <div aria-hidden>
       <Skeleton className="mb-3.5 h-6 w-56" />
-      <div className={columns === 4 ? "grid gap-3 sm:grid-cols-2 xl:grid-cols-4" : "grid gap-4 md:grid-cols-3"}>
+      <div className={columns === 4 ? "grid gap-3 sm:grid-cols-2 xl:grid-cols-4" : columns === 1 ? "grid" : "grid gap-4 md:grid-cols-3"}>
         {Array.from({ length: columns }, (_, i) => (
           <Skeleton key={i} className={`${height} rounded-xl`} />
         ))}

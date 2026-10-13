@@ -1,4 +1,4 @@
-import { AlarmClock, ArrowRight, BarChart3, ChevronRight, ClipboardList, FileText, Headphones, ListChecks, Megaphone, PlayCircle, SquareCheckBig, SquarePen, type LucideIcon } from "lucide-react";
+import { AlarmClock, ArrowRight, BarChart3, CalendarClock, Check, ChevronRight, Clock3, ClipboardList, FileText, Headphones, ListChecks, Megaphone, Play, PlayCircle, SquareCheckBig, SquarePen, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
 import type { ReactNode } from "react";
@@ -276,31 +276,6 @@ function AsideHeader({ id, title, href, linkLabel }: { id: string; title: string
   );
 }
 
-/** Sem o módulo de aprendizagem: progresso do PDI. */
-export async function DevelopmentProgressCard({ actor }: { actor: AuthenticatedActor }) {
-  const { pdi } = await getDevelopment(actor);
-  return (
-    <Panel>
-      <AsideHeader id="meu-progresso" title="Meu desenvolvimento" href="/desenvolvimento" linkLabel="Ver tudo" />
-      {!pdi ? (
-        <p className="text-body-sm text-neutral-600">Você ainda não tem um PDI ativo. Que tal começar o seu?</p>
-      ) : (
-        <div className="flex items-center gap-5">
-          <CircularProgress value={pdi.stats.progress} label="Progresso do PDI" size={104} stroke={11} />
-          <div>
-            <p className="text-[26px] font-bold leading-none tracking-[-0.02em] text-neutral-900">
-              {pdi.stats.actionsDone} de {pdi.stats.actionsTotal}
-            </p>
-            <p className="mt-1.5 text-body-sm text-neutral-700">
-              ações do PDI concluídas <span aria-hidden>🎯</span>
-            </p>
-          </div>
-        </div>
-      )}
-    </Panel>
-  );
-}
-
 /** Sem o módulo de aprendizagem: próximas ações do PDI. */
 export async function NextPdiActionsCard({ actor }: { actor: AuthenticatedActor }) {
   const { pdi } = await getDevelopment(actor);
@@ -477,35 +452,50 @@ export async function AchievementsCard({ actor }: { actor: AuthenticatedActor })
   );
 }
 
-/** Sem o módulo de aprendizagem: metas do PDI na coluna principal. */
-export async function DevelopmentGoalsSection({ actor }: { actor: AuthenticatedActor }) {
-  const { pdi } = await getDevelopment(actor);
-  const goals = pdi?.goals.slice(0, 3) ?? [];
+function PdiStat({ tone, icon, value, label }: { tone: "green" | "purple" | "red"; icon: ReactNode; value: number; label: string }) {
   return (
-    <section aria-labelledby="metas-pdi">
-      <SectionHeader id="metas-pdi" title="Metas do meu PDI" href="/desenvolvimento?aba=pdi" linkLabel="Ver PDI" />
-      {goals.length === 0 ? (
+    <div className={cn("flex min-w-0 flex-col justify-center rounded-lg px-3 py-3", { green: "bg-green-50", purple: "bg-purple-50", red: "bg-red-50" }[tone])}>
+      <span aria-hidden className={cn("flex size-7 items-center justify-center rounded-full", { green: "bg-green-500 text-white", purple: "bg-purple-500 text-white", red: "bg-white text-red-600 ring-2 ring-red-500" }[tone])}>
+        {icon}
+      </span>
+      <span className="mt-2 text-h3 font-bold tabular-nums text-neutral-900">{value}</span>
+      <span className={cn("whitespace-nowrap text-caption", { green: "text-green-800", purple: "text-purple-700", red: "font-medium text-red-700" }[tone])}>{label}</span>
+    </div>
+  );
+}
+
+/** "Meu desenvolvimento": anel do PDI, ciclo e ações por situação. */
+export async function MyDevelopmentSection({ actor }: { actor: AuthenticatedActor }) {
+  const { pdi } = await getDevelopment(actor);
+  return (
+    <section aria-labelledby="meu-desenvolvimento">
+      <SectionHeader id="meu-desenvolvimento" title="Meu desenvolvimento" href="/desenvolvimento?aba=pdi" linkLabel="Ver meu PDI" />
+      {!pdi ? (
         <Panel>
-          <EmptyState compact title="Seu plano de desenvolvimento começa aqui" description="Crie seu PDI e defina as primeiras metas." />
+          <EmptyState compact title="Seu plano de desenvolvimento começa aqui" description="O PDI é construído com a sua liderança, que lança as metas e acompanha sua evolução." />
         </Panel>
       ) : (
-        <ul className="grid gap-4 md:grid-cols-3">
-          {goals.map((g) => (
-            <li key={g.id}>
-              <Link href="/desenvolvimento?aba=pdi" className="group flex h-full flex-col rounded-xl border border-line bg-white p-4 shadow-sm transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-purple-500">
-                <div className="flex items-start justify-between gap-2">
-                  {g.competencyName ? <Badge tone="purple">{g.competencyName}</Badge> : <Badge tone="neutral">Meta</Badge>}
-                  <RoundArrow label="Ver meta" />
-                </div>
-                <h3 className="mt-3 text-[15px] font-semibold leading-snug text-neutral-900 group-hover:text-purple-600">{g.title}</h3>
-                <p className="mt-1 text-caption text-neutral-600">
-                  {g.actions.filter((a) => a.status === "done").length} de {g.actions.filter((a) => a.status !== "cancelled").length} ações · prazo {formatDay(g.targetDate)}
-                </p>
-                <Progress value={g.progress} label={`Progresso da meta ${g.title}`} className="mt-auto pt-3" />
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <Panel className="@container p-4">
+          <div className="grid items-center gap-5 @[40rem]:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+          <div className="flex items-center gap-5 @[40rem]:border-r @[40rem]:border-line @[40rem]:pr-5">
+            <CircularProgress value={pdi.stats.progress} label="Progresso do PDI" size={96} stroke={10} />
+            <div className="min-w-0 flex-1">
+              <h3 className="text-h3 font-bold text-neutral-900">{pdi.title}</h3>
+              <p className="mt-1 flex items-center gap-1.5 whitespace-nowrap text-caption text-neutral-600">
+                <CalendarClock aria-hidden className="size-3.5" /> {formatDay(pdi.periodStart)} a {formatDay(pdi.periodEnd)}
+              </p>
+              <p className="mt-3 border-t border-line pt-3 text-body-sm font-medium text-neutral-800">
+                {pdi.stats.actionsDone} de {pdi.stats.actionsTotal} ações concluídas
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <PdiStat tone="green" icon={<Check className="size-4" strokeWidth={3} />} value={pdi.stats.actionsDone} label={pdi.stats.actionsDone === 1 ? "Concluída" : "Concluídas"} />
+            <PdiStat tone="purple" icon={<Play className="size-3.5 fill-current" />} value={pdi.stats.actionsInProgress} label="Em andamento" />
+            <PdiStat tone="red" icon={<Clock3 className="size-4" />} value={pdi.stats.actionsLate} label={pdi.stats.actionsLate === 1 ? "Atrasada" : "Atrasadas"} />
+          </div>
+          </div>
+        </Panel>
       )}
     </section>
   );
