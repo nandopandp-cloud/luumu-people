@@ -83,37 +83,44 @@ export function RelationActions({
       </Button>
     );
   }
-  if (person.relation === "friends") {
-    return inConversation ? null : (
-      <Button size={size} variant="soft" loading={busy} onClick={run(() => actions.message(person.id))}>
-        <MessageCircle aria-hidden /> Mensagem
-        <span className="sr-only"> para {person.name}</span>
-      </Button>
-    );
-  }
+  // Conversar não depende de conexão: o botão de mensagem aparece para qualquer colega.
+  const message = inConversation ? null : (
+    <Button size={size} variant="soft" loading={busy} onClick={run(() => actions.message(person.id))}>
+      <MessageCircle aria-hidden /> Mensagem
+      <span className="sr-only"> para {person.name}</span>
+    </Button>
+  );
+  if (person.relation === "friends") return message;
+  let connection: React.ReactNode;
   if (person.relation === "received") {
-    return (
-      <div className="flex flex-wrap gap-2">
+    connection = (
+      <>
         <Button size={size} loading={busy} onClick={run(() => actions.accept(person.id))}>
           <Check aria-hidden /> Aceitar<span className="sr-only"> pedido de {person.name}</span>
         </Button>
         <Button size={size} variant="ghost" disabled={busy} onClick={run(() => actions.dismiss(person.id))}>
           Recusar<span className="sr-only"> pedido de {person.name}</span>
         </Button>
-      </div>
+      </>
     );
-  }
-  if (person.relation === "sent") {
-    return (
+  } else if (person.relation === "sent") {
+    connection = (
       <Button size={size} variant="ghost" loading={busy} onClick={run(() => actions.dismiss(person.id))} title={`Cancelar o pedido para ${first}`}>
         <X aria-hidden /> Cancelar pedido<span className="sr-only"> para {person.name}</span>
       </Button>
     );
+  } else {
+    connection = (
+      <Button size={size} variant="secondary" loading={busy} onClick={run(() => actions.request(person.id))}>
+        <UserPlus aria-hidden /> Adicionar<span className="sr-only"> {person.name} como amigo</span>
+      </Button>
+    );
   }
   return (
-    <Button size={size} variant="secondary" loading={busy} onClick={run(() => actions.request(person.id))}>
-      <UserPlus aria-hidden /> Adicionar<span className="sr-only"> {person.name} como amigo</span>
-    </Button>
+    <div className="flex flex-wrap gap-2">
+      {connection}
+      {message}
+    </div>
   );
 }
 

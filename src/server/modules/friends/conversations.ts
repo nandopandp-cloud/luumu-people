@@ -9,10 +9,10 @@ import { fileUrl } from "@/server/modules/files/service";
 import type { ChatFile, ChatMessage, ConversationDetail, ConversationSummary, MemberView, MessagesPage, SharedMedia } from "@/features/friends/types";
 import { GROUP_MAX_MEMBERS, type MessagesQuery, type NewConversation, type SendMessage } from "./schemas";
 import { countReceivedRequests } from "./service";
-import { colleagues, directKeyOf, displayName, friendIdsOf, moodsOf, ONLINE_WINDOW, onlineSql } from "./shared";
+import { colleagues, directKeyOf, displayName, moodsOf, ONLINE_WINDOW, onlineSql } from "./shared";
 
 /**
- * Conversas privadas (entre amigos) e em grupo.
+ * Conversas privadas e em grupo entre colaboradores da empresa.
  *
  * Privacidade: só quem participa lê a conversa, e só as mensagens enviadas a
  * partir da própria entrada (RLS + app.chat_member_since). Fora disso, 404.
@@ -20,9 +20,10 @@ import { colleagues, directKeyOf, displayName, friendIdsOf, moodsOf, ONLINE_WIND
  * (o conteúdo é da pessoa). Mensagens não são editadas: quem enviou pode
  * apagar, e o texto e o anexo são descartados.
  *
- * Regras: conversa privada só entre amigos (se a amizade acabar, o histórico
- * fica e novas mensagens são bloqueadas); grupo criado com amigos de quem cria;
- * só a administração do grupo renomeia, adiciona e remove pessoas.
+ * Regras: qualquer colaborador ativo da mesma empresa conversa com outro —
+ * amizade (conexão) não é exigida; com a outra pessoa inativa, o histórico fica
+ * e novas mensagens são bloqueadas. Só a administração do grupo renomeia,
+ * adiciona e remove pessoas.
  */
 
 const TYPING_WINDOW = sql`interval '6 seconds'`;
@@ -43,13 +44,13 @@ async function membership(tx: Tx, actor: AuthenticatedActor, conversationId: str
   return row;
 }
 
-/** Ids ativos, entre `ids`, que são amigos da pessoa atual. */
-async function activeFriendsAmong(tx: Tx, actor: AuthenticatedActor, ids: string[]): Promise<Set<string>> {
+/** Ids, entre `ids`, de colaboradores ativos da empresa (RLS: só o próprio tenant) além da pessoa atual. */
+async function activeColleaguesAmong(tx: Tx, actor: AuthenticatedActor, ids: string[]): Promise<Set<string>> {
   if (ids.length === 0) return new Set();
   const rows = await tx
     .select({ id: s.users.id })
     .from(s.users)
-    .where(and(inArray(s.users.id, ids), eq(s.users.status, "active"), sql`${s.users.id} in ${friendIdsOf(actor.userId)}`));
+    .where(and(inArray(s.users.id, ids), eq(s.users.status, "active"), ne(s.users.id, actor.userId)));
   return new Set(rows.map((r) => r.id));
 }
 
@@ -188,34 +189,32 @@ export async function getConversation(actor: AuthenticatedActor, conversationId:
         .innerJoin(s.users, eq(s.users.id, s.conversationMembers.userId))
         .where(and(eq(s.conversationMembers.conversationId, conversationId), ne(s.conversationMembers.userId, actor.userId)));
       otherId = other?.id ?? null;
-      blocked = await directBlock(tx, actor, other);
+      blocked = directBlock(other);
     }
     const otherName = members.find((m) => m.id === otherId)?.name;
     return { id: conversationId, kind: me.kind, title: me.kind === "group" ? (me.title ?? "") : (otherName ?? "Conversa"), myRole: me.role, members, otherId, blocked };
   });
 }
 
-/** Conversa privada: só entre amigos e com a outra pessoa ativa. */
-async function directBlock(tx: Tx, actor: AuthenticatedActor, other: { id: string; status: string } | undefined): Promise<string | null> {
-  if (!other || other.status !== "active") return "Esta pessoa não está mais ativa na empresa.";
-  const friends = await activeFriendsAmong(tx, actor, [other.id]);
-  return friends.has(other.id) ? null : "Vocês não são mais amigos. Envie um pedido de amizade para voltar a conversar.";
+/** Conversa privada: só com a outra pessoa ativa na empresa. */
+function directBlock(other: { id: string; status: string } | undefined): string | null {
+  return !other || other.status !== "active" ? "Esta pessoa não está mais ativa na empresa." : null;
 }
 
-/** Conversa privada: envio e edição só enquanto forem amigos e a outra pessoa estiver ativa (senão 409). */
+/** Conversa privada: envio e edição só enquanto a outra pessoa estiver ativa (senão 409). */
 async function assertCanSend(tx: Tx, actor: AuthenticatedActor, conversationId: string) {
   const [other] = await tx
     .select({ id: s.users.id, status: s.users.status })
     .from(s.conversationMembers)
     .innerJoin(s.users, eq(s.users.id, s.conversationMembers.userId))
     .where(and(eq(s.conversationMembers.conversationId, conversationId), ne(s.conversationMembers.userId, actor.userId)));
-  const blocked = await directBlock(tx, actor, other);
+  const blocked = directBlock(other);
   if (blocked) throw conflict(blocked);
 }
 
 /**
- * Abre uma conversa privada com um amigo (a existente, se houver) ou cria um
- * grupo com amigos. Quem cria entra como administração.
+ * Abre uma conversa privada com um colega (a existente, se houver) ou cria um
+ * grupo com colegas. Quem cria entra como administração.
  */
 export async function openConversation(actor: AuthenticatedActor, input: NewConversation): Promise<{ id: string }> {
   return withTenant(actor, async (tx) => {
@@ -224,8 +223,8 @@ export async function openConversation(actor: AuthenticatedActor, input: NewConv
       const directKey = directKeyOf(actor.userId, input.userId);
       const [existing] = await tx.select({ id: s.conversations.id }).from(s.conversations).where(eq(s.conversations.directKey, directKey));
       if (existing) return { id: existing.id };
-      const friends = await activeFriendsAmong(tx, actor, [input.userId]);
-      if (!friends.has(input.userId)) throw notFound("Só é possível conversar com amigos.");
+      const colleagues = await activeColleaguesAmong(tx, actor, [input.userId]);
+      if (!colleagues.has(input.userId)) throw notFound("Pessoa não encontrada.");
       // Sem RETURNING: a conversa só fica visível (RLS) depois que a pessoa entra nela.
       const id = randomUUID();
       await tx.insert(s.conversations).values({ id, tenantId: actor.tenantId, kind: "direct", directKey, createdBy: actor.userId });
@@ -236,8 +235,8 @@ export async function openConversation(actor: AuthenticatedActor, input: NewConv
 
     const ids = input.memberIds.filter((m) => m !== actor.userId);
     if (ids.length === 0) throw badRequest("Escolha ao menos uma pessoa.");
-    const friends = await activeFriendsAmong(tx, actor, ids);
-    if (friends.size !== ids.length) throw badRequest("Só é possível adicionar amigos ao grupo.");
+    const eligible = await activeColleaguesAmong(tx, actor, ids);
+    if (eligible.size !== ids.length) throw badRequest("Só é possível adicionar colaboradores ativos da empresa ao grupo.");
     const id = randomUUID();
     await tx.insert(s.conversations).values({ id, tenantId: actor.tenantId, kind: "group", title: input.title, createdBy: actor.userId });
     await tx.insert(s.conversationMembers).values({ tenantId: actor.tenantId, conversationId: id, userId: actor.userId, role: "admin" });
@@ -260,13 +259,13 @@ export async function renameGroup(actor: AuthenticatedActor, conversationId: str
   });
 }
 
-/** Adiciona amigos da administração ao grupo (quem já saiu volta, sem ver as mensagens anteriores). */
+/** Adiciona colegas ao grupo (administração) (quem já saiu volta, sem ver as mensagens anteriores). */
 export async function addMembers(actor: AuthenticatedActor, conversationId: string, userIds: string[]) {
   await withTenant(actor, async (tx) => {
     await requireGroupAdmin(tx, actor, conversationId);
     const ids = userIds.filter((id) => id !== actor.userId);
-    const friends = await activeFriendsAmong(tx, actor, ids);
-    if (friends.size !== ids.length) throw badRequest("Só é possível adicionar amigos ao grupo.");
+    const eligible = await activeColleaguesAmong(tx, actor, ids);
+    if (eligible.size !== ids.length) throw badRequest("Só é possível adicionar colaboradores ativos da empresa ao grupo.");
     const current = await tx
       .select({ userId: s.conversationMembers.userId, leftAt: s.conversationMembers.leftAt })
       .from(s.conversationMembers)

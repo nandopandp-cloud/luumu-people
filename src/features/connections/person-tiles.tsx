@@ -196,11 +196,10 @@ export function FeaturedTile({ card, actions }: { card: ConnectionCard; actions:
             <MenuItem asChild>
               <Link href={profileHref(card.id)}>Ver perfil</Link>
             </MenuItem>
-            {card.relation === "friends" ? (
-              <MenuItem onSelect={() => void actions.message(card)}>
-                <MessageCircle aria-hidden /> Enviar mensagem
-              </MenuItem>
-            ) : card.relation === "none" ? (
+            <MenuItem onSelect={() => void actions.message(card)}>
+              <MessageCircle aria-hidden /> Enviar mensagem
+            </MenuItem>
+            {card.relation === "none" ? (
               <MenuItem onSelect={() => void actions.connect(card)}>
                 <UserPlus aria-hidden /> Conectar
               </MenuItem>

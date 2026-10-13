@@ -1,9 +1,9 @@
 "use client";
 
 import { MessageCirclePlus, Search, UsersRound } from "lucide-react";
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/design-system/components/button";
+import { cn } from "@/design-system/cn";
 import { Modal } from "@/design-system/components/dialog";
 import { Skeleton } from "@/design-system/components/feedback";
 import { Input } from "@/design-system/components/field";
@@ -11,17 +11,11 @@ import { useToast } from "@/design-system/components/toast";
 import { errorMessage, friendsApi } from "./client";
 import { MoodMark, PresenceAvatar } from "./person-bits";
 import type { PersonCard } from "./types";
-
-const normalize = (text: string) =>
-  text
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .trim();
+import { useColleagueSearch } from "./use-colleague-search";
 
 /**
- * Iniciar conversa: escolhe um amigo (conversa privada só entre amigos) e abre
- * a conversa — a existente, se houver. Também leva à criação de grupo.
+ * Iniciar conversa: escolhe qualquer colega ativo da empresa (conexões primeiro)
+ * e abre a conversa — a existente, se houver. Também leva à criação de grupo.
  */
 export function NewConversationDialog({
   open,
@@ -35,33 +29,14 @@ export function NewConversationDialog({
   onNewGroup?: () => void;
 }) {
   const toast = useToast();
-  const [friends, setFriends] = useState<PersonCard[] | null>(null);
   const [search, setSearch] = useState("");
   const [opening, setOpening] = useState<string | null>(null);
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) {
-      setSearch("");
-      setFriends(null);
-    }
+    if (open) setSearch("");
   }
-  useEffect(() => {
-    if (!open) return;
-    let alive = true;
-    friendsApi
-      .friends()
-      .then((r) => alive && setFriends(r.items))
-      .catch(() => alive && setFriends([]));
-    return () => {
-      alive = false;
-    };
-  }, [open]);
-
-  const visible = useMemo(() => {
-    const term = normalize(search);
-    return (friends ?? []).filter((f) => !term || normalize(`${f.name} ${f.position ?? ""} ${f.orgUnit ?? ""}`).includes(term));
-  }, [friends, search]);
+  const { people, pending } = useColleagueSearch(search, open);
 
   async function start(person: PersonCard) {
     setOpening(person.id);
@@ -81,7 +56,7 @@ export function NewConversationDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="Nova conversa"
-      description="Escolha uma das suas conexões para conversar."
+      description="Converse com qualquer colega da empresa."
       footer={
         onNewGroup ? (
           <Button
@@ -97,25 +72,16 @@ export function NewConversationDialog({
         ) : undefined
       }
     >
-      <Input type="search" aria-label="Buscar conexões" placeholder="Buscar por nome, cargo ou área…" value={search} onChange={(e) => setSearch(e.target.value)} leading={<Search />} autoFocus />
-      {friends === null ? (
+      <Input type="search" aria-label="Buscar colaboradores" placeholder="Buscar por nome, cargo ou área…" value={search} onChange={(e) => setSearch(e.target.value)} leading={<Search />} autoFocus />
+      {people === null ? (
         <div aria-hidden className="mt-3 space-y-2">
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} className="h-14 w-full" />
           ))}
         </div>
-      ) : friends.length === 0 ? (
-        <div className="mt-4 rounded-lg bg-neutral-50 p-4 text-center">
-          <p className="text-body-sm text-neutral-700">Você ainda não tem conexões. Conecte-se com colegas para conversar.</p>
-          <Button asChild size="sm" className="mt-3">
-            <Link href="/amigos" onClick={() => onOpenChange(false)}>
-              Encontrar pessoas
-            </Link>
-          </Button>
-        </div>
       ) : (
-        <ul aria-label="Conexões" className="relative mt-3 max-h-80 space-y-1 overflow-y-auto overscroll-y-contain pr-1">
-          {visible.map((f) => (
+        <ul aria-label="Colaboradores" aria-busy={pending} className={cn("relative mt-3 max-h-80 space-y-1 overflow-y-auto overscroll-y-contain pr-1 transition-opacity", pending && "opacity-60")}>
+          {people.map((f) => (
             <li key={f.id}>
               <button
                 type="button"
@@ -129,6 +95,7 @@ export function NewConversationDialog({
                   <span className="flex items-center gap-1.5 text-body-sm font-semibold text-neutral-900">
                     <span className="truncate">{f.name}</span>
                     <MoodMark mood={f.mood} inline className="size-5" />
+                    {f.relation === "friends" ? <span className="shrink-0 rounded-full bg-purple-50 px-2 py-0.5 text-[11px] font-semibold text-purple-700">Conexão</span> : null}
                   </span>
                   <span className="block truncate text-caption text-neutral-600">{[f.position, f.orgUnit].filter(Boolean).join(" · ")}</span>
                 </span>
@@ -136,7 +103,7 @@ export function NewConversationDialog({
               </button>
             </li>
           ))}
-          {visible.length === 0 ? <li className="px-2 py-4 text-center text-body-sm text-neutral-600">Ninguém encontrado entre as suas conexões.</li> : null}
+          {people.length === 0 && !pending ? <li className="px-2 py-4 text-center text-body-sm text-neutral-600">Ninguém encontrado na empresa.</li> : null}
         </ul>
       )}
     </Modal>

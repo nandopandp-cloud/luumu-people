@@ -1,7 +1,7 @@
 "use client";
 
 import { Search } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { Avatar } from "@/design-system/components/avatar";
 import { Button } from "@/design-system/components/button";
 import { Checkbox } from "@/design-system/components/choice";
@@ -10,81 +10,63 @@ import { EmojiInput } from "@/design-system/components/emoji-input";
 import { Skeleton } from "@/design-system/components/feedback";
 import { Field, Input } from "@/design-system/components/field";
 import { useToast } from "@/design-system/components/toast";
+import { cn } from "@/design-system/cn";
 import { errorMessage, friendsApi } from "./client";
 import type { ConversationDetail, PersonCard } from "./types";
+import { useColleagueSearch } from "./use-colleague-search";
 
 const TITLE_MAX = 60;
 
-/** Lista de amigos com busca e seleção múltipla (grupos só reúnem amigos de quem cria ou administra). */
+/** Colegas da empresa com busca e seleção múltipla; quem já foi escolhido fica no topo. */
 function FriendPicker({ exclude, selected, onChange }: { exclude: string[]; selected: string[]; onChange: (ids: string[]) => void }) {
-  const [friends, setFriends] = useState<PersonCard[] | null>(null);
   const [search, setSearch] = useState("");
-  useEffect(() => {
-    let alive = true;
-    friendsApi
-      .friends()
-      .then((r) => alive && setFriends(r.items))
-      .catch(() => alive && setFriends([]));
-    return () => {
-      alive = false;
-    };
-  }, []);
-  const visible = useMemo(() => {
-    const term = search
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .toLowerCase()
-      .trim();
-    return (friends ?? []).filter(
-      (f) =>
-        !exclude.includes(f.id) &&
-        (!term ||
-          `${f.name} ${f.position ?? ""} ${f.orgUnit ?? ""}`
-            .normalize("NFD")
-            .replace(/[̀-ͯ]/g, "")
-            .toLowerCase()
-            .includes(term)),
-    );
-  }, [friends, exclude, search]);
+  const [chosen, setChosen] = useState<PersonCard[]>([]);
+  const { people, pending } = useColleagueSearch(search);
+  const picked = chosen.filter((p) => selected.includes(p.id));
+  const visible = [...picked, ...(people ?? []).filter((p) => !exclude.includes(p.id) && !selected.includes(p.id))];
 
-  if (!friends) {
-    return (
-      <div aria-hidden className="space-y-2">
-        {[0, 1, 2].map((i) => (
-          <Skeleton key={i} className="h-12 w-full" />
-        ))}
-      </div>
-    );
+  function toggle(person: PersonCard, checked: boolean) {
+    if (checked) {
+      setChosen((list) => [...list.filter((p) => p.id !== person.id), person]);
+      onChange([...selected, person.id]);
+    } else {
+      onChange(selected.filter((id) => id !== person.id));
+    }
   }
-  const available = friends.filter((f) => !exclude.includes(f.id));
-  if (available.length === 0) {
-    return <p className="rounded-lg bg-neutral-50 p-4 text-body-sm text-neutral-700">{friends.length === 0 ? "Você ainda não tem amigos para adicionar. Encontre pessoas na aba “Pessoas”." : "Todos os seus amigos já estão no grupo."}</p>;
-  }
+
   return (
     <fieldset>
       <legend className="mb-2 text-body-sm font-medium text-neutral-700">
-        Amigos <span className="font-normal text-neutral-600">({selected.length} selecionados)</span>
+        Pessoas <span className="font-normal text-neutral-600">({selected.length} selecionadas)</span>
       </legend>
-      <Input type="search" aria-label="Buscar amigos" placeholder="Buscar amigos…" value={search} onChange={(e) => setSearch(e.target.value)} leading={<Search />} />
-      <ul className="relative mt-3 max-h-64 space-y-1 overflow-y-auto pr-1">
-        {visible.map((f) => (
-          <li key={f.id} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-neutral-50">
-            <Avatar name={f.name} src={f.image} size="sm" className="ring-0" />
-            <Checkbox
-              className="min-w-0 flex-1 flex-row-reverse justify-between"
-              checked={selected.includes(f.id)}
-              onCheckedChange={(checked) => onChange(checked ? [...selected, f.id] : selected.filter((id) => id !== f.id))}
-              label={
-                <span className="block min-w-0">
-                  <span className="block truncate font-medium text-neutral-900">{f.name}</span>
-                  <span className="block truncate text-caption text-neutral-600">{[f.position, f.orgUnit].filter(Boolean).join(" · ")}</span>
-                </span>
-              }
-            />
-          </li>
-        ))}
-        {visible.length === 0 ? <li className="px-2 py-3 text-body-sm text-neutral-600">Nenhum amigo encontrado.</li> : null}
-      </ul>
+      <Input type="search" aria-label="Buscar colaboradores" placeholder="Buscar por nome, cargo ou área…" value={search} onChange={(e) => setSearch(e.target.value)} leading={<Search />} />
+      {people === null ? (
+        <div aria-hidden className="mt-3 space-y-2">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
+        </div>
+      ) : (
+        <ul aria-busy={pending} className={cn("relative mt-3 max-h-64 space-y-1 overflow-y-auto pr-1 transition-opacity", pending && "opacity-60")}>
+          {visible.map((f) => (
+            <li key={f.id} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-neutral-50">
+              <Avatar name={f.name} src={f.image} size="sm" className="ring-0" />
+              <Checkbox
+                className="min-w-0 flex-1 flex-row-reverse justify-between"
+                checked={selected.includes(f.id)}
+                onCheckedChange={(checked) => toggle(f, checked === true)}
+                label={
+                  <span className="block min-w-0">
+                    <span className="block truncate font-medium text-neutral-900">{f.name}</span>
+                    <span className="block truncate text-caption text-neutral-600">{[f.position, f.orgUnit].filter(Boolean).join(" · ")}</span>
+                  </span>
+                }
+              />
+            </li>
+          ))}
+          {visible.length === 0 && !pending ? <li className="px-2 py-3 text-body-sm text-neutral-600">Ninguém encontrado na empresa.</li> : null}
+        </ul>
+      )}
     </fieldset>
   );
 }
@@ -99,7 +81,7 @@ export function NewGroupDialog({ open, onOpenChange, onCreated }: { open: boolea
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!title.trim()) return setError("Dê um nome ao grupo.");
-    if (members.length === 0) return setError("Escolha ao menos um amigo.");
+    if (members.length === 0) return setError("Escolha ao menos uma pessoa.");
     setSaving(true);
     try {
       const { id } = await friendsApi.open({ kind: "group", title: title.trim(), memberIds: members });
@@ -121,7 +103,7 @@ export function NewGroupDialog({ open, onOpenChange, onCreated }: { open: boolea
       open={open}
       onOpenChange={onOpenChange}
       title="Nova conversa em grupo"
-      description="Reúna amigos para conversar e compartilhar ideias."
+      description="Reúna colegas para conversar e compartilhar ideias."
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>

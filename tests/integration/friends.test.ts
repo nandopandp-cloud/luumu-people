@@ -155,8 +155,15 @@ describe("amigos e conversas", () => {
     expect(seen).toEqual([]);
   });
 
-  it("conversa privada: só entre amigos, uma por par, e invisível para terceiros", async () => {
-    expect((await direct("fernando", "marcos")).status).toBe(404);
+  it("conversa privada: com qualquer colega ativo da empresa (sem exigir conexão), uma por par, e invisível para terceiros", async () => {
+    // Marcos não é conexão do Fernando: conversar não depende de amizade.
+    const notFriend = await direct("fernando", "marcos");
+    expect(notFriend.status).toBe(201);
+    expect((await send("marcos", notFriend.json.id, { body: "Oi, Fernando!" })).status).toBe(201);
+    // Outra empresa e a própria pessoa: não.
+    const otherCompany = await call(conversationsRoute.POST, { path: "/x", method: "POST", cookie: await cookie("fernando"), body: { kind: "direct", userId: await idOf("sergio", "horizonte") } });
+    expect(otherCompany.status).toBe(404);
+    expect((await direct("fernando", "fernando")).status).toBe(400);
     const first = await direct("fernando", "gabriel");
     expect(first.status).toBe(201);
     const again = await direct("gabriel", "fernando");
@@ -206,10 +213,13 @@ describe("amigos e conversas", () => {
     expect(new Date(page.json.othersReadAt).getTime()).toBeGreaterThanOrEqual(new Date(mine.at).getTime());
   });
 
-  it("grupo: criado com amigos; administração gerencia; quem entra depois não vê o histórico; quem sai perde o acesso", async () => {
+  it("grupo: criado com colegas da empresa; administração gerencia; quem entra depois não vê o histórico; quem sai perde o acesso", async () => {
     const [camila, gabriel, helena, marcos] = [await idOf("camila"), await idOf("gabriel"), await idOf("helena"), await idOf("marcos")];
-    const notFriend = await call(conversationsRoute.POST, { path: "/x", method: "POST", cookie: await cookie("fernando"), body: { kind: "group", title: "Squad", memberIds: [camila, marcos] } });
-    expect(notFriend.status).toBe(400);
+    const otherCompany = await call(conversationsRoute.POST, { path: "/x", method: "POST", cookie: await cookie("fernando"), body: { kind: "group", title: "Squad", memberIds: [camila, await idOf("sergio", "horizonte")] } });
+    expect(otherCompany.status).toBe(400);
+    // Quem não é conexão também entra (Marcos).
+    const mixed = await call(conversationsRoute.POST, { path: "/x", method: "POST", cookie: await cookie("fernando"), body: { kind: "group", title: "Squad aberto", memberIds: [camila, marcos] } });
+    expect(mixed.status).toBe(201);
     const created = await call(conversationsRoute.POST, { path: "/x", method: "POST", cookie: await cookie("fernando"), body: { kind: "group", title: "Squad Growth 🚀", memberIds: [camila] } });
     expect(created.status).toBe(201);
     const id = created.json.id as string;
@@ -244,7 +254,7 @@ describe("amigos e conversas", () => {
     expect(detail.json.members.map((m: { name: string }) => m.name).sort()).toEqual(["Camila Oliveira", "Helena Duarte"]);
   });
 
-  it("mensagens: apagar descarta o conteúdo; editar só o próprio texto; desfazer a amizade bloqueia novas mensagens", async () => {
+  it("mensagens: apagar descarta o conteúdo; editar só o próprio texto; desfazer a amizade não bloqueia; pessoa inativa, sim", async () => {
     const conversation = await direct("fernando", "pedro");
     const id = conversation.json.id as string;
     const msg = await send("pedro", id, { body: "Mensagem que vou apagar" });
@@ -278,12 +288,22 @@ describe("amigos e conversas", () => {
     );
 
     expect((await call(friendRoute.DELETE, { path: "/x", method: "DELETE", cookie: await cookie("fernando"), params: { userId: await idOf("pedro") } })).status).toBe(200);
-    const blocked = await send("pedro", id, { body: "Ainda posso?" });
-    expect(blocked.status).toBe(409);
-    expect((await messages("pedro", id)).json.items.map((m: { body: string }) => m.body)).toContain("Original");
-    expect((await call(messageRoute.PATCH, { path: "/x", method: "PATCH", cookie: await cookie("pedro"), params: { id, messageId: kept.json.id }, body: { body: "Ainda edito?" } })).status).toBe(409);
-    const detail = await call(conversationRoute.GET, { path: "/x", cookie: await cookie("fernando"), params: { id } });
-    expect(detail.json.blocked).toMatch(/não são mais amigos/);
+    expect((await send("pedro", id, { body: "Ainda posso?" })).status).toBe(201);
+    expect((await call(conversationRoute.GET, { path: "/x", cookie: await cookie("fernando"), params: { id } })).json.blocked).toBeNull();
+
+    // Pessoa desligada: o histórico fica, novas mensagens e edições não.
+    const pedro = await idOf("pedro");
+    const own = await send("fernando", id, { body: "Antes do desligamento" });
+    await db.update(s.users).set({ status: "inactive" }).where(eq(s.users.id, pedro));
+    try {
+      expect((await send("fernando", id, { body: "Ainda posso?" })).status).toBe(409);
+      expect((await messages("fernando", id)).json.items.map((m: { body: string }) => m.body)).toEqual(expect.arrayContaining(["Original", "Antes do desligamento"]));
+      expect((await call(messageRoute.PATCH, { path: "/x", method: "PATCH", cookie: await cookie("fernando"), params: { id, messageId: own.json.id }, body: { body: "Ainda edito?" } })).status).toBe(409);
+      const detail = await call(conversationRoute.GET, { path: "/x", cookie: await cookie("fernando"), params: { id } });
+      expect(detail.json.blocked).toMatch(/não está mais ativa/);
+    } finally {
+      await db.update(s.users).set({ status: "active" }).where(eq(s.users.id, pedro));
+    }
   });
 
   it("anexos: só participantes baixam; terceiros recebem 404; o anexo não é reaproveitado", async () => {

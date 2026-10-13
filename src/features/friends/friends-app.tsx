@@ -289,13 +289,13 @@ export function FriendsApp({ meId, initial }: { meId: string; initial: Initial }
           <h1 id="amigos-titulo" className="text-h1 font-extrabold tracking-[-0.02em] text-neutral-900">
             Conversas
           </h1>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <IconButton label="Nova conversa em grupo" variant="soft" size="lg" onClick={() => setNewGroup(true)}>
               <UsersRound />
             </IconButton>
-            <Button onClick={() => setComposing(true)}>
-              <MessageCirclePlus aria-hidden /> Nova conversa
-            </Button>
+            <IconButton label="Nova conversa" variant="solid" size="lg" onClick={() => setComposing(true)}>
+              <MessageCirclePlus />
+            </IconButton>
           </div>
         </header>
         {/* Pessoas e pedidos de conexão vivem em Conexões (/amigos): aqui, só as mensagens. */}
@@ -430,13 +430,13 @@ function NoConversation({ onNew, onNewGroup }: { onNew: () => void; onNewGroup: 
         <Mascot className="relative h-28" />
       </div>
       <p className="text-h3 font-bold text-neutral-900">Conecte-se e compartilhe ideias com seu time! 💜</p>
-      <p className="mt-2 max-w-sm text-body-sm text-neutral-600">Escolha uma conversa ao lado, comece uma nova com uma conexão ou crie um grupo.</p>
+      <p className="mt-2 max-w-sm text-body-sm text-neutral-600">Escolha uma conversa ao lado, comece uma nova com qualquer colega ou crie um grupo.</p>
       <div className="mt-5 flex flex-wrap justify-center gap-3">
         <Button onClick={onNew}>
           <MessageCirclePlus aria-hidden /> Nova conversa
         </Button>
         <Button variant="secondary" onClick={onNewGroup}>
-          <MessageCirclePlus aria-hidden /> Novo grupo
+          <UsersRound aria-hidden /> Novo grupo
         </Button>
       </div>
     </section>
@@ -495,7 +495,7 @@ function ConversationsTab({ conversations, activeId, unread, onOpen }: { convers
         {visible.length === 0 ? (
           <li className="px-6 py-10 text-center">
             <p className="text-body-sm font-semibold text-neutral-900">{conversations.length === 0 ? "Nenhuma conversa ainda" : "Nenhuma conversa encontrada"}</p>
-            <p className="mt-1 text-body-sm text-neutral-600">{conversations.length === 0 ? "Adicione amigos para começar a conversar." : "Ajuste a busca ou os filtros."}</p>
+            <p className="mt-1 text-body-sm text-neutral-600">{conversations.length === 0 ? "Comece uma conversa com qualquer colega em “Nova conversa”." : "Ajuste a busca ou os filtros."}</p>
             {conversations.length === 0 ? (
               <Button asChild variant="soft" size="sm" className="mt-3">
                 <Link href="/amigos">Encontrar pessoas</Link>

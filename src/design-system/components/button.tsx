@@ -64,7 +64,7 @@ export function Button({ className, variant, size, block, asChild, loading, disa
 type IconButtonProps = ComponentProps<"button"> & {
   /** Rótulo acessível obrigatório: botões só com ícone precisam de nome. */
   label: string;
-  variant?: "plain" | "outline" | "soft";
+  variant?: "plain" | "outline" | "soft" | "solid";
   size?: "sm" | "md" | "lg";
 };
 
@@ -79,6 +79,7 @@ export function IconButton({ label, variant = "outline", size = "md", className,
         variant === "outline" && "border border-line bg-white hover:bg-purple-50 hover:text-purple-600",
         variant === "soft" && "bg-purple-100 text-purple-600 hover:bg-purple-200",
         variant === "plain" && "hover:bg-purple-50 hover:text-purple-600",
+        variant === "solid" && "bg-purple-500 text-white shadow-[0_6px_16px_-6px_rgb(124_58_237/0.55)] hover:bg-purple-600 active:bg-purple-700",
         size === "sm" && "size-8 [&_svg]:size-4",
         size === "md" && "size-10",
         size === "lg" && "size-12",

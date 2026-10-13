@@ -113,21 +113,22 @@ test.describe("Conversas e amigos", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Conversas" })).toBeVisible();
   });
 
-  test("nova conversa a partir da página de conversas", async ({ page }) => {
+  test("nova conversa a partir da página de conversas, inclusive com quem não é conexão", async ({ page }) => {
     await signIn(page, "fernando.santos@aurora.example");
     await gotoHydrated(page, "/conversas");
     await page.getByRole("button", { name: "Nova conversa", exact: true }).first().click();
     const dialog = page.getByRole("dialog", { name: "Nova conversa", exact: true });
-    await dialog.getByRole("searchbox", { name: "Buscar conexões" }).fill("helena");
+    // Marcos não é conexão do Fernando: a busca cobre a empresa toda.
+    await dialog.getByRole("searchbox", { name: "Buscar colaboradores" }).fill("marcos");
     await expect(dialog.getByRole("button", { name: "Conversar com Carla Mendes" })).toHaveCount(0);
     await expectAccessible(page);
-    await dialog.getByRole("button", { name: "Conversar com Helena Duarte" }).click();
+    await dialog.getByRole("button", { name: "Conversar com Marcos Vieira" }).click();
     await expect(dialog).toHaveCount(0);
-    const chat = page.getByRole("region", { name: "Helena Duarte" });
-    await chat.getByRole("textbox", { name: "Mensagem" }).fill("Oi, Helena! Tudo certo? 👋");
+    const chat = page.getByRole("region", { name: "Marcos Vieira" });
+    await chat.getByRole("textbox", { name: "Mensagem" }).fill("Oi, Marcos! Tudo certo? 👋");
     await chat.getByRole("textbox", { name: "Mensagem" }).press("Enter");
-    await expect(chat.getByText("Oi, Helena! Tudo certo? 👋")).toBeVisible();
-    await expect(page.getByRole("list", { name: "Conversas" }).getByRole("button", { name: /Helena Duarte/ })).toBeVisible();
+    await expect(chat.getByText("Oi, Marcos! Tudo certo? 👋")).toBeVisible();
+    await expect(page.getByRole("list", { name: "Conversas" }).getByRole("button", { name: /Marcos Vieira/ })).toBeVisible();
   });
 
   test("chat flutuante: nova conversa, fechar no x e voltar quando chega mensagem", async ({ page, browser }) => {
