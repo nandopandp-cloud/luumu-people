@@ -48,7 +48,7 @@ const envelope = `<svg width="64" height="50" viewBox="0 0 64 50" style="positio
 const sparkles = `<svg width="40" height="40" viewBox="0 0 40 40" style="position:absolute;left:4px;top:158px"><g stroke="#FFC22E" stroke-width="4.5" stroke-linecap="round"><path d="M26 4l-2 9"/><path d="M8 12l7 6"/><path d="M4 30l9-1"/></g></svg>`;
 await shot(
   "hero.png",
-  `<div style="position:relative;width:300px;height:300px;background:#FFFFFF;overflow:hidden">
+  `<div style="position:relative;width:300px;height:300px;background:transparent;overflow:hidden">
     <div style="position:absolute;left:0;top:40px;width:300px;height:260px;background:#F3EFFE;border-radius:0 24px 24px 0"></div>
     <div style="position:absolute;left:150px;top:180px;width:200px;height:200px;border-radius:50%;background:#E8DFFF"></div>
     <div style="position:absolute;left:96px;top:6px;width:204px;height:294px;border-radius:102px 102px 24px 0;overflow:hidden;background:#EDE6FF">
@@ -58,7 +58,7 @@ await shot(
     <div style="position:absolute;left:14px;top:162px;width:126px">${mascot}</div>
     ${envelope}${sparkles}${leaf(60, 2, -28, 0.85)}${leaf(34, 92, 30, 0.6)}
   </div>`,
-  { transparent: false },
+  { transparent: true },
 );
 
 // Folhas lilás do rodapé (decoração à direita do cartão).

@@ -11,7 +11,7 @@ describe("e-mail de convite", () => {
     expect(html).toContain('href="https://app.luumu.com/convite?token=abc"');
     expect(html).toContain("válido até <strong");
     expect(html).toContain("21/10/2026");
-    expect(html).toContain('src="https://app.luumu.com/email/logo.png"');
+    expect(html).toMatch(/src="https:\/\/app\.luumu\.com\/email\/logo\.png\?v=\w+"/);
     expect(html).not.toContain(".svg");
     expect(text).toContain(base.url);
     expect(text).toContain("21/10/2026");

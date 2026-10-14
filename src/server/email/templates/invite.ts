@@ -17,6 +17,9 @@ export type InviteEmail = {
   assetBase: string;
 };
 
+/** Versão das imagens em public/email (suba ao regerar com scripts/build-email-assets.mts). */
+const ASSET_VERSION = "3";
+
 const FONT = "'Inter','Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif";
 const INK = "#16123A";
 const MUTED = "#5B5876";
@@ -32,7 +35,8 @@ const FEATURES = [
 export function inviteEmail(input: InviteEmail) {
   const first = input.name.trim().split(/\s+/)[0] ?? "";
   const until = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Sao_Paulo" }).format(input.expiresAt);
-  const img = (file: string) => `${input.assetBase.replace(/\/$/, "")}/email/${file}`;
+  // `?v=`: muda quando as imagens mudam, para o Gmail não usar a cópia antiga em cache.
+  const img = (file: string) => `${input.assetBase.replace(/\/$/, "")}/email/${file}?v=${ASSET_VERSION}`;
   const e = {
     first: escapeHtml(first),
     inviter: escapeHtml(input.inviterName),
