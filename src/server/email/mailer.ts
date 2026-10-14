@@ -34,7 +34,9 @@ export async function sendEmail(message: EmailMessage): Promise<void> {
     body: JSON.stringify({ from: EMAIL_FROM, to: [message.to], subject: message.subject, text: message.text, html: message.html }),
   });
   if (!response.ok) {
-    logger().error({ status: response.status }, "falha no envio de e-mail transacional");
+    // Motivo devolvido pelo Resend (ex.: domínio não verificado, remetente inválido). Não contém a chave.
+    const detail = await response.json().catch(() => null) as { name?: string; message?: string } | null;
+    logger().error({ status: response.status, reason: detail?.name, detail: detail?.message }, "falha no envio de e-mail transacional");
     throw new Error("Não foi possível enviar o e-mail.");
   }
 }
