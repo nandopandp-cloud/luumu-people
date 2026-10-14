@@ -1,6 +1,6 @@
 import "server-only";
 import { alias } from "drizzle-orm/pg-core";
-import { and, desc, eq, lt, or, type SQL } from "drizzle-orm";
+import { and, desc, eq, lt, notLike, or, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { AUDIT_ACTIONS } from "@/server/audit/audit";
 import type { AuthenticatedActor } from "@/server/auth/session";
@@ -56,4 +56,32 @@ export async function listAuditLogs(viewer: AuthenticatedActor, query: AuditQuer
       nextCursor: rows.length > query.limit && last ? Buffer.from(`${last.createdAt.toISOString()}|${last.id}`).toString("base64url") : null,
     };
   });
+}
+
+const target = alias(s.users, "target");
+
+/**
+ * Atividade recente do dashboard: as últimas ações de gestão, sem os eventos de
+ * login/sessão (ruído). Inclui o nome da pessoa afetada quando o recurso é um usuário.
+ */
+export async function listRecentActivity(viewer: AuthenticatedActor, limit = 5) {
+  if (!hasTenantWide(viewer, "audit.read")) throw forbidden();
+  return withTenant(viewer, (tx) =>
+    tx
+      .select({
+        id: s.auditLogs.id,
+        action: s.auditLogs.action,
+        metadata: s.auditLogs.metadata,
+        createdAt: s.auditLogs.createdAt,
+        actorName: actor.name,
+        actorImage: actor.image,
+        targetName: target.name,
+      })
+      .from(s.auditLogs)
+      .leftJoin(actor, eq(actor.id, s.auditLogs.actorUserId))
+      .leftJoin(target, and(eq(s.auditLogs.resourceType, "user"), eq(sql`${target.id}::text`, s.auditLogs.resourceId)))
+      .where(notLike(s.auditLogs.action, "auth.%"))
+      .orderBy(desc(s.auditLogs.createdAt), desc(s.auditLogs.id))
+      .limit(limit),
+  );
 }

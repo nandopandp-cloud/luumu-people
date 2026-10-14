@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, foreignKey, index, jsonb, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, date, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { createdAt, id, timestamps } from "./_columns";
 import { users } from "./auth";
 import { roles } from "./access";
@@ -77,5 +77,31 @@ export const featureFlagOverrides = pgTable(
       sql`coalesce(${t.roleId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
       sql`coalesce(${t.userId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
     ),
+  ],
+);
+
+/**
+ * Uso da plataforma por pessoa e dia (fuso de Brasília), alimentado pelo sinal
+ * de presença (a cada minuto, só com a aba visível). Um novo acesso começa
+ * depois de 30 minutos sem sinal; o tempo de uso soma os intervalos entre
+ * sinais (no máximo 2 minutos cada). O dashboard só mostra agregados.
+ */
+export const usageDays = pgTable(
+  "usage_days",
+  {
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => organizations.id),
+    userId: uuid("user_id").notNull(),
+    day: date("day", { mode: "string" }).notNull(),
+    visits: integer("visits").notNull().default(1),
+    activeSeconds: integer("active_seconds").notNull().default(0),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ name: "usage_days_pk", columns: [t.tenantId, t.userId, t.day] }),
+    foreignKey({ name: "usage_days_user_fk", columns: [t.tenantId, t.userId], foreignColumns: [users.tenantId, users.id] }).onDelete("cascade"),
+    index("usage_days_tenant_day_idx").on(t.tenantId, t.day),
+    check("usage_days_counters", sql`${t.visits} >= 1 and ${t.activeSeconds} >= 0`),
   ],
 );

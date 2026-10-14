@@ -100,6 +100,13 @@ test.describe("Fase 1 — fundação", () => {
 
   test("gestora vê somente a própria equipe", async ({ page }) => {
     await signIn(page, "carla.mendes@aurora.example");
+    // Dashboard da gestora: sem uso da plataforma nem auditoria (são da empresa toda).
+    await gotoHydrated(page, "/gestao");
+    await expect(page.getByRole("heading", { name: /Olá, Carla!/ })).toBeVisible();
+    await expect(page.getByText("Pessoas na sua equipe")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Visão da plataforma" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Atividade recente" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: /Atenção necessária/ })).toBeVisible();
     await page.goto("/gestao/usuarios");
     await expect(page.getByText("Você está vendo apenas as pessoas do seu escopo").filter({ visible: true })).toBeVisible();
     await expect(page.getByRole("link", { name: /Fernando Santos/ })).toBeVisible();
@@ -108,8 +115,25 @@ test.describe("Fase 1 — fundação", () => {
 
   test("administradora: dashboard, usuários, papéis e auditoria", async ({ page }) => {
     await signIn(page, "paula.ribeiro@aurora.example");
-    await page.goto("/gestao");
+    await gotoHydrated(page, "/gestao");
     await expect(page.getByRole("heading", { name: /Olá, Paula!/ })).toBeVisible();
+    const kpis = page.getByRole("region", { name: "Indicadores" });
+    for (const label of ["Colaboradores ativos", "Áreas e diretorias", "Gestores", "Admissões recentes"]) await expect(kpis.getByText(label)).toBeVisible();
+    // Visão da plataforma: gráfico, tabela equivalente e troca de período.
+    const usage = page.getByRole("region", { name: "Visão da plataforma" });
+    await expect(usage.getByRole("img", { name: /Acessos e usuários únicos por dia, últimos 7 dias/ })).toBeVisible();
+    await usage.getByRole("button", { name: "Ver como tabela" }).click();
+    await expect(usage.getByRole("table").getByRole("row")).toHaveCount(8);
+    await usage.getByRole("combobox", { name: "Período da visão da plataforma" }).selectOption("30");
+    await expect(page).toHaveURL(/periodo=30/);
+    // A escolha de ver como tabela continua valendo no novo período.
+    await expect(usage.getByRole("table").getByRole("row")).toHaveCount(31);
+    await usage.getByRole("button", { name: "Ver gráfico" }).click();
+    await expect(usage.getByRole("img", { name: /últimos 30 dias/ })).toBeVisible();
+    await expect(page.getByRole("region", { name: /Atenção necessária/ })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Atividade recente" }).getByRole("link", { name: "Ver auditoria completa" })).toBeVisible();
+    const quick = page.getByRole("region", { name: "Ações rápidas" });
+    for (const label of ["Gerenciar pessoas", "Publicar comunicado", "Criar pesquisa", "Ver auditoria"]) await expect(quick.getByRole("link", { name: new RegExp(label) })).toBeVisible();
     await expectAccessible(page);
 
     await gotoHydrated(page, "/gestao/usuarios?q=gabriel");

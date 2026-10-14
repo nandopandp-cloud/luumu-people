@@ -70,3 +70,14 @@ export const SCOPE_LABELS: Record<string, string> = {
   ORG_UNIT_TREE: "Área específica",
   TENANT: "Toda a empresa",
 };
+
+/** Detalhe curto de um registro de auditoria (título, papel, campos ou pessoa afetada). */
+export function describeAudit({ metadata, targetName }: { metadata: Record<string, unknown>; targetName?: string | null }): string | null {
+  const parts: string[] = [];
+  if (typeof metadata.title === "string") parts.push(metadata.title);
+  else if (typeof metadata.label === "string") parts.push(metadata.label);
+  if (typeof metadata.role === "string") parts.push(`Papel: ${ROLE_LABELS[metadata.role] ?? metadata.role}`);
+  else if (Array.isArray(metadata.fields)) parts.push(`Campos: ${metadata.fields.join(", ")}`);
+  if (targetName) parts.push(targetName);
+  return parts.length ? parts.join(" · ") : null;
+}

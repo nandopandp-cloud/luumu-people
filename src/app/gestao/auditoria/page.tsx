@@ -9,7 +9,7 @@ import { Skeleton } from "@/design-system/components/feedback";
 import { CursorPagination } from "@/design-system/components/navigation";
 import { Select } from "@/design-system/components/select";
 import { Table, Td, Th, THead, Tr } from "@/design-system/components/table";
-import { AUDIT_LABELS, auditLabel, ROLE_LABELS } from "@/features/audit/labels";
+import { AUDIT_LABELS, auditLabel, describeAudit } from "@/features/audit/labels";
 import { formatDateTime } from "@/lib/format";
 import { requirePermission } from "@/server/dal";
 import { auditQuerySchema, listAuditLogs } from "@/server/modules/audit/service";
@@ -30,12 +30,6 @@ export default function AuditPage({ searchParams }: PageProps<"/gestao/auditoria
       </Suspense>
     </>
   );
-}
-
-function describe(metadata: Record<string, unknown>): string | null {
-  if (typeof metadata.role === "string") return `Papel: ${ROLE_LABELS[metadata.role] ?? metadata.role}`;
-  if (Array.isArray(metadata.fields)) return `Campos: ${metadata.fields.join(", ")}`;
-  return null;
 }
 
 async function AuditTable({ searchParams }: { searchParams: PageProps<"/gestao/auditoria">["searchParams"] }) {
@@ -104,7 +98,7 @@ async function AuditTable({ searchParams }: { searchParams: PageProps<"/gestao/a
                   </Td>
                   <Td data-label="Ação">{auditLabel(item.action)}</Td>
                   <Td data-label="Detalhes" className="text-neutral-500">
-                    {describe(item.metadata) ?? "—"}
+                    {describeAudit({ metadata: item.metadata }) ?? "—"}
                   </Td>
                   <Td data-label="IP" className="tabular-nums text-neutral-500">
                     {item.ipAddress ?? "—"}

@@ -1,7 +1,7 @@
 "use client";
 
 import { Table2, BarChart3 } from "lucide-react";
-import { useId, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { cn } from "../cn";
 
 /**
@@ -350,5 +350,167 @@ export function RadarChart({
         </span>
       </div>
     </div>
+  );
+}
+
+type ComboDatum = { label: string; /** Rótulo completo (tooltip e tabela), ex.: "Seg, 13/10". */ fullLabel?: string; bar: number; line: number };
+
+/**
+ * Colunas + linha no MESMO eixo (duas contagens da mesma grandeza, ex.:
+ * acessos e pessoas únicas). Tipos de marca diferentes + legenda = identidade
+ * nunca só pela cor; hover por dia com as duas séries; alternância para tabela.
+ */
+export function ComboChart({
+  data,
+  title,
+  barLabel,
+  lineLabel,
+  height = 220,
+  barColor = "var(--color-purple-400)",
+  lineColor = "var(--color-purple-700)",
+}: {
+  data: ComboDatum[];
+  title: string;
+  barLabel: string;
+  lineLabel: string;
+  height?: number;
+  barColor?: string;
+  lineColor?: string;
+}) {
+  const [hover, setHover] = useState<number | null>(null);
+  const [asTable, setAsTable] = useState(false);
+  // Largura real do gráfico: o texto fica no tamanho certo do celular ao desktop.
+  const box = useRef<HTMLDivElement>(null);
+  const [W, setW] = useState(560);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => setW(Math.max(280, Math.round(entry!.contentRect.width))));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [asTable]);
+  const ticks = useMemo(() => niceTicks(Math.max(...data.map((d) => Math.max(d.bar, d.line)), 0)), [data]);
+  const top = ticks.at(-1)!;
+  const innerW = W - PAD.left - PAD.right;
+  const innerH = height - PAD.top - PAD.bottom;
+  const band = innerW / Math.max(1, data.length);
+  const barW = Math.min(36, band * 0.55);
+  const cx = (i: number) => PAD.left + band * i + band / 2;
+  const y = (v: number) => PAD.top + innerH - (v / top) * innerH;
+  const r = 4;
+  const line = data.map((d, i) => `${i ? "L" : "M"}${cx(i)},${y(d.line)}`).join(" ");
+  // Com muitos dias, rótulo do eixo X só a cada N.
+  const every = Math.ceil(data.length / Math.max(3, Math.floor(innerW / 48)));
+  const name = (d: ComboDatum) => d.fullLabel ?? d.label;
+
+  return (
+    <figure className="m-0">
+      {asTable ? (
+        <table className="w-full text-left text-body-sm">
+          <caption className="sr-only">{title}</caption>
+          <thead>
+            <tr className="border-b border-line text-caption text-neutral-500">
+              <th scope="col" className="py-2 font-medium">Dia</th>
+              <th scope="col" className="py-2 text-right font-medium">{barLabel}</th>
+              <th scope="col" className="py-2 text-right font-medium">{lineLabel}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((d) => (
+              <tr key={name(d)} className="border-b border-line/60 last:border-0">
+                <th scope="row" className="py-2 font-normal text-neutral-700">{name(d)}</th>
+                <td className="py-2 text-right font-medium tabular-nums text-neutral-900">{fmt.format(d.bar)}</td>
+                <td className="py-2 text-right font-medium tabular-nums text-neutral-900">{fmt.format(d.line)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <div ref={box} className="relative">
+          <svg
+            viewBox={`0 0 ${W} ${height}`}
+            className="w-full overflow-visible"
+            role="img"
+            aria-label={`${title}. ${data.map((d) => `${name(d)}: ${fmt.format(d.bar)} ${barLabel.toLowerCase()}, ${fmt.format(d.line)} ${lineLabel.toLowerCase()}`).join("; ")}.`}
+            onMouseLeave={() => setHover(null)}
+          >
+            {ticks.map((t) => (
+              <g key={t}>
+                <line x1={PAD.left} x2={W - PAD.right} y1={y(t)} y2={y(t)} stroke="var(--color-chart-grid)" strokeWidth="1" />
+                <text x={PAD.left - 8} y={y(t) + 4} textAnchor="end" className="fill-neutral-500 text-[11px]">
+                  {fmt.format(t)}
+                </text>
+              </g>
+            ))}
+            {data.map((d, i) => {
+              const x0 = cx(i) - barW / 2;
+              const t = y(d.bar);
+              const h = y(0) - t;
+              const rr = Math.min(r, h);
+              const path = h > 0 ? `M${x0},${y(0)} V${t + rr} Q${x0},${t} ${x0 + rr},${t} H${x0 + barW - rr} Q${x0 + barW},${t} ${x0 + barW},${t + rr} V${y(0)} Z` : "";
+              return (
+                <g key={name(d)} onMouseEnter={() => setHover(i)}>
+                  <rect x={cx(i) - band / 2} y={PAD.top} width={band} height={innerH} fill={hover === i ? "var(--color-purple-50)" : "transparent"} />
+                  <path d={path} fill={barColor} opacity={hover === null || hover === i ? 1 : 0.55} />
+                  {i % every === 0 || i === data.length - 1 ? (
+                    <text x={cx(i)} y={height - 8} textAnchor="middle" className="fill-neutral-500 text-[11px]">
+                      {d.label}
+                    </text>
+                  ) : null}
+                </g>
+              );
+            })}
+            <path d={line} fill="none" stroke={lineColor} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" pointerEvents="none" />
+            {data.length <= 14 || hover !== null
+              ? data.map((d, i) =>
+                  data.length <= 14 || hover === i ? (
+                    <circle key={name(d)} cx={cx(i)} cy={y(d.line)} r={hover === i ? 5 : 4} fill={lineColor} stroke="#fff" strokeWidth="2" pointerEvents="none" />
+                  ) : null,
+                )
+              : null}
+          </svg>
+          {hover !== null && data[hover] ? (
+            <div
+              role="status"
+              className="pointer-events-none absolute -translate-x-1/2 -translate-y-full rounded-md bg-neutral-900 px-2.5 py-1.5 text-caption text-white shadow-lg"
+              style={{ left: `${(cx(hover) / W) * 100}%`, top: `${(Math.min(y(data[hover].bar), y(data[hover].line)) / height) * 100}%`, marginTop: -12 }}
+            >
+              <span className="block text-neutral-300">{name(data[hover])}</span>
+              <span className="block whitespace-nowrap">
+                {barLabel}: <strong className="font-semibold">{fmt.format(data[hover].bar)}</strong>
+              </span>
+              <span className="block whitespace-nowrap">
+                {lineLabel}: <strong className="font-semibold">{fmt.format(data[hover].line)}</strong>
+              </span>
+            </div>
+          ) : null}
+        </div>
+      )}
+      <figcaption className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <span className="sr-only">{title}</span>
+        <ul className="flex flex-wrap items-center gap-4 text-caption text-neutral-600" aria-label="Legenda">
+          <li className="flex items-center gap-2">
+            <span aria-hidden className="size-2.5 rounded-[3px]" style={{ background: barColor }} />
+            {barLabel}
+          </li>
+          <li className="flex items-center gap-2">
+            <svg aria-hidden width="18" height="10" viewBox="0 0 18 10">
+              <line x1="1" x2="17" y1="5" y2="5" stroke={lineColor} strokeWidth="2" strokeLinecap="round" />
+              <circle cx="9" cy="5" r="3" fill={lineColor} />
+            </svg>
+            {lineLabel}
+          </li>
+        </ul>
+        <button
+          type="button"
+          onClick={() => setAsTable((v) => !v)}
+          aria-pressed={asTable}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-line px-2.5 py-1 text-caption font-medium text-neutral-600 hover:bg-neutral-50"
+        >
+          {asTable ? <BarChart3 aria-hidden className="size-3.5" /> : <Table2 aria-hidden className="size-3.5" />}
+          {asTable ? "Ver gráfico" : "Ver como tabela"}
+        </button>
+      </figcaption>
+    </figure>
   );
 }

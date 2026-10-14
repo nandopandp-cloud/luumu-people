@@ -267,6 +267,20 @@
       "when": 1791915817500,
       "tag": "0037_surveys_pause_delete_security",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1792013380988,
+      "tag": "0038_usage_days",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1792013381462,
+      "tag": "0039_usage_days_security",
+      "breakpoints": true
     }
   ]
 }

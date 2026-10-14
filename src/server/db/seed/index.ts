@@ -8,6 +8,7 @@ import * as s from "../schema";
 import { seedCommunication } from "./communication";
 import { seedFriends } from "./friends";
 import { seedMoods } from "./wellbeing";
+import { seedUsage } from "./usage";
 import { seedContent } from "./content";
 import { seedSurveys } from "./surveys";
 import { DEFAULT_EDITABLE_PROFILE_FIELDS, SEED_FEATURE_FLAGS, SEED_ORGANIZATIONS, seedEmail, type SeedOrganization } from "./data";
@@ -200,6 +201,7 @@ export async function seedDemo(db: Database, password: string): Promise<SeedResu
         await seedCommunication(t, seeded.tenantId);
         await seedSurveys(t, seeded.tenantId);
         await seedMoods(t, seeded.tenantId, seeded.users);
+        await seedUsage(t, seeded.tenantId, seeded.users);
         await seedFriends(t, seeded.tenantId, seeded.users);
         await enableLearningFor(t, seeded);
         result.set(org.slug, seeded);
