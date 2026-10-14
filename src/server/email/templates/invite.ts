@@ -49,7 +49,7 @@ export function inviteEmail(input: InviteEmail) {
   const text = [
     `Olá, ${first}!`,
     "",
-    `${input.inviterName} convidou você para acessar a Luumu People da ${input.organizationName}, nossa plataforma de comunicação, integração e desenvolvimento das pessoas.`,
+    `${input.inviterName} convidou você para acessar a Luumu People, a plataforma de comunicação, integração e desenvolvimento das pessoas da ${input.organizationName}.`,
     "",
     "Na Luumu People você poderá: receber comunicados, se conectar com colegas, participar de pesquisas e acompanhar seu desenvolvimento.",
     "",
@@ -122,7 +122,7 @@ export function inviteEmail(input: InviteEmail) {
         <td class="stack hero-copy" width="251" height="252" valign="top" background="${img("hero-left.jpg")}" bgcolor="#F2EFFE"
           style="height:226px;padding:22px 6px 4px 30px;background:#F2EFFE url('${img("hero-left.jpg")}') 0 0 / 251px 252px no-repeat;border-radius:24px 0 0 24px">
           <h1 class="hero-title" style="margin:0;font:800 27px/31px ${FONT};letter-spacing:-0.7px;color:${INK}">Você foi convidado para a <span style="color:${PURPLE}">Luumu People!</span></h1>
-          <p style="margin:10px 0 0;font:400 13px/19px ${FONT};color:${MUTED}">Um espaço para se comunicar, se conectar e fazer parte de tudo o que acontece na nossa empresa.</p>
+          <p style="margin:10px 0 0;font:400 13px/19px ${FONT};color:${MUTED}">Um espaço para se comunicar, se conectar e fazer parte de tudo o que acontece na ${e.org}.</p>
           <div style="width:40px;height:3px;background:${PURPLE};border-radius:3px;margin-top:14px;font-size:0;line-height:0">&nbsp;</div>
         </td>
         <td class="stack" width="317" valign="top" style="padding:0;font-size:0;line-height:0">
@@ -135,7 +135,7 @@ export function inviteEmail(input: InviteEmail) {
   <!-- Saudação -->
   <tr><td class="px" style="padding:36px 40px 8px">
     <p style="margin:0;font:700 22px/30px ${FONT};color:${INK}">Olá, ${e.first}! 👋</p>
-    <p style="margin:12px 0 0;font:400 16px/25px ${FONT};color:${MUTED}">${e.inviter} convidou você para acessar a Luumu People, nossa plataforma de comunicação, integração e desenvolvimento das pessoas.</p>
+    <p style="margin:12px 0 0;font:400 16px/25px ${FONT};color:${MUTED}">${e.inviter} convidou você para acessar a Luumu People, a plataforma de comunicação, integração e desenvolvimento das pessoas da ${e.org}.</p>
     <p style="margin:26px 0 18px;font:400 15px/22px ${FONT};color:${MUTED}">Na Luumu People você poderá:</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>${features}</tr></table>
   </td></tr>

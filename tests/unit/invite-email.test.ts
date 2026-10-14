@@ -8,6 +8,10 @@ describe("e-mail de convite", () => {
     const { subject, html, text } = inviteEmail(base);
     expect(subject).toBe("Paula Ribeiro convidou você para a Luumu People");
     expect(html).toContain("Olá, Camila!");
+    // Nome da empresa (do cadastro), nunca "nossa empresa"/"nossa plataforma".
+    expect(html).toContain("tudo o que acontece na Aurora.");
+    expect(html).toContain("desenvolvimento das pessoas da Aurora.");
+    expect(html).not.toMatch(/nossa (empresa|plataforma)/);
     expect(html).toContain('href="https://app.luumu.com/convite?token=abc"');
     expect(html).toContain("válido até <strong");
     expect(html).toContain("21/10/2026");
@@ -23,5 +27,6 @@ describe("e-mail de convite", () => {
     expect(html).not.toContain("<b>Ana");
     expect(html).toContain("&lt;b&gt;Ana&lt;/b&gt;");
     expect(html).toContain("Eve &quot;&lt;script&gt;&quot;");
+    expect(html).toContain("A&amp;B");
   });
 });
