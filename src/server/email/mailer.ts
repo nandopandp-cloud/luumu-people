@@ -1,4 +1,5 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import { env } from "@/server/env";
 import { logger } from "@/server/observability/logger";
 
@@ -50,7 +51,9 @@ export async function sendEmail(message: EmailMessage): Promise<void> {
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from, to: [message.to], subject: message.subject, text: message.text, html: message.html }),
+    // ID único por envio: o Gmail não agrupa e-mails iguais na mesma conversa
+    // (e não esconde com "..." os trechos repetidos).
+    body: JSON.stringify({ from, to: [message.to], subject: message.subject, text: message.text, html: message.html, headers: { "X-Entity-Ref-ID": randomUUID() } }),
   });
   if (!response.ok) {
     // Motivo devolvido pelo Resend (ex.: domínio não verificado, remetente inválido). Não contém a chave.

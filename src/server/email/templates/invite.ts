@@ -87,7 +87,10 @@ export function inviteEmail(input: InviteEmail) {
     .container{width:100%!important}
     .px{padding-left:22px!important;padding-right:22px!important}
     .stack{display:block!important;width:100%!important;box-sizing:border-box!important}
-    .hero-art{border-radius:0 0 24px 24px!important;max-width:100%!important}
+    .hero-art{max-width:100%!important;margin:0 auto;border-radius:0 0 24px 24px}
+    .hero-copy-cell{padding-top:0!important}
+    .hero-copy-cell table{border-radius:24px!important}
+    .hero-copy{height:auto!important;padding:28px 22px!important}
     .hero-title{font-size:30px!important;line-height:34px!important}
     .feature{display:inline-block!important;width:48%!important;padding:0 0 22px!important;vertical-align:top}
     .tagline{display:none!important}
@@ -109,17 +112,21 @@ export function inviteEmail(input: InviteEmail) {
     </tr></table>
   </td></tr>
 
-  <!-- Destaque -->
+  <!-- Destaque: cartão lilás à esquerda; a ilustração "sai" acima do cartão (como na referência) -->
   <tr><td style="padding:0 16px">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F3EFFE;border-radius:24px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
       <tr>
-        <td class="stack px" width="268" valign="middle" style="padding:30px 0 30px 28px">
-          <h1 class="hero-title" style="margin:0;font:800 34px/38px ${FONT};letter-spacing:-0.8px;color:${INK}">Você foi convidado(a) para a <span style="color:${PURPLE}">Luumu People!</span></h1>
-          <p style="margin:14px 0 0;font:400 15px/22px ${FONT};color:${MUTED}">Um espaço para se comunicar, se conectar e fazer parte de tudo o que acontece na ${e.org}.</p>
-          <div style="width:44px;height:3px;background:${PURPLE};border-radius:3px;margin-top:18px;font-size:0;line-height:0">&nbsp;</div>
+        <td class="stack hero-copy-cell" width="268" valign="bottom" style="padding:40px 0 0 0">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F3EFFE;border-radius:24px 0 0 24px">
+            <tr><td class="hero-copy" height="224" valign="middle" style="height:224px;padding:18px 8px 18px 28px">
+              <h1 class="hero-title" style="margin:0;font:800 30px/34px ${FONT};letter-spacing:-0.8px;color:${INK}">Você foi convidado para a <span style="color:${PURPLE}">Luumu People!</span></h1>
+              <p style="margin:12px 0 0;font:400 14px/21px ${FONT};color:${MUTED}">Um espaço para se comunicar, se conectar e fazer parte de tudo o que acontece na nossa empresa.</p>
+              <div style="width:44px;height:3px;background:${PURPLE};border-radius:3px;margin-top:16px;font-size:0;line-height:0">&nbsp;</div>
+            </td></tr>
+          </table>
         </td>
         <td class="stack" width="300" valign="bottom" style="padding:0;font-size:0;line-height:0">
-          <img class="hero-art" src="${img("hero.png")}" width="300" height="310" alt="" style="display:block;border:0;width:100%;max-width:300px;height:auto;border-radius:0 24px 24px 0">
+          <img class="hero-art" src="${img("hero.png")}" width="300" height="300" alt="" style="display:block;border:0;width:100%;max-width:300px;height:auto">
         </td>
       </tr>
     </table>
@@ -146,7 +153,7 @@ export function inviteEmail(input: InviteEmail) {
         </tr></table>
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:22px auto 0"><tr>
           <td align="center" bgcolor="${PURPLE}" style="border-radius:14px;background:${PURPLE}">
-            <a class="cta" href="${e.url}" target="_blank" style="display:inline-block;padding:16px 64px;font:700 16px/20px ${FONT};color:#FFFFFF;text-decoration:none;border-radius:14px">Ativar minha conta &rarr;</a>
+            <a class="cta" href="${e.url}" target="_blank" style="display:inline-block;padding:18px 96px;font:700 16px/20px ${FONT};color:#FFFFFF;text-decoration:none;border-radius:14px">Ativar minha conta &rarr;</a>
           </td>
         </tr></table>
         <p style="margin:18px 0 0;text-align:center;font:400 13px/20px ${FONT};color:${MUTED}">O convite é pessoal e válido até <strong style="color:${INK}">${until}</strong>. Se o prazo expirar,<br>solicite um novo convite ao seu gestor ou ao time de Gente &amp; Gestão.</p>
@@ -172,6 +179,7 @@ export function inviteEmail(input: InviteEmail) {
           <p style="margin:0;font:700 15px/20px ${FONT};color:${INK}">Luumu People</p>
           <p style="margin:2px 0 0;font:400 13px/19px ${FONT};color:${MUTED}">Comunicação. Conexão. Pessoas reais.</p>
         </td>
+        <td class="tagline" width="130" valign="bottom" style="padding:0;font-size:0;line-height:0"><img src="${img("footer-leaves.png")}" width="130" height="76" alt="" style="display:block;border:0;border-radius:0 20px 20px 0"></td>
       </tr>
     </table>
   </td></tr>

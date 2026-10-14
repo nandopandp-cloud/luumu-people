@@ -22,6 +22,6 @@ describe("e-mail de convite", () => {
     expect(html).not.toContain("<script>");
     expect(html).not.toContain("<b>Ana");
     expect(html).toContain("&lt;b&gt;Ana&lt;/b&gt;");
-    expect(html).toContain("A&amp;B");
+    expect(html).toContain("Eve &quot;&lt;script&gt;&quot;");
   });
 });
