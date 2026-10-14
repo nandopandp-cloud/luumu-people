@@ -342,8 +342,8 @@ export async function getDevelopment(actor: AuthenticatedActor, userId: string =
       canUpdateProgress: (manage || isSelf) && editable,
       /** Avaliar competências não depende do ciclo do PDI. */
       canAssess: manage,
-      /** Manter o catálogo de competências da empresa (G&G/Administrador). */
-      canManageCatalog: hasTenantWide(actor, "development.pdi.manage"),
+      /** Adicionar competência ao catálogo: a liderança da pessoa (nunca ela mesma). */
+      canAddCompetency: manage,
       isSelf,
     };
   });
@@ -668,9 +668,17 @@ export async function assessCompetency(actor: AuthenticatedActor, input: Assessm
   });
 }
 
+/**
+ * Nova competência no catálogo: G&G/Administrador, ou a liderança de quem está
+ * sendo acompanhado (`userId` no escopo de `development.pdi.manage`). Nunca a
+ * própria pessoa.
+ */
 export async function createCompetency(actor: AuthenticatedActor, input: CompetencyInput, meta: Meta) {
-  if (!hasTenantWide(actor, "development.pdi.manage")) throw forbidden();
   return withTenant(actor, async (tx) => {
+    if (!hasTenantWide(actor, "development.pdi.manage")) {
+      if (!input.userId) throw forbidden();
+      await assertCanManage(tx, actor, input.userId);
+    }
     const [existing] = await tx.select({ id: s.competencies.id }).from(s.competencies).where(eq(s.competencies.name, input.name));
     if (existing) throw conflict("Já existe uma competência com esse nome.");
     const [created] = await tx

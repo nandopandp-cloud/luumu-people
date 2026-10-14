@@ -10,7 +10,10 @@ test.describe("Desenvolvimento", () => {
     await expect(page.getByRole("heading", { level: 1, name: /Seu crescimento/ })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Meus objetivos de desenvolvimento" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Progresso geral do PDI" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Conquistas recentes" })).toBeVisible();
+    // Conquistas, recomendações e o banner de incentivo ficam ocultos por ora.
+    await expect(page.getByRole("region", { name: "Conquistas recentes" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /^(Conquistas|Recomendações)$/ })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Pequenas ações geram grandes resultados!" })).toHaveCount(0);
     // Objetivo recolhível.
     const goalCard = page.getByRole("article", { name: "Desenvolver visão estratégica" });
     await goalCard.getByRole("button", { name: "Recolher Desenvolver visão estratégica" }).click();
@@ -54,13 +57,13 @@ test.describe("Desenvolvimento", () => {
     await mentorship.getByRole("button", { name: /^Agendar conversa com/ }).click();
     await expect(page.getByRole("region", { name: "Conversas rápidas" }).getByRole("textbox", { name: "Mensagem" })).toBeVisible();
 
+    // Aba oculta: volta para a visão geral.
     await gotoHydrated(page, "/desenvolvimento?aba=conquistas");
-    await expect(page.getByRole("heading", { name: "Meus níveis por competência" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Linha do tempo" }).getByRole("listitem").first()).toBeVisible();
-    await expectAccessible(page);
+    await expect(page.getByRole("link", { name: "Visão geral" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("heading", { name: "Meus níveis por competência" })).toHaveCount(0);
   });
 
-  test("competências: filtros, detalhes, perfil, sugestões e evolução, sem autoavaliação", async ({ page }) => {
+  test("competências: filtros, detalhes, perfil e evolução, sem autoavaliação nem recomendações", async ({ page }) => {
     test.setTimeout(120_000);
     await signIn(page, "camila.oliveira@aurora.example");
     await gotoHydrated(page, "/desenvolvimento?aba=competencias");
@@ -106,8 +109,7 @@ test.describe("Desenvolvimento", () => {
     await page.getByRole("combobox", { name: "Período da evolução" }).selectOption("12");
 
     await gotoHydrated(page, "/desenvolvimento?aba=recomendacoes");
-    await expect(page.getByRole("link", { name: "Recomendações" })).toHaveAttribute("aria-current", "page");
-    await expectAccessible(page);
+    await expect(page.getByRole("link", { name: "Visão geral" })).toHaveAttribute("aria-current", "page");
     await gotoHydrated(page, "/desenvolvimento?aba=evolucao");
     await expect(page.getByText("Média das competências")).toBeVisible();
     await expectAccessible(page);
@@ -170,6 +172,8 @@ test.describe("Desenvolvimento", () => {
     await expect(mentorship.getByText("“Conte comigo nos rituais!”")).toBeVisible();
 
     await gotoHydrated(page, `${base}?aba=competencias`);
+    // A liderança da pessoa pode adicionar competências.
+    await expect(page.getByRole("button", { name: "Adicionar competência" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Sugestões para você" })).toHaveCount(0);
     await page.getByRole("button", { name: "Ver detalhes de Gestão do Tempo" }).click();
     const details = page.getByRole("dialog", { name: "Gestão do Tempo" });

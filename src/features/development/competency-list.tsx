@@ -43,7 +43,8 @@ type Props = {
   suggestions: CompetencySuggestions[];
   isSelf: boolean;
   canAssess: boolean;
-  canManageCatalog: boolean;
+  /** Só a liderança da pessoa adiciona competências (a própria pessoa, nunca). */
+  canAddCompetency: boolean;
   /** Pessoa avaliada (visão da liderança). */
   assessUserId?: string;
   pdiHref: Route;
@@ -52,7 +53,7 @@ type Props = {
 };
 
 /** "Minhas competências": situação frente ao esperado, filtros, busca, área e detalhes. */
-export function CompetencyList({ competencies, goals, suggestions, isSelf, canAssess, canManageCatalog, assessUserId, pdiHref, evolutionHref, recommendationsHref }: Props) {
+export function CompetencyList({ competencies, goals, suggestions, isSelf, canAssess, canAddCompetency, assessUserId, pdiHref, evolutionHref, recommendationsHref }: Props) {
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
   const [area, setArea] = useState("");
@@ -83,8 +84,9 @@ export function CompetencyList({ competencies, goals, suggestions, isSelf, canAs
           <p className="mt-0.5 text-body-sm text-neutral-600">Acompanhe o nível atual, a meta definida para o cargo e as sugestões de desenvolvimento.</p>
         </div>
         <div className="flex items-center gap-2">
-          {canManageCatalog ? (
+          {canAddCompetency ? (
             <NewCompetencyButton
+              userId={assessUserId}
               trigger={
                 <Button>
                   <Plus aria-hidden /> Adicionar competência

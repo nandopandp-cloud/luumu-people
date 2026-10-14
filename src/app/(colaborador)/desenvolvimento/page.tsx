@@ -3,10 +3,9 @@ import { Suspense } from "react";
 import { z } from "zod";
 import { Skeleton } from "@/design-system/components/feedback";
 import { DevelopmentHero } from "@/features/development/hero";
-import { DEVELOPMENT_TABS, DevelopmentTabContent, DevelopmentTabs, type DevelopmentTab } from "@/features/development/view";
+import { DevelopmentTabContent, DevelopmentTabs, EMPLOYEE_TABS, type DevelopmentTab } from "@/features/development/view";
 import { requireActor } from "@/server/dal";
 import { getCompetencyEvolution, getDevelopment } from "@/server/modules/development/service";
-import { listCompetencySuggestions } from "@/server/modules/development/suggestions";
 import { getEnabledModules } from "@/server/modules/flags/modules";
 
 export const metadata: Metadata = { title: "Desenvolvimento" };
@@ -18,7 +17,7 @@ const first = (value: string | string[] | undefined) => (Array.isArray(value) ? 
 async function parse(searchParams: SP): Promise<{ tab: DevelopmentTab; pdiId?: string }> {
   const sp = await searchParams;
   const raw = first(sp.aba);
-  const tab = DEVELOPMENT_TABS.some((t) => t.value === raw) ? (raw as DevelopmentTab) : "visao-geral";
+  const tab = EMPLOYEE_TABS.some((t) => t.value === raw) ? (raw as DevelopmentTab) : "visao-geral";
   const pdi = first(sp.pdi);
   return { tab, pdiId: z.uuid().safeParse(pdi).success ? pdi : undefined };
 }
@@ -42,16 +41,16 @@ async function Content({ searchParams }: { searchParams: SP }) {
     tab === "evolucao" || tab === "competencias" ? getCompetencyEvolution(actor, actor.userId, tab === "competencias" ? 12 : 6) : undefined,
     getEnabledModules(actor),
   ]);
-  const suggestions = modules.learning && (tab === "competencias" || tab === "recomendacoes") ? await listCompetencySuggestions(actor, development.competencies) : undefined;
   return (
     <DevelopmentTabContent
       tab={tab}
       development={development}
       base="/desenvolvimento"
-      tabs={<DevelopmentTabs base="/desenvolvimento" tab={tab} development={development} items={DEVELOPMENT_TABS} />}
+      tabs={<DevelopmentTabs base="/desenvolvimento" tab={tab} development={development} items={EMPLOYEE_TABS} />}
       evolution={evolution}
-      suggestions={suggestions}
       learningEnabled={modules.learning}
+      showAchievements={false}
+      showRecommendations={false}
     />
   );
 }

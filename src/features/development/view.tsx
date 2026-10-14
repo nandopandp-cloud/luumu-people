@@ -16,7 +16,7 @@ import { formatDay } from "./labels";
 import { MentorshipCard } from "./mentorship";
 import { OverviewStats } from "./overview";
 import { PdiWorkspace } from "./pdi-workspace";
-import { AchievementsCard, CompetenciesCard, EvolutionCard, focusCompetencies, KeepGoingCard, ProgressMonthsCard } from "./side-cards";
+import { AchievementsCard, CompetenciesCard, EvolutionCard, focusCompetencies, ProgressMonthsCard } from "./side-cards";
 import { EvolutionPanel } from "./sections";
 
 export const DEVELOPMENT_TABS = [
@@ -28,6 +28,10 @@ export const DEVELOPMENT_TABS = [
   { value: "recomendacoes", label: "Recomendações" },
 ] as const;
 export type DevelopmentTab = (typeof DEVELOPMENT_TABS)[number]["value"] | "historico";
+
+/** Área do colaborador: conquistas e recomendações ficam ocultas por ora. */
+export const EMPLOYEE_HIDDEN_TABS = new Set<DevelopmentTab>(["conquistas", "recomendacoes"]);
+export const EMPLOYEE_TABS = DEVELOPMENT_TABS.filter((t) => !EMPLOYEE_HIDDEN_TABS.has(t.value));
 
 /** Abas em que o ciclo do PDI muda o conteúdo (nas outras, o seletor some). */
 const CYCLE_TABS = new Set<string>(["visao-geral", "pdi", "evolucao"]);
@@ -94,10 +98,13 @@ type ContentProps = {
   /** Sugestões de conteúdo (só para a própria pessoa e com aprendizagem ligada). */
   suggestions?: CompetencySuggestions[];
   learningEnabled?: boolean;
+  /** Mostra conquistas e recomendações (ocultas na área do colaborador). */
+  showAchievements?: boolean;
+  showRecommendations?: boolean;
 };
 
 /** Conteúdo de cada aba, igual para a própria pessoa e para a liderança (com os controles dela). */
-export function DevelopmentTabContent({ tab, development, base, tabs, managedUserId, evolution, suggestions, learningEnabled = false }: ContentProps) {
+export function DevelopmentTabContent({ tab, development, base, tabs, managedUserId, evolution, suggestions, learningEnabled = false, showAchievements = true, showRecommendations = true }: ContentProps) {
   const { pdi, isSelf, competencies, milestones, canManage, canUpdateProgress, competencyOptions, person } = development;
   const chosen = pdi && pdi.status !== "active" ? pdi.id : null;
   const href = (t: string) => tabHref(base, t, chosen);
@@ -113,27 +120,27 @@ export function DevelopmentTabContent({ tab, development, base, tabs, managedUse
           <CompetencyList
             competencies={competencies}
             goals={(pdi?.goals ?? []).map((g) => ({ id: g.id, title: g.title, competencyId: g.competencyId, progress: g.progress }))}
-            suggestions={suggestions ?? []}
+            suggestions={showRecommendations ? (suggestions ?? []) : []}
             isSelf={isSelf}
             canAssess={development.canAssess}
-            canManageCatalog={development.canManageCatalog}
+            canAddCompetency={development.canAddCompetency}
             assessUserId={managedUserId}
             pdiHref={href("pdi")}
             evolutionHref={href("evolucao")}
-            recommendationsHref={isSelf ? href("recomendacoes") : undefined}
+            recommendationsHref={isSelf && showRecommendations ? href("recomendacoes") : undefined}
           />
           </div>
         </div>
         <aside aria-label="Perfil, evolução e sugestões" className="space-y-5">
           <CompetencyProfileCard competencies={competencies} isSelf={isSelf} />
           <CompetencyEvolutionCard points={evolution ?? []} />
-          {isSelf && learningEnabled ? <SuggestionsCard suggestions={suggestions ?? []} href={href("recomendacoes")} /> : null}
+          {isSelf && learningEnabled && showRecommendations ? <SuggestionsCard suggestions={suggestions ?? []} href={href("recomendacoes")} /> : null}
         </aside>
       </div>
     );
   }
 
-  if (tab === "recomendacoes") {
+  if (tab === "recomendacoes" && showRecommendations) {
     return (
       <>
         {tabs}
@@ -141,7 +148,7 @@ export function DevelopmentTabContent({ tab, development, base, tabs, managedUse
       </>
     );
   }
-  if (tab === "conquistas") {
+  if (tab === "conquistas" && showAchievements) {
     return (
       <>
         {tabs}
@@ -202,11 +209,10 @@ export function DevelopmentTabContent({ tab, development, base, tabs, managedUse
         ) : (
           <NoPdi development={development} managedUserId={managedUserId} />
         )}
-        <aside aria-label="Competências, evolução e conquistas" className="space-y-5">
+        <aside aria-label={showAchievements ? "Competências, evolução e conquistas" : "Competências e evolução"} className="space-y-5">
           <CompetenciesCard id="minhas-competencias" title={isSelf ? "Minhas competências" : "Competências"} competencies={focusCompetencies(competencies, goalCompetencies)} href={href("competencias")} />
           {pdi ? <EvolutionCard id="minha-evolucao" title={isSelf ? "Minha evolução" : "Evolução"} timeline={pdi.timeline} href={href("evolucao")} /> : null}
-          <AchievementsCard id="conquistas-recentes" title="Conquistas recentes" milestones={milestones} href={href("conquistas")} />
-          {pdi && isSelf ? <KeepGoingCard href={href("pdi")} /> : null}
+          {showAchievements ? <AchievementsCard id="conquistas-recentes" title="Conquistas recentes" milestones={milestones} href={href("conquistas")} /> : null}
         </aside>
       </div>
       </div>

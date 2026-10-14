@@ -74,7 +74,7 @@ describe("desenvolvimento de pessoas", () => {
   it("competências: descrição, histórico sem comentários e sugestões do catálogo para o que falta desenvolver", async () => {
     const { actor } = await actorOf("fernando");
     const dev = await getDevelopment(actor);
-    expect(dev.canManageCatalog).toBe(false);
+    expect(dev.canAddCompetency).toBe(false);
     const comunicacao = dev.competencies.find((c) => c.name === "Comunicação")!;
     expect(comunicacao.description).toEqual(expect.any(String));
     expect(comunicacao.history).toHaveLength(3);
@@ -90,8 +90,9 @@ describe("desenvolvimento de pessoas", () => {
     expect(suggestions.find((x) => x.competencyName === "Liderança")).toBeUndefined();
     expect(await listCompetencySuggestions(actor, forced.map((c) => ({ ...c, level: "developed" as const })))).toEqual([]);
 
+    // Nem G&G adiciona competências pela própria área de colaborador.
     const juliana = await actorOf("juliana");
-    expect((await getDevelopment(juliana.actor)).canManageCatalog).toBe(true);
+    expect((await getDevelopment(juliana.actor)).canAddCompetency).toBe(false);
   });
 
   it("objetivo e mentoria: só a liderança edita; mentoria é um colega ativo e nunca a própria pessoa", async () => {
@@ -169,12 +170,19 @@ describe("desenvolvimento de pessoas", () => {
     expect((await call(competenciesRoute.POST, { path: "/x", method: "POST", cookie: session.cookie, body: { name: "X", category: "tecnica" } })).status).toBe(403);
   });
 
-  it("G&G gerencia o catálogo; gestor não; avaliação de G&G tem origem 'people'", async () => {
+  it("G&G gerencia o catálogo; gestor adiciona só pela equipe; avaliação de G&G tem origem 'people'", async () => {
     const juliana = await actorOf("juliana");
     expect((await call(competenciesRoute.POST, { path: "/x", method: "POST", cookie: juliana.session.cookie, body: { name: "Negociação", category: "comportamental" } })).status).toBe(201);
     expect((await call(competenciesRoute.POST, { path: "/x", method: "POST", cookie: juliana.session.cookie, body: { name: "Negociação", category: "comportamental" } })).status).toBe(409);
+    // Gestora: só a partir de alguém da própria equipe — nunca de si mesma nem fora do escopo.
     const carla = await actorOf("carla");
+    const camila = await userOf("aurora", "camila");
+    const outsider = await userOf("aurora", "joao");
     expect((await call(competenciesRoute.POST, { path: "/x", method: "POST", cookie: carla.session.cookie, body: { name: "Outra", category: "tecnica" } })).status).toBe(403);
+    expect((await call(competenciesRoute.POST, { path: "/x", method: "POST", cookie: carla.session.cookie, body: { userId: carla.actor.userId, name: "Outra", category: "tecnica" } })).status).toBe(403);
+    expect((await call(competenciesRoute.POST, { path: "/x", method: "POST", cookie: carla.session.cookie, body: { userId: outsider.id, name: "Outra", category: "tecnica" } })).status).toBe(404);
+    expect((await call(competenciesRoute.POST, { path: "/x", method: "POST", cookie: carla.session.cookie, body: { userId: camila.id, name: "Outra", category: "tecnica" } })).status).toBe(201);
+    expect((await getDevelopment(carla.actor, camila.id)).canAddCompetency).toBe(true);
 
     const joao = await userOf("aurora", "joao");
     const dev = await getDevelopment(juliana.actor, joao.id);

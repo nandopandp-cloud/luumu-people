@@ -5,7 +5,6 @@ import type { ReactNode } from "react";
 import { CircularProgress } from "@/design-system/components/progress";
 import { cn } from "@/design-system/cn";
 import { HexBadge } from "@/design-system/illustrations/hex-badge";
-import { MoodArt } from "@/features/wellbeing/mood-art";
 import type { CompetencyMilestone, CompetencyRow, PdiTimelinePoint } from "@/server/modules/development/service";
 import { COMPETENCY_ICONS, competencyTone, levelName, monthName } from "./labels";
 
@@ -235,27 +234,5 @@ export function AchievementsCard({ id, title, milestones, href, limit = 3 }: { i
         </ul>
       )}
     </SideCard>
-  );
-}
-
-/** Incentivo do rodapé da coluna: leva ao PDI. */
-export function KeepGoingCard({ href }: { href: Route }) {
-  return (
-    <section aria-labelledby="incentivo-pdi" className="relative flex items-center gap-3 overflow-hidden rounded-xl border border-line bg-gradient-to-r from-purple-50 to-purple-100 p-4 shadow-sm">
-      <MoodArt slug="ola-maos" className="size-16 shrink-0" />
-      <div className="min-w-0 flex-1">
-        <h2 id="incentivo-pdi" className="text-body-sm font-bold leading-snug text-neutral-900">
-          Pequenas ações geram grandes resultados!
-        </h2>
-        <p className="mt-0.5 text-caption text-neutral-600">Continue evoluindo no seu PDI.</p>
-      </div>
-      <Link
-        href={href}
-        aria-label="Abrir o PDI"
-        className="flex size-10 shrink-0 items-center justify-center rounded-full bg-purple-200 text-purple-700 transition-colors hover:bg-purple-500 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-500"
-      >
-        <ArrowRight aria-hidden className="size-5" />
-      </Link>
-    </section>
   );
 }

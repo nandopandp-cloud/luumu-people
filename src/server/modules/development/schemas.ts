@@ -74,6 +74,8 @@ export const assessmentInputSchema = z.strictObject({
 export type AssessmentInput = z.infer<typeof assessmentInputSchema>;
 
 export const competencyInputSchema = z.strictObject({
+  /** Pessoa cujo desenvolvimento a liderança está vendo (gestor com escopo de equipe). */
+  userId: z.uuid().optional(),
   name: z.string().trim().min(2).max(80),
   description: z.string().trim().max(500).nullable().optional(),
   category: z.enum(COMPETENCY_CATEGORIES),

@@ -12,7 +12,8 @@ import { useToast } from "@/design-system/components/toast";
 import { api, ApiError } from "@/lib/api-client";
 import { CATEGORY_LABEL } from "./labels";
 
-export function NewCompetencyButton({ trigger }: { trigger?: React.ReactNode } = {}) {
+/** `userId`: a pessoa acompanhada, quando a liderança cria a partir da visão dela. */
+export function NewCompetencyButton({ trigger, userId }: { trigger?: React.ReactNode; userId?: string } = {}) {
   const router = useRouter();
   const toast = useToast();
   const [open, setOpen] = useState(false);
@@ -42,7 +43,7 @@ export function NewCompetencyButton({ trigger }: { trigger?: React.ReactNode } =
           setError(null);
           startTransition(async () => {
             try {
-              await api("/api/v1/development/competencies", { method: "POST", body: { name, category, description: description.trim() || null } });
+              await api("/api/v1/development/competencies", { method: "POST", body: { userId, name, category, description: description.trim() || null } });
               setOpen(false);
               setName("");
               setDescription("");
