@@ -45,6 +45,7 @@ const schema = z.object({
   /** Logins por minuto por IP. Padrão seguro: 10. Só testes automatizados devem elevar. */
   AUTH_SIGNIN_RATE_LIMIT: z.coerce.number().int().min(3).max(1000).default(10),
   SESSION_ABSOLUTE_HOURS: z.coerce.number().int().min(1).max(72).default(12),
+  /** Remetente: `Nome <email@dominio>` ou `email@dominio` (ver normalizeEmailFrom). */
   EMAIL_FROM: z.string().default("Luumu People <nao-responda@luumu.app>"),
   RESEND_API_KEY: z.string().optional(),
   /** Login com Google (OAuth/OIDC). Sem as duas, o botão avisa que o SSO não está ativo. */

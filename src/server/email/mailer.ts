@@ -16,6 +16,19 @@ export type EmailMessage = {
  *    fluxos como "esqueci minha senha" sem provedor;
  *  - teste: descartado.
  */
+const ADDRESS = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
+
+/**
+ * Remetente no formato aceito pelo Resend: `Nome <email@dominio>` ou `email@dominio`.
+ * Tolera aspas e espaços colados junto no painel da Vercel; null se inválido.
+ */
+export function normalizeEmailFrom(raw: string): string | null {
+  const value = raw.trim().replace(/^(["'])([^]*)\1$/, "$2").trim();
+  const named = /^([^<>]+?)\s*<([^<>]+)>$/.exec(value);
+  if (named) return ADDRESS.test(named[2]!.trim()) ? `${named[1]!.trim()} <${named[2]!.trim()}>` : null;
+  return ADDRESS.test(value) ? value : null;
+}
+
 export async function sendEmail(message: EmailMessage): Promise<void> {
   const { NODE_ENV, RESEND_API_KEY, EMAIL_FROM } = env();
 
@@ -28,10 +41,16 @@ export async function sendEmail(message: EmailMessage): Promise<void> {
     return;
   }
 
+  const from = normalizeEmailFrom(EMAIL_FROM);
+  if (!from) {
+    logger().error({ event: "email.invalid_from" }, "EMAIL_FROM inválido: use o formato Nome <email@dominio-verificado>, sem aspas");
+    throw new Error("EMAIL_FROM inválido.");
+  }
+
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: EMAIL_FROM, to: [message.to], subject: message.subject, text: message.text, html: message.html }),
+    body: JSON.stringify({ from, to: [message.to], subject: message.subject, text: message.text, html: message.html }),
   });
   if (!response.ok) {
     // Motivo devolvido pelo Resend (ex.: domínio não verificado, remetente inválido). Não contém a chave.
