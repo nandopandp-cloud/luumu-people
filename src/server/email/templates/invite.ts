@@ -18,7 +18,7 @@ export type InviteEmail = {
 };
 
 /** Versão das imagens em public/email (suba ao regerar com scripts/build-email-assets.mts). */
-const ASSET_VERSION = "3";
+const ASSET_VERSION = "5";
 
 const FONT = "'Inter','Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif";
 const INK = "#16123A";
@@ -91,10 +91,8 @@ export function inviteEmail(input: InviteEmail) {
     .container{width:100%!important}
     .px{padding-left:22px!important;padding-right:22px!important}
     .stack{display:block!important;width:100%!important;box-sizing:border-box!important}
-    .hero-art{max-width:100%!important;margin:0 auto;border-radius:0 0 24px 24px}
-    .hero-copy-cell{padding-top:0!important}
-    .hero-copy-cell table{border-radius:24px!important}
-    .hero-copy{height:auto!important;padding:28px 22px!important}
+    .hero-art{width:100%!important;height:auto!important;border-radius:0 0 24px 24px!important}
+    .hero-copy{height:auto!important;padding:30px 22px 26px!important;background-image:none!important;border-radius:24px 24px 0 0!important}
     .hero-title{font-size:30px!important;line-height:34px!important}
     .feature{display:inline-block!important;width:48%!important;padding:0 0 22px!important;vertical-align:top}
     .tagline{display:none!important}
@@ -116,21 +114,19 @@ export function inviteEmail(input: InviteEmail) {
     </tr></table>
   </td></tr>
 
-  <!-- Destaque: cartão lilás à esquerda; a ilustração "sai" acima do cartão (como na referência) -->
+  <!-- Destaque: a ilustração do e-mail em duas fatias; o texto fica sobre a fatia esquerda
+       (fundo da célula, com lilás de reserva para quem não exibe imagem de fundo). -->
   <tr><td style="padding:0 16px">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F2EFFE" style="background:#F2EFFE;border-radius:24px">
       <tr>
-        <td class="stack hero-copy-cell" width="268" valign="bottom" style="padding:40px 0 0 0">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F3EFFE;border-radius:24px 0 0 24px">
-            <tr><td class="hero-copy" height="224" valign="middle" style="height:224px;padding:18px 8px 18px 28px">
-              <h1 class="hero-title" style="margin:0;font:800 30px/34px ${FONT};letter-spacing:-0.8px;color:${INK}">Você foi convidado para a <span style="color:${PURPLE}">Luumu People!</span></h1>
-              <p style="margin:12px 0 0;font:400 14px/21px ${FONT};color:${MUTED}">Um espaço para se comunicar, se conectar e fazer parte de tudo o que acontece na nossa empresa.</p>
-              <div style="width:44px;height:3px;background:${PURPLE};border-radius:3px;margin-top:16px;font-size:0;line-height:0">&nbsp;</div>
-            </td></tr>
-          </table>
+        <td class="stack hero-copy" width="251" height="252" valign="top" background="${img("hero-left.jpg")}" bgcolor="#F2EFFE"
+          style="height:226px;padding:22px 6px 4px 30px;background:#F2EFFE url('${img("hero-left.jpg")}') 0 0 / 251px 252px no-repeat;border-radius:24px 0 0 24px">
+          <h1 class="hero-title" style="margin:0;font:800 27px/31px ${FONT};letter-spacing:-0.7px;color:${INK}">Você foi convidado para a <span style="color:${PURPLE}">Luumu People!</span></h1>
+          <p style="margin:10px 0 0;font:400 13px/19px ${FONT};color:${MUTED}">Um espaço para se comunicar, se conectar e fazer parte de tudo o que acontece na nossa empresa.</p>
+          <div style="width:40px;height:3px;background:${PURPLE};border-radius:3px;margin-top:14px;font-size:0;line-height:0">&nbsp;</div>
         </td>
-        <td class="stack" width="300" valign="bottom" style="padding:0;font-size:0;line-height:0">
-          <img class="hero-art" src="${img("hero.png")}" width="300" height="300" alt="" style="display:block;border:0;width:100%;max-width:300px;height:auto">
+        <td class="stack" width="317" valign="top" style="padding:0;font-size:0;line-height:0">
+          <img class="hero-art" src="${img("hero-right.jpg")}" width="317" height="252" alt="" style="display:block;border:0;width:317px;height:252px;border-radius:0 24px 24px 0">
         </td>
       </tr>
     </table>
