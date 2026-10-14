@@ -1,5 +1,6 @@
 import "server-only";
 import { and, eq, inArray, sql } from "drizzle-orm";
+import { JOB_LEVEL_NAMES, MANAGERIAL_POSITIONS } from "@/lib/job-catalog";
 import { recordAudit } from "@/server/audit/audit";
 import { sendInvite } from "@/server/auth/invite";
 import type { AuthenticatedActor } from "@/server/auth/session";
@@ -55,6 +56,20 @@ async function invite(actor: AuthenticatedActor, user: { id: string; name: strin
   }
 }
 
+/** Cargo da lista fixa: usa o da empresa com esse nome ou cria. */
+async function findOrCreatePosition(tx: Tx, tenantId: string, name: PersonCreate["position"]) {
+  await tx.insert(s.positions).values({ tenantId, name, isManagerial: MANAGERIAL_POSITIONS.includes(name) }).onConflictDoNothing();
+  const [row] = await tx.select({ id: s.positions.id }).from(s.positions).where(eq(s.positions.name, name));
+  return row!.id;
+}
+
+/** Nível da lista fixa: usa o da empresa com esse nome ou cria (ordem = posição na lista). */
+async function findOrCreateJobLevel(tx: Tx, tenantId: string, name: PersonCreate["jobLevel"]) {
+  await tx.insert(s.jobLevels).values({ tenantId, name, rank: JOB_LEVEL_NAMES.indexOf(name) + 1 }).onConflictDoNothing();
+  const [row] = await tx.select({ id: s.jobLevels.id }).from(s.jobLevels).where(eq(s.jobLevels.name, name));
+  return row!.id;
+}
+
 export async function createPerson(actor: AuthenticatedActor, input: PersonCreate, meta: Meta) {
   assertCanManage(actor);
   let created: { id: string; name: string; email: string };
@@ -62,8 +77,9 @@ export async function createPerson(actor: AuthenticatedActor, input: PersonCreat
     created = await withTenant(actor, async (tx) => {
       // Estrutura e gestor(a) precisam existir na empresa (a RLS já limita ao tenant).
       const [unit] = await tx.select({ id: s.orgUnits.id }).from(s.orgUnits).where(eq(s.orgUnits.id, input.orgUnitId));
-      const [position] = await tx.select({ id: s.positions.id }).from(s.positions).where(eq(s.positions.id, input.positionId));
-      if (!unit || !position) throw badRequest("Área ou cargo não encontrado.");
+      if (!unit) throw badRequest("Área não encontrada.");
+      const positionId = await findOrCreatePosition(tx, actor.tenantId, input.position);
+      const jobLevelId = await findOrCreateJobLevel(tx, actor.tenantId, input.jobLevel);
       if (input.managerId) {
         const [boss] = await tx.select({ id: s.users.id }).from(s.users).where(and(eq(s.users.id, input.managerId), eq(s.users.status, "active")));
         if (!boss) throw badRequest("O(a) gestor(a) precisa ser uma pessoa ativa da empresa.");
@@ -80,9 +96,8 @@ export async function createPerson(actor: AuthenticatedActor, input: PersonCreat
         tenantId: actor.tenantId,
         userId: user!.id,
         orgUnitId: input.orgUnitId,
-        positionId: input.positionId,
-        businessUnitId: input.businessUnitId ?? null,
-        jobLevelId: input.jobLevelId ?? null,
+        positionId,
+        jobLevelId,
         validFrom: input.hireDate,
         reason: "hire",
         createdBy: actor.userId,
@@ -91,7 +106,7 @@ export async function createPerson(actor: AuthenticatedActor, input: PersonCreat
         await tx.insert(s.managerRelationships).values({ tenantId: actor.tenantId, userId: user!.id, managerId: input.managerId, validFrom: input.hireDate, createdBy: actor.userId });
       }
       await tx.insert(s.userRoles).values({ tenantId: actor.tenantId, userId: user!.id, roleId: employeeRole.id, scopeType: "SELF", grantedBy: actor.userId });
-      await audit(tx, actor, "people.created", user!.id, meta, { fields: ["name", "email", "hireDate", "orgUnit", "position", ...(input.managerId ? ["manager"] : [])] });
+      await audit(tx, actor, "people.created", user!.id, meta, { fields: ["name", "email", "hireDate", "orgUnit", "position", "jobLevel", ...(input.managerId ? ["manager"] : [])] });
       return user!;
     });
   } catch (error) {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { JOB_LEVEL_NAMES, POSITION_NAMES } from "@/lib/job-catalog";
 
 const USER_STATUS_VALUES = ["invited", "active", "inactive"] as const;
 
@@ -53,9 +54,9 @@ export const personCreateSchema = z.strictObject({
   email: z.email().trim().toLowerCase().max(254),
   hireDate: isoDate,
   orgUnitId: z.uuid(),
-  positionId: z.uuid(),
-  businessUnitId: z.uuid().nullable().optional(),
-  jobLevelId: z.uuid().nullable().optional(),
+  /** Cargo e nível vêm de listas fixas; o cadastro da empresa é criado se ainda não existir. */
+  position: z.enum(POSITION_NAMES),
+  jobLevel: z.enum(JOB_LEVEL_NAMES),
   managerId: z.uuid().nullable().optional(),
   contractType: z.enum(["clt", "pj", "intern", "apprentice", "temporary"]).default("clt"),
   /** Envia o e-mail de convite na hora (padrão). */

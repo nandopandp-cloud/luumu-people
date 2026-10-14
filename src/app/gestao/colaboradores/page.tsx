@@ -85,7 +85,7 @@ async function Collaborators({ searchParams }: { searchParams: SP }) {
         </div>
         {canManage ? (
           <div className="relative">
-            <AddPersonButton options={{ orgUnits: filters.orgUnits, positions: filters.positions, businessUnits: filters.businessUnits, jobLevels: filters.jobLevels, managers: managers ?? [] }} />
+            <AddPersonButton options={{ orgUnits: filters.orgUnits, managers: managers ?? [] }} />
           </div>
         ) : null}
       </header>

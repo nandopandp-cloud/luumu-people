@@ -85,8 +85,8 @@ describe("colaboradores: diretório, cadastro e convite", () => {
     const ids = (await db.execute(sql`select (select id from org_units where tenant_id = ${org.tenantId} limit 1) as unit, (select id from positions where tenant_id = ${org.tenantId} limit 1) as position`)) as unknown as {
       rows: { unit: string; position: string }[];
     };
-    const { unit, position } = ids.rows[0]!;
-    const body = { name: "Bianca Teixeira", email: "bianca.teixeira@aurora.example", hireDate: "2026-10-13", orgUnitId: unit, positionId: position, managerId: carla.id };
+    const { unit } = ids.rows[0]!;
+    const body = { name: "Bianca Teixeira", email: "bianca.teixeira@aurora.example", hireDate: "2026-10-13", orgUnitId: unit, position: "Analista", jobLevel: "Júnior", managerId: carla.id };
 
     const res = await call(peopleRoute.POST, { path: "/api/v1/people", method: "POST", cookie: session.cookie, body });
     expect(res.status).toBe(201);
@@ -105,7 +105,9 @@ describe("colaboradores: diretório, cadastro e convite", () => {
 
     // Lotação, gestora e papel base.
     const created = (await listDirectory((await actorOf("paula")).actor, query({ search: "Bianca" }))).items[0]!;
-    expect(created).toMatchObject({ status: "invited", managerName: "Carla Mendes", orgUnitId: unit });
+    expect(created).toMatchObject({ status: "invited", managerName: "Carla Mendes", orgUnitId: unit, position: "Analista", level: "Júnior" });
+    // Fora da lista fixa de cargos/níveis → 400.
+    expect((await call(peopleRoute.POST, { path: "/api/v1/people", method: "POST", cookie: session.cookie, body: { ...body, email: "x@aurora.example", position: "Diretor" } })).status).toBe(400);
     const roles = (await db.execute(sql`select r.key from user_roles ur join roles r on r.id = ur.role_id where ur.user_id = ${id}`)) as unknown as { rows: { key: string }[] };
     expect(roles.rows.map((r) => r.key)).toEqual(["employee"]);
 
@@ -135,7 +137,7 @@ describe("colaboradores: diretório, cadastro e convite", () => {
     const ids = (await db.execute(sql`select (select id from org_units where tenant_id = ${org.tenantId} limit 1) as unit, (select id from positions where tenant_id = ${org.tenantId} limit 1) as position`)) as unknown as {
       rows: { unit: string; position: string }[];
     };
-    const body = { name: "Pessoa Teste", email: "pessoa.teste@aurora.example", hireDate: "2026-10-13", orgUnitId: ids.rows[0]!.unit, positionId: ids.rows[0]!.position };
+    const body = { name: "Pessoa Teste", email: "pessoa.teste@aurora.example", hireDate: "2026-10-13", orgUnitId: ids.rows[0]!.unit, position: "Analista", jobLevel: "Pleno" };
     expect((await call(peopleRoute.POST, { path: "/api/v1/people", method: "POST", cookie: carla.session.cookie, body })).status).toBe(403);
     // Campos fora do contrato (papel, empresa, status) → 400.
     const paula = await actorOf("paula");
@@ -175,7 +177,7 @@ describe("colaboradores: diretório, cadastro e convite", () => {
       path: "/api/v1/people",
       method: "POST",
       cookie: paula.session.cookie,
-      body: { name: "Davi Nunes", email: "davi.nunes@aurora.example", hireDate: "2026-10-14", orgUnitId: ids.rows[0]!.unit, positionId: ids.rows[0]!.position, sendInvite: false },
+      body: { name: "Davi Nunes", email: "davi.nunes@aurora.example", hireDate: "2026-10-14", orgUnitId: ids.rows[0]!.unit, position: "Assistente", jobLevel: "Estagiário", sendInvite: false },
     });
     expect(created.json.invited).toBe(false);
     const id = created.json.id as string;

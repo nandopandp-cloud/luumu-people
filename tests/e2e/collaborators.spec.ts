@@ -74,7 +74,9 @@ test.describe("Colaboradores", () => {
     await dialog.getByLabel("Data de admissão").click();
     await page.getByRole("grid").getByRole("button").filter({ hasText: /^1$/ }).first().click();
     await dialog.getByLabel("Área").selectOption({ index: 1 });
-    await dialog.getByLabel("Cargo").selectOption({ index: 1 });
+    await dialog.getByLabel("Cargo").selectOption("Analista");
+    await dialog.getByLabel("Nível").selectOption("Pleno");
+    await expect(dialog.getByLabel("Unidade")).toHaveCount(0);
     await expectAccessible(page);
     await dialog.getByRole("button", { name: "Cadastrar e convidar" }).click();
     await expect(dialog).toBeHidden();

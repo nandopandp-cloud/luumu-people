@@ -15,17 +15,15 @@ import { Select } from "@/design-system/components/select";
 import { useToast } from "@/design-system/components/toast";
 import { api, ApiError } from "@/lib/api-client";
 import { CONTRACT_LABELS } from "@/lib/format";
+import { JOB_LEVEL_NAMES, POSITION_NAMES } from "@/lib/job-catalog";
 
 type Option = { id: string; name: string };
 export type AddPersonOptions = {
   orgUnits: (Option & { type: string })[];
-  positions: Option[];
-  businessUnits: Option[];
-  jobLevels: Option[];
   managers: (Option & { image: string | null })[];
 };
 
-const EMPTY = { name: "", email: "", hireDate: null as string | null, orgUnitId: "", positionId: "", businessUnitId: "", jobLevelId: "", managerId: "", contractType: "clt", sendInvite: true };
+const EMPTY = { name: "", email: "", hireDate: null as string | null, orgUnitId: "", position: "", jobLevel: "", managerId: "", contractType: "clt", sendInvite: true };
 
 /** "Adicionar colaborador": cadastro com lotação, gestor(a) e convite de acesso por e-mail. */
 export function AddPersonButton({ options }: { options: AddPersonOptions }) {
@@ -38,7 +36,7 @@ export function AddPersonButton({ options }: { options: AddPersonOptions }) {
   const set = <K extends keyof typeof EMPTY>(key: K, value: (typeof EMPTY)[K]) => setForm((f) => ({ ...f, [key]: value }));
 
   const emailInvalid = form.email.length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
-  const ready = form.name.trim().length >= 3 && form.email && !emailInvalid && form.hireDate && form.orgUnitId && form.positionId;
+  const ready = form.name.trim().length >= 3 && form.email && !emailInvalid && form.hireDate && form.orgUnitId && form.position && form.jobLevel;
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -53,9 +51,8 @@ export function AddPersonButton({ options }: { options: AddPersonOptions }) {
             email: form.email.trim(),
             hireDate: form.hireDate,
             orgUnitId: form.orgUnitId,
-            positionId: form.positionId,
-            businessUnitId: form.businessUnitId || null,
-            jobLevelId: form.jobLevelId || null,
+            position: form.position,
+            jobLevel: form.jobLevel,
             managerId: form.managerId || null,
             contractType: form.contractType,
             sendInvite: form.sendInvite,
@@ -119,35 +116,23 @@ export function AddPersonButton({ options }: { options: AddPersonOptions }) {
           </Field>
           <Field label="Cargo">
             {({ id }) => (
-              <Select id={id} value={form.positionId} onChange={(e) => set("positionId", e.target.value)} required>
+              <Select id={id} value={form.position} onChange={(e) => set("position", e.target.value)} required>
                 <option value="">Selecione</option>
-                {options.positions.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
+                {POSITION_NAMES.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
                   </option>
                 ))}
               </Select>
             )}
           </Field>
-          <Field label="Unidade (opcional)">
+          <Field label="Nível">
             {({ id }) => (
-              <Select id={id} value={form.businessUnitId} onChange={(e) => set("businessUnitId", e.target.value)}>
-                <option value="">Sem unidade</option>
-                {options.businessUnits.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>
-          <Field label="Nível (opcional)">
-            {({ id }) => (
-              <Select id={id} value={form.jobLevelId} onChange={(e) => set("jobLevelId", e.target.value)}>
-                <option value="">Sem nível</option>
-                {options.jobLevels.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name}
+              <Select id={id} value={form.jobLevel} onChange={(e) => set("jobLevel", e.target.value)} required>
+                <option value="">Selecione</option>
+                {JOB_LEVEL_NAMES.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
                   </option>
                 ))}
               </Select>
