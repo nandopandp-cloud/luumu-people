@@ -7,6 +7,7 @@
 | Senhas | Argon2id (m=19 MiB, t=2, p=1); mínimo de 10 caracteres |
 | Sessão | token opaco em banco; cookie `HttpOnly`, `SameSite=Lax`, `Secure` em produção, prefixo `__Secure-` |
 | Expiração | ociosidade de 8 h (deslizante) + limite **absoluto** de 12 h (`resolveActor`) |
+| Convite de acesso | conta criada pela empresa nasce "convidada" (login bloqueado). O convite usa o mesmo token da redefinição de senha do Better Auth (aleatório, guardado com hash, uso único), com validade de 7 dias; ao criar a senha, `onPasswordReset` ativa só quem estava "convidado" (desativados continuam inativos) e audita `people.activated`. Reenviar gera um novo link |
 | Revogação | desativar usuário, trocar papel ou redefinir senha encerram as sessões na hora (sem cache de sessão em cookie) |
 | Força bruta | rate limit persistente por IP (Better Auth/`rate_limits`) + bloqueio por conta após 5 falhas em 15 min (`login_throttles`, chave HMAC do e-mail) |
 | Enumeração | mesma resposta para e-mail inexistente e senha errada; "esqueci a senha" sempre responde igual |

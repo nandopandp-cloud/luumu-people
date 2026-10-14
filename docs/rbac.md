@@ -63,3 +63,6 @@ A revogação segue a mesma regra. O papel Colaborador não pode ser removido, e
 ## Na interface
 
 A navegação de gestão é filtrada por permissão (`nav-config.ts`). Isso é só conveniência: toda página chama `requirePermission()` e todo endpoint declara sua permissão em `defineRoute()`. Um recurso fora do escopo responde **404**, para não revelar que ele existe.
+
+
+**Colaboradores (`/gestao/colaboradores`, antes "Usuários").** A lista segue `people.directory.read` no escopo (só dados profissionais). Extras por permissão: **Último acesso** (dado de uso) só com `people.manage` na empresa toda; o filtro **situação do vínculo** (em atividade/afastado/desligado, dado de RH) só com `people.profile.read_full` na empresa toda; **Exportar** com `reports.export`, limitado ao escopo da exportação; **Adicionar colaborador**, reenviar/cancelar convite e desativar/reativar acesso com `people.manage` (empresa toda), nunca sobre o próprio acesso. Quem é cadastrado nasce **convidado** só com o papel Colaborador; papéis extras continuam sendo concedidos na página da pessoa (`access.roles.assign`).

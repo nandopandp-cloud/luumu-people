@@ -64,7 +64,12 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     // O perfil de colega saiu de /amigos/:id para /pessoas/:id (out/2026); /amigos agora é Conexões.
-    return [{ source: "/amigos/:userId", destination: "/pessoas/:userId", permanent: false }];
+    return [
+      { source: "/amigos/:userId", destination: "/pessoas/:userId", permanent: false },
+      // "Usuários" virou "Colaboradores" (out/2026).
+      { source: "/gestao/usuarios", destination: "/gestao/colaboradores", permanent: true },
+      { source: "/gestao/usuarios/:path*", destination: "/gestao/colaboradores/:path*", permanent: true },
+    ];
   },
   async headers() {
     return [

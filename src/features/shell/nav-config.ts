@@ -81,7 +81,7 @@ export type ManagementNavItem = NavItem & {
 /** Navegação administrativa — briefing §48. Filtrada por permissão no servidor. */
 export const MANAGEMENT_NAV: ManagementNavItem[] = [
   { href: "/gestao", label: "Dashboard", icon: "dashboard", exact: true, anyOf: ["management.access"] },
-  { href: "/gestao/usuarios", label: "Usuários", icon: "users", anyOf: ["people.directory.read"] },
+  { href: "/gestao/colaboradores", label: "Colaboradores", icon: "users", anyOf: ["people.directory.read"] },
   {
     href: "/gestao/conteudos",
     label: "Conteúdos",

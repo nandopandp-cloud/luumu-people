@@ -38,7 +38,7 @@ export default function DashboardPage({ searchParams }: PageProps<"/gestao">) {
 const ROLE_PRIORITY = ["admin", "people", "editor", "manager", "employee"];
 
 const QUICK_ACTIONS: (QuickAction & { permission: Permission })[] = [
-  { title: "Gerenciar pessoas", description: "Cadastros, perfis e acessos", icon: UsersRound, tone: "purple", href: "/gestao/usuarios", permission: "people.directory.read" },
+  { title: "Gerenciar pessoas", description: "Cadastros, perfis e acessos", icon: UsersRound, tone: "purple", href: "/gestao/colaboradores", permission: "people.directory.read" },
   { title: "Publicar comunicado", description: "Para toda a empresa ou áreas", icon: Megaphone, tone: "pink", href: "/gestao/comunicacao/novo", permission: "comms.announcement.create" },
   { title: "Criar pesquisa", description: "Clima, eNPS e personalizadas", icon: ClipboardCheck, tone: "green", href: "/gestao/pesquisas/nova", permission: "survey.design" },
   { title: "Ver auditoria", description: "Acompanhe ações e eventos", icon: ShieldCheck, tone: "blue", href: "/gestao/auditoria", permission: "audit.read" },

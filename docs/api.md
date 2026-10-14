@@ -44,6 +44,10 @@ Paginação por cursor: `?cursor=…&limit=…` → `{ items, nextCursor }`.
 | GET | `/api/v1/me/profile` | autenticado | perfil próprio (profissional + pessoal + campos editáveis) |
 | PATCH | `/api/v1/me/profile` | autenticado | edita `preferredName`, `phone`, `headline` **se** a empresa permitir |
 | GET | `/api/v1/people` | `people.directory.read` | diretório no escopo do ator (`search`, `orgUnitId`, `status`, `cursor`, `limit`) |
+| POST | `/api/v1/people` | `people.manage` (empresa toda) | cadastra colaborador como **convidado** `{ name, email, hireDate, orgUnitId, positionId, businessUnitId?, jobLevelId?, managerId?, contractType?, sendInvite? }` → `{ id, invited }`; e-mail repetido → 409 |
+| POST | `/api/v1/people/:id/invite` | `people.manage` | reenvia o convite (só para quem está "convidado"; senão 409) |
+| POST | `/api/v1/people/:id/status` | `people.manage` | `{ status: "active" \| "inactive" }`; nunca o próprio acesso (400); reativar quem nunca acessou volta a "convidado" |
+| GET | `/api/v1/people/export` | `reports.export` | CSV do diretório filtrado (mesmos filtros da página) ou da seleção (`ids`, até 500); só pessoas no escopo de `people.directory.read` **e** `reports.export`; auditado (`data.exported`, `report: "people"`) |
 | GET | `/api/v1/people/:id` | `people.directory.read` | dados profissionais; `personal` só com `people.profile.read_full` no escopo |
 | GET | `/api/v1/people/:id/roles` | `access.roles.assign` | papéis ativos |
 | POST | `/api/v1/people/:id/roles` | `access.roles.assign` | concede papel `{ roleId, scopeType, scopeOrgUnitId? }` |

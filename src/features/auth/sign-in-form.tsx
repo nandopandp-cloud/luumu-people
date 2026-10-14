@@ -95,6 +95,8 @@ export function SignInForm() {
       {/* method="post": sem JavaScript, as credenciais nunca vão para a URL. */}
       <form method="post" onSubmit={submitCredentials} className="space-y-4" noValidate>
         {error ? <Alert tone="error" title={error} /> : null}
+        {!error && params.get("acesso") === "ativado" ? <Alert tone="success" title="Acesso ativado! Entre com seu e-mail e a senha que você criou." /> : null}
+        {!error && params.get("senha") === "redefinida" ? <Alert tone="success" title="Senha redefinida. Entre com a nova senha." /> : null}
         <Field label="E-mail">
           {({ id, describedBy }) => (
             <Input

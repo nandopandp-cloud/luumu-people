@@ -237,7 +237,7 @@ export function attentionList(items: AttentionItems): Attention[] {
       key: "invites",
       title: `${items.pendingInvites} ${items.pendingInvites === 1 ? "acesso aguardando ativação" : "acessos aguardando ativação"}`,
       description: "Pessoas convidadas que ainda não entraram na plataforma.",
-      href: "/gestao/usuarios?status=invited" as Route,
+      href: "/gestao/colaboradores?status=pendentes" as Route,
       icon: UsersRound,
       tone: ATTENTION_TONES.blue,
     });

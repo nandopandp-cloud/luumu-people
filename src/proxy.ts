@@ -21,5 +21,5 @@ export const config = {
   // produção), API (protege a si mesma), assets e tudo de /_next — inclusive o
   // canal de HMR do dev, que redirecionado para o login recarregava /entrar em loop.
   // Arquivos estáticos de /public (qualquer caminho com extensão, ex.: /sidebar-init.js) também ficam fora.
-  matcher: ["/((?!entrar|recuperar-senha|redefinir-senha|design-system|api|_next|brand|.*\\..*).*)"],
+  matcher: ["/((?!entrar|recuperar-senha|redefinir-senha|convite|design-system|api|_next|brand|.*\\..*).*)"],
 };

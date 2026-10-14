@@ -93,7 +93,7 @@ test.describe("Fase 1 — fundação", () => {
 
   test("TESTE 6 — colaborador não acessa a gestão", async ({ page }) => {
     await signIn(page, "fernando.santos@aurora.example");
-    await page.goto("/gestao/usuarios");
+    await page.goto("/gestao/colaboradores");
     await expect(page.getByText("Esta área não está disponível para você")).toBeVisible();
     await expect(page.getByRole("table")).toHaveCount(0);
   });
@@ -107,7 +107,7 @@ test.describe("Fase 1 — fundação", () => {
     await expect(page.getByRole("region", { name: "Visão da plataforma" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Atividade recente" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: /Atenção necessária/ })).toBeVisible();
-    await page.goto("/gestao/usuarios");
+    await page.goto("/gestao/colaboradores");
     await expect(page.getByText("Você está vendo apenas as pessoas do seu escopo").filter({ visible: true })).toBeVisible();
     await expect(page.getByRole("link", { name: /Fernando Santos/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /João Silva/ })).toHaveCount(0);
@@ -136,7 +136,7 @@ test.describe("Fase 1 — fundação", () => {
     for (const label of ["Gerenciar pessoas", "Publicar comunicado", "Criar pesquisa", "Ver auditoria"]) await expect(quick.getByRole("link", { name: new RegExp(label) })).toBeVisible();
     await expectAccessible(page);
 
-    await gotoHydrated(page, "/gestao/usuarios?q=gabriel");
+    await gotoHydrated(page, "/gestao/colaboradores?q=gabriel");
     await expectAccessible(page);
     await page.getByRole("link", { name: /Gabriel Rocha/ }).click();
     await page.waitForLoadState("networkidle");

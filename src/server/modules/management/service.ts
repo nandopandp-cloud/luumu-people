@@ -23,7 +23,7 @@ export async function getManagementOverview(actor: AuthenticatedActor) {
     const scope = accessibleUsersCondition(actor, "people.directory.read", sql`u.id`);
 
     const people = canPeople
-      ? rows<{ active: number; headcountNow: number; headcountBefore: number; recentHires: number }>(
+      ? rows<{ active: number; headcountNow: number; headcountBefore: number; recentHires: number; pendingInvites: number }>(
           await tx.execute(sql`
             select
               (select count(*) from users u where u.status = 'active' and ${scope})::int as active,
@@ -32,7 +32,8 @@ export async function getManagementOverview(actor: AuthenticatedActor) {
               (select count(distinct ea.user_id) from employment_assignments ea join users u on u.id = ea.user_id
                 where ea.valid_from <= ${TODAY} - 30 and (ea.valid_to is null or ea.valid_to > ${TODAY} - 30) and ${scope})::int as "headcountBefore",
               (select count(*) from employee_profiles ep join users u on u.id = ep.user_id
-                where u.status = 'active' and ep.hire_date > ${TODAY} - 30 and ep.hire_date <= ${TODAY} and ${scope})::int as "recentHires"`),
+                where u.status = 'active' and ep.hire_date > ${TODAY} - 30 and ep.hire_date <= ${TODAY} and ${scope})::int as "recentHires",
+              (select count(*) from users u where u.status = 'invited' and ${scope})::int as "pendingInvites"`),
         )[0]!
       : null;
 
@@ -53,6 +54,7 @@ export async function getManagementOverview(actor: AuthenticatedActor) {
       /** Variação do quadro (lotações vigentes) frente a 30 dias atrás, em %. */
       peopleChange: people && people.headcountBefore > 0 ? Math.round(((people.headcountNow - people.headcountBefore) / people.headcountBefore) * 1000) / 10 : null,
       recentHires: people?.recentHires ?? null,
+      pendingInvites: people?.pendingInvites ?? null,
       orgUnits,
       managers,
     };

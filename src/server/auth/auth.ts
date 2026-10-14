@@ -2,7 +2,7 @@ import "server-only";
 import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { recordAudit, type AuditAction } from "@/server/audit/audit";
 import { authDb } from "@/server/db/client";
 import * as s from "@/server/db/schema";
@@ -47,6 +47,26 @@ async function audit(userId: string, action: AuditAction, meta: { ip?: string | 
     // Falha de auditoria não pode derrubar o login, mas precisa ser visível.
     logger().error({ err: error, action }, "falha ao registrar auditoria de autenticação");
   }
+}
+
+/**
+ * Convite aceito: quem ainda estava "convidado" passa a "ativo" ao criar a senha
+ * (pelo link do convite ou por "esqueci minha senha" — ambos provam o e-mail).
+ * Quem foi DESATIVADO continua inativo.
+ */
+async function activateInvited(userId: string) {
+  const owner = await tenantOfUser(userId);
+  if (!owner || owner.status !== "invited") return;
+  await withTenant({ tenantId: owner.tenantId, userId }, async (tx) => {
+    const updated = await tx
+      .update(s.users)
+      .set({ status: "active" })
+      .where(and(eq(s.users.id, userId), eq(s.users.status, "invited")))
+      .returning({ id: s.users.id });
+    if (updated.length) {
+      await recordAudit(tx, { tenantId: owner.tenantId, actorUserId: userId, action: "people.activated", resourceType: "user", resourceId: userId });
+    }
+  });
 }
 
 /** Login só é permitido para usuários ativos de empresas ativas. */
@@ -148,6 +168,7 @@ function buildOptions(database: BetterAuthOptions["database"]): BetterAuthOption
       },
       async onPasswordReset({ user }) {
         await audit(user.id, "auth.password_reset");
+        await activateInvited(user.id);
       },
     },
     rateLimit: {

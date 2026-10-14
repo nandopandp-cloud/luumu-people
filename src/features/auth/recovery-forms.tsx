@@ -60,7 +60,9 @@ export function RequestResetForm() {
   );
 }
 
-export function ResetPasswordForm() {
+/** `invite`: primeiro acesso pelo convite (textos próprios; o link vale 7 dias). */
+export function ResetPasswordForm({ variant = "reset" }: { variant?: "reset" | "invite" } = {}) {
+  const invite = variant === "invite";
   const router = useRouter();
   const params = useSearchParams();
   const token = params.get("token");
@@ -73,11 +75,13 @@ export function ResetPasswordForm() {
   if (!token || tokenError) {
     return (
       <div className="space-y-5">
-        <Alert tone="warning" title="Este link não é mais válido">
-          Links de redefinição valem por 30 minutos e só podem ser usados uma vez.
+        <Alert tone="warning" title={invite ? "Este convite não é mais válido" : "Este link não é mais válido"}>
+          {invite
+            ? "Convites valem por 7 dias e só podem ser usados uma vez. Peça um novo convite à equipe de Gente & Gestão, ou crie a senha por “Esqueci minha senha”."
+            : "Links de redefinição valem por 30 minutos e só podem ser usados uma vez."}
         </Alert>
         <Button asChild block size="lg">
-          <Link href="/recuperar-senha">Pedir um novo link</Link>
+          <Link href="/recuperar-senha">{invite ? "Criar senha pelo e-mail" : "Pedir um novo link"}</Link>
         </Button>
       </div>
     );
@@ -92,26 +96,26 @@ export function ResetPasswordForm() {
     setError(null);
     startTransition(async () => {
       const { error: err } = await authClient.resetPassword({ newPassword: password, token: token! });
-      if (err) return setError(err.status === 429 ? "Muitas tentativas. Aguarde alguns minutos." : "Não foi possível redefinir a senha. Peça um novo link.");
-      router.replace("/entrar?senha=redefinida");
+      if (err) return setError(err.status === 429 ? "Muitas tentativas. Aguarde alguns minutos." : invite ? "Não foi possível ativar seu acesso. O convite pode ter expirado." : "Não foi possível redefinir a senha. Peça um novo link.");
+      router.replace(invite ? "/entrar?acesso=ativado" : "/entrar?senha=redefinida");
     });
   }
 
   return (
     <form method="post" onSubmit={submit} className="space-y-5" noValidate>
       {error ? <Alert tone="error" title={error} /> : null}
-      <Field label="Nova senha" hint="Use pelo menos 10 caracteres." error={tooShort ? "A senha precisa de pelo menos 10 caracteres." : null}>
+      <Field label={invite ? "Crie sua senha" : "Nova senha"} hint="Use pelo menos 10 caracteres." error={tooShort ? "A senha precisa de pelo menos 10 caracteres." : null}>
         {({ id, describedBy, invalid }) => (
           <Input id={id} aria-describedby={describedBy} invalid={invalid} type="password" autoComplete="new-password" required leading={<LockKeyhole />} value={password} onChange={(e) => setPassword(e.target.value)} />
         )}
       </Field>
-      <Field label="Confirme a nova senha" error={mismatch ? "As senhas não são iguais." : null}>
+      <Field label={invite ? "Confirme a senha" : "Confirme a nova senha"} error={mismatch ? "As senhas não são iguais." : null}>
         {({ id, describedBy, invalid }) => (
           <Input id={id} aria-describedby={describedBy} invalid={invalid} type="password" autoComplete="new-password" required leading={<LockKeyhole />} value={confirm} onChange={(e) => setConfirm(e.target.value)} />
         )}
       </Field>
       <Button type="submit" size="lg" block loading={pending} disabled={!password || !confirm || tooShort || mismatch}>
-        Salvar nova senha
+        {invite ? "Ativar meu acesso" : "Salvar nova senha"}
       </Button>
     </form>
   );

@@ -19,7 +19,7 @@ import { getPerson } from "@/server/modules/people/service";
 
 export const metadata: Metadata = { title: "Pessoa" };
 
-export default function PersonPage({ params }: PageProps<"/gestao/usuarios/[id]">) {
+export default function PersonPage({ params }: PageProps<"/gestao/colaboradores/[id]">) {
   return (
     <Suspense fallback={<Skeleton className="h-96 rounded-xl" />}>
       <Person params={params} />
@@ -41,7 +41,7 @@ function Row({ icon: Icon, label, value }: { icon: LucideIcon; label: string; va
   );
 }
 
-async function Person({ params }: { params: PageProps<"/gestao/usuarios/[id]">["params"] }) {
+async function Person({ params }: { params: PageProps<"/gestao/colaboradores/[id]">["params"] }) {
   const actor = await requirePermission("people.directory.read");
   const { id } = await params;
   if (!z.uuid().safeParse(id).success) notFound();
@@ -60,14 +60,14 @@ async function Person({ params }: { params: PageProps<"/gestao/usuarios/[id]">["
   return (
     <>
       <div className="mb-5">
-        <Breadcrumb items={[{ label: "Usuários", href: "/gestao/usuarios" }, { label: person.name }]} />
+        <Breadcrumb items={[{ label: "Colaboradores", href: "/gestao/colaboradores" }, { label: person.name }]} />
       </div>
       <section className="card mb-6 flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:p-8">
         <Avatar name={person.name} src={person.image} size="xl" className="size-24 text-h2" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-h1 font-extrabold tracking-[-0.02em] text-neutral-900">{person.name}</h1>
-            <Badge tone={person.status === "active" ? "green" : "neutral"}>{person.status === "active" ? "Ativo" : person.status === "invited" ? "Convidado" : "Inativo"}</Badge>
+            <Badge tone={person.status === "active" ? "green" : person.status === "invited" ? "yellow" : "neutral"}>{person.status === "active" ? "Ativo" : person.status === "invited" ? "Convite pendente" : "Inativo"}</Badge>
           </div>
           <p className="mt-1 text-body text-neutral-600">{[person.position, person.level].filter(Boolean).join(" · ")}</p>
           {person.headline ? <p className="mt-3 text-body-sm italic text-neutral-600">“{person.headline}”</p> : null}
@@ -98,7 +98,7 @@ async function Person({ params }: { params: PageProps<"/gestao/usuarios/[id]">["
             </Card>
           ) : null}
           {canAssign ? (
-            <Card>
+            <Card id="papeis" className="scroll-mt-24">
               <CardHeader title="Papéis de acesso" description="Definem o que a pessoa pode ver e fazer na plataforma." />
               <RoleManager
                 userId={id}

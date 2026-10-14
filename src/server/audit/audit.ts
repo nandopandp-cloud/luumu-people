@@ -19,6 +19,8 @@ export const AUDIT_ACTIONS = [
   "access.role_granted",
   "access.role_revoked",
   "people.created",
+  "people.invited",
+  "people.activated",
   "people.updated",
   "people.deactivated",
   "people.reactivated",

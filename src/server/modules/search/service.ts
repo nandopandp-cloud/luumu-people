@@ -144,7 +144,7 @@ export async function search(actor: AuthenticatedActor, query: string, context: 
     return out;
   });
 
-  // Pessoas: o mesmo diretório de /gestao/usuarios (permissão + escopo do ator).
+  // Pessoas: o mesmo diretório de /gestao/colaboradores (permissão + escopo do ator).
   if (hasPermissionAnywhere(actor, "people.directory.read")) {
     const { items } = await listPeople(actor, { search: q, limit: PER_GROUP });
     groups.person = items.map((p) => ({
@@ -152,7 +152,7 @@ export async function search(actor: AuthenticatedActor, query: string, context: 
       id: p.id,
       title: p.preferredName || p.name,
       subtitle: [p.position, p.orgUnit].filter(Boolean).join(" · ") || null,
-      href: `/gestao/usuarios/${p.id}`,
+      href: `/gestao/colaboradores/${p.id}`,
     }));
   }
 
