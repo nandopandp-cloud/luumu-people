@@ -69,6 +69,15 @@ async function activateInvited(userId: string) {
   });
 }
 
+/** Senha própria criada (troca ou redefinição): libera o uso da plataforma. */
+async function clearMustChangePassword(userId: string) {
+  const owner = await tenantOfUser(userId);
+  if (!owner) return;
+  await withTenant({ tenantId: owner.tenantId, userId }, (tx) =>
+    tx.update(s.users).set({ mustChangePassword: false }).where(and(eq(s.users.id, userId), eq(s.users.mustChangePassword, true))),
+  );
+}
+
 /** Login só é permitido para usuários ativos de empresas ativas. */
 async function assertCanSignIn(userId: string): Promise<boolean> {
   const owner = await tenantOfUser(userId);
@@ -123,6 +132,7 @@ function buildOptions(database: BetterAuthOptions["database"]): BetterAuthOption
       additionalFields: {
         tenantId: { type: "string", required: true, input: false },
         status: { type: "string", required: true, input: false },
+        mustChangePassword: { type: "boolean", required: false, input: false, defaultValue: false },
       },
       changeEmail: { enabled: false },
       deleteUser: { enabled: false },
@@ -169,6 +179,7 @@ function buildOptions(database: BetterAuthOptions["database"]): BetterAuthOption
       async onPasswordReset({ user }) {
         await audit(user.id, "auth.password_reset");
         await activateInvited(user.id);
+        await clearMustChangePassword(user.id);
       },
     },
     rateLimit: {
@@ -204,6 +215,13 @@ function buildOptions(database: BetterAuthOptions["database"]): BetterAuthOption
     },
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path === "/change-password") {
+          const body = ctx.body as { currentPassword?: unknown; newPassword?: unknown } | undefined;
+          if (typeof body?.newPassword === "string" && body.newPassword === body.currentPassword) {
+            throw new APIError("BAD_REQUEST", { message: "A nova senha precisa ser diferente da atual." });
+          }
+          return;
+        }
         if (ctx.path !== "/sign-in/email") return;
         const email = emailFrom(ctx.body);
         if (email && (await isLocked(email))) {
@@ -215,7 +233,10 @@ function buildOptions(database: BetterAuthOptions["database"]): BetterAuthOption
       after: createAuthMiddleware(async (ctx) => {
         if (ctx.path === "/change-password") {
           const userId = ctx.context.session?.user.id;
-          if (userId && !(ctx.context.returned instanceof APIError)) await audit(userId, "auth.password_changed");
+          if (userId && !(ctx.context.returned instanceof APIError)) {
+            await audit(userId, "auth.password_changed");
+            await clearMustChangePassword(userId);
+          }
           return;
         }
         if (ctx.path !== "/sign-in/email") return;

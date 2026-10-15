@@ -16,6 +16,8 @@ export type SessionUser = {
 export type AuthenticatedActor = Actor & {
   readonly user: SessionUser;
   readonly sessionId: string;
+  /** Senha provisória: precisa criar a própria antes de usar a plataforma. */
+  readonly mustChangePassword: boolean;
 };
 
 /**
@@ -47,6 +49,7 @@ export async function resolveActor(headers: Headers): Promise<AuthenticatedActor
     tenantId,
     grants,
     sessionId: session.id,
+    mustChangePassword: (user as { mustChangePassword?: unknown }).mustChangePassword === true,
     user: {
       id: user.id,
       tenantId,

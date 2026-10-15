@@ -129,6 +129,8 @@ export function defineRoute<QS extends Schema | undefined = undefined, BS extend
 
       const actor = await resolveActor(request.headers);
       if (!actor) throw unauthorized();
+      // Senha provisória: nada da API até criar a própria (a troca é pelo Better Auth, fora daqui).
+      if (actor.mustChangePassword) throw forbidden("Crie sua senha para continuar usando a plataforma.");
 
       if (config.permission !== "authenticated" && !hasPermissionAnywhere(actor, config.permission)) {
         throw forbidden();

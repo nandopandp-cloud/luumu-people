@@ -56,6 +56,7 @@ export const AUDIT_ACTIONS = [
   "survey.paused",
   "survey.resumed",
   "tenant.seeded",
+  "tenant.demo_data_removed",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

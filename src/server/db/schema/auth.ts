@@ -38,6 +38,8 @@ export const users = pgTable(
     /** @deprecated 2FA foi descartado do produto. Remover na próxima release (expand/contract). */
     twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
     status: text("status", { enum: USER_STATUSES }).notNull().default("invited"),
+    /** Entrou com senha provisória (importação): só usa a plataforma depois de criar a própria senha. */
+    mustChangePassword: boolean("must_change_password").notNull().default(false),
     ...timestamps(),
   },
   (t) => [

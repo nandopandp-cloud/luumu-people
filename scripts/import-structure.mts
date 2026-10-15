@@ -14,8 +14,12 @@ import { ownerDatabase, schema as s } from "./_db";
  *
  * Idempotente: áreas (por código), cargos e níveis (por nome) e pessoas (por
  * e-mail) existentes são reaproveitados. Pessoas novas recebem uma senha
- * aleatória comum, exibida UMA vez. Nunca coloque este JSON no repositório
- * se contiver dados reais de pessoas.
+ * PROVISÓRIA comum — a de IMPORT_PASSWORD (mín. 10 caracteres) ou uma aleatória,
+ * exibida UMA vez — e precisam criar a própria no primeiro acesso
+ * (must_change_password). Nunca coloque este JSON no repositório se contiver
+ * dados reais de pessoas.
+ *
+ *   IMPORT_PASSWORD='senha-provisoria' pnpm org:import caminho/estrutura.json
  */
 const input = z
   .strictObject({
@@ -29,7 +33,7 @@ const input = z
         email: z.email(),
         orgUnit: z.string(),
         position: z.string(),
-        level: z.string(),
+        level: z.string().optional(),
         hireDate: z.iso.date(),
         manager: z.email().optional(),
         roles: z.array(z.enum(["manager", "editor", "people", "admin"])).optional(),
@@ -38,13 +42,19 @@ const input = z
     ),
   })
   .parse(JSON.parse(readFileSync(process.argv[2] ?? "", "utf8")));
+/** --dry-run: faz tudo numa transação e desfaz no fim (ensaio seguro em produção). */
+const dryRun = process.argv.includes("--dry-run");
+class DryRun extends Error {}
 
 const { db, pool } = ownerDatabase();
 try {
-  const sharedPassword = randomBytes(15).toString("base64url");
+  const provided = process.env.IMPORT_PASSWORD;
+  if (provided !== undefined && provided.length < 10) throw new Error("IMPORT_PASSWORD precisa de pelo menos 10 caracteres.");
+  const sharedPassword = provided ?? randomBytes(15).toString("base64url");
   const passwordHash = await hashPassword(sharedPassword);
   let created = 0;
 
+  try {
   await db.transaction(async (tx) => {
     const t = tx as unknown as typeof db;
     const [org] = await t.select({ id: s.organizations.id }).from(s.organizations).where(eq(s.organizations.slug, input.tenant));
@@ -89,7 +99,7 @@ try {
       if (found && found.tenantId !== tenantId) throw new Error(`${email} pertence a outra empresa.`);
       const id = found?.id ?? randomUUID();
       if (!found) {
-        await t.insert(s.users).values({ id, tenantId, name: p.name, email, emailVerified: true, status: "active" });
+        await t.insert(s.users).values({ id, tenantId, name: p.name, email, emailVerified: true, status: "active", mustChangePassword: true });
         await t.insert(s.accounts).values({ userId: id, accountId: id, providerId: "credential", password: passwordHash });
         await t.insert(s.employeeProfiles).values({ userId: id, tenantId, hireDate: p.hireDate, headline: p.headline ?? null });
         await t.insert(s.userRoles).values({ tenantId, userId: id, roleId: roles.get("employee")!, scopeType: "SELF" });
@@ -106,37 +116,53 @@ try {
       }
     }
 
+    // Lotação e gestor: cria, ou atualiza quem já existia (fecha o vigente e abre o novo).
+    const today = new Date().toISOString().slice(0, 10);
+    let moved = 0;
     for (const p of input.people) {
       const userId = userIds.get(p.email.toLowerCase())!;
+      const target = { orgUnitId: units.get(p.orgUnit)!, positionId: positions.get(p.position)!, jobLevelId: p.level ? levels.get(p.level)! : null };
       const [current] = await t
-        .select({ id: s.employmentAssignments.id })
+        .select({ id: s.employmentAssignments.id, validFrom: s.employmentAssignments.validFrom, orgUnitId: s.employmentAssignments.orgUnitId, positionId: s.employmentAssignments.positionId, jobLevelId: s.employmentAssignments.jobLevelId })
         .from(s.employmentAssignments)
         .where(and(eq(s.employmentAssignments.userId, userId), isNull(s.employmentAssignments.validTo)));
       if (!current) {
-        await t.insert(s.employmentAssignments).values({
-          tenantId,
-          userId,
-          orgUnitId: units.get(p.orgUnit)!,
-          positionId: positions.get(p.position)!,
-          jobLevelId: levels.get(p.level)!,
-          validFrom: p.hireDate,
-          reason: "hire",
-        });
-      }
-      if (p.manager) {
-        const [hasManager] = await t
-          .select({ id: s.managerRelationships.id })
-          .from(s.managerRelationships)
-          .where(and(eq(s.managerRelationships.userId, userId), isNull(s.managerRelationships.validTo)));
-        if (!hasManager) {
-          await t.insert(s.managerRelationships).values({ tenantId, userId, managerId: userIds.get(p.manager.toLowerCase())!, validFrom: p.hireDate });
+        await t.insert(s.employmentAssignments).values({ tenantId, userId, ...target, validFrom: p.hireDate, reason: "hire" });
+      } else if (current.orgUnitId !== target.orgUnitId || current.positionId !== target.positionId || current.jobLevelId !== target.jobLevelId) {
+        if (current.validFrom < today) {
+          await t.update(s.employmentAssignments).set({ validTo: today }).where(eq(s.employmentAssignments.id, current.id));
+          await t.insert(s.employmentAssignments).values({ tenantId, userId, ...target, validFrom: today, reason: current.orgUnitId !== target.orgUnitId ? "transfer" : "position_change" });
+        } else {
+          await t.update(s.employmentAssignments).set(target).where(eq(s.employmentAssignments.id, current.id));
         }
+        moved++;
       }
+
+      const managerId = p.manager ? userIds.get(p.manager.toLowerCase())! : null;
+      const [currentManager] = await t
+        .select({ id: s.managerRelationships.id, managerId: s.managerRelationships.managerId, validFrom: s.managerRelationships.validFrom })
+        .from(s.managerRelationships)
+        .where(and(eq(s.managerRelationships.userId, userId), isNull(s.managerRelationships.validTo)));
+      if (currentManager?.managerId === managerId || (!currentManager && !managerId)) continue;
+      if (currentManager) {
+        if (currentManager.validFrom < today) await t.update(s.managerRelationships).set({ validTo: today }).where(eq(s.managerRelationships.id, currentManager.id));
+        else await t.delete(s.managerRelationships).where(eq(s.managerRelationships.id, currentManager.id));
+      }
+      if (managerId) await t.insert(s.managerRelationships).values({ tenantId, userId, managerId, validFrom: currentManager ? today : p.hireDate });
     }
+    if (moved) console.log(`  Lotações atualizadas de quem já existia: ${moved}.`);
+    if (dryRun) throw new DryRun();
   });
+  } catch (error) {
+    if (!(error instanceof DryRun)) throw error;
+    console.log(`Simulação: ${created} pessoa(s) seriam criadas; nada foi gravado.`);
+    process.exitCode = 0;
+  }
+  if (dryRun) process.exit(0);
 
   console.log(`✓ Estrutura importada. Pessoas novas: ${created}.`);
-  if (created > 0) console.log(`  Senha das contas novas (exibida só agora): ${sharedPassword}`);
+  if (created > 0 && provided === undefined) console.log(`  Senha provisória das contas novas (exibida só agora): ${sharedPassword}`);
+  if (created > 0) console.log("  No primeiro acesso, cada pessoa cria a própria senha (troca obrigatória).");
 } finally {
   await pool.end();
 }

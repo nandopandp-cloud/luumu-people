@@ -14,7 +14,17 @@ import { getTodayMood, type TodayMood } from "@/server/modules/wellbeing/service
  * Data Access Layer para Server Components. Lê a sessão uma vez por request
  * (React cache). Deve ser chamada dentro de um <Suspense> (Cache Components).
  */
-export const getCurrentActor = cache(async (): Promise<AuthenticatedActor | null> => resolveActor(await headers()));
+export const getSessionActor = cache(async (): Promise<AuthenticatedActor | null> => resolveActor(await headers()));
+
+/**
+ * Pessoa da sessão para as páginas. Com senha provisória, qualquer página leva
+ * a /trocar-senha (a única que usa getSessionActor direto).
+ */
+export const getCurrentActor = cache(async (): Promise<AuthenticatedActor | null> => {
+  const actor = await getSessionActor();
+  if (actor?.mustChangePassword) redirect("/trocar-senha");
+  return actor;
+});
 
 export async function requireActor(): Promise<AuthenticatedActor> {
   const actor = await getCurrentActor();

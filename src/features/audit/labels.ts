@@ -51,6 +51,7 @@ export const AUDIT_LABELS: Record<AuditAction, string> = {
   "survey.paused": "Pesquisa pausada",
   "survey.resumed": "Pesquisa retomada",
   "tenant.seeded": "Empresa criada",
+  "tenant.demo_data_removed": "Dados de demonstração removidos",
 };
 
 export function auditLabel(action: string): string {

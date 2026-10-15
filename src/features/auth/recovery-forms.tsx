@@ -120,3 +120,57 @@ export function ResetPasswordForm({ variant = "reset" }: { variant?: "reset" | "
     </form>
   );
 }
+
+/** Troca obrigatória no primeiro acesso (senha provisória da importação). */
+export function ChangeProvisionalPasswordForm({ firstName }: { firstName: string }) {
+  const router = useRouter();
+  const [current, setCurrent] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const tooShort = password.length > 0 && password.length < 10;
+  const same = password.length > 0 && password === current;
+  const mismatch = confirm.length > 0 && confirm !== password;
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (tooShort || same || mismatch) return;
+    setError(null);
+    startTransition(async () => {
+      const { error: err } = await authClient.changePassword({ currentPassword: current, newPassword: password, revokeOtherSessions: true });
+      if (err) {
+        if (err.status === 429) return setError("Muitas tentativas. Aguarde alguns minutos.");
+        return setError(err.code === "INVALID_PASSWORD" ? "A senha provisória não confere." : (err.message ?? "Não foi possível salvar a senha. Tente novamente."));
+      }
+      router.replace("/inicio");
+      router.refresh();
+    });
+  }
+
+  return (
+    <form method="post" onSubmit={submit} className="space-y-5" noValidate>
+      {firstName ? <p className="text-body text-neutral-700">Olá, {firstName}! 👋</p> : null}
+      {error ? <Alert tone="error" title={error} /> : null}
+      <Field label="Senha provisória" hint="A que você recebeu para o primeiro acesso.">
+        {({ id, describedBy }) => (
+          <Input id={id} aria-describedby={describedBy} type="password" autoComplete="current-password" required leading={<LockKeyhole />} value={current} onChange={(e) => setCurrent(e.target.value)} />
+        )}
+      </Field>
+      <Field label="Nova senha" hint="Use pelo menos 10 caracteres." error={tooShort ? "A senha precisa de pelo menos 10 caracteres." : same ? "A nova senha precisa ser diferente da provisória." : null}>
+        {({ id, describedBy, invalid }) => (
+          <Input id={id} aria-describedby={describedBy} invalid={invalid} type="password" autoComplete="new-password" required leading={<LockKeyhole />} value={password} onChange={(e) => setPassword(e.target.value)} />
+        )}
+      </Field>
+      <Field label="Confirme a nova senha" error={mismatch ? "As senhas não são iguais." : null}>
+        {({ id, describedBy, invalid }) => (
+          <Input id={id} aria-describedby={describedBy} invalid={invalid} type="password" autoComplete="new-password" required leading={<LockKeyhole />} value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+        )}
+      </Field>
+      <Button type="submit" size="lg" block loading={pending} disabled={!current || !password || !confirm || tooShort || same || mismatch}>
+        Salvar e continuar
+      </Button>
+    </form>
+  );
+}

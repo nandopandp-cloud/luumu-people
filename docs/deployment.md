@@ -53,3 +53,19 @@ Rode manualmente o workflow **Migrations (Neon)** no GitHub Actions, com o secre
 - [ ] Seed demonstrativo **não** executado no banco de produção.
 - [ ] Primeira empresa e primeiro administrador criados: `pnpm tenant:create --slug … --name … --admin-email … --admin-name …` (até a console de plataforma da Fase 5).
 - [ ] Backups/PITR do Neon habilitados.
+
+
+## Importar pessoas reais (substituindo dados de demonstração)
+
+Dados pessoais nunca entram no repositório: CSV, JSON e backup ficam fora dele (os scripts recusam caminhos dentro do repo).
+
+1. `pnpm tsx scripts/org-from-spreadsheet.mts organograma.csv --tenant <slug> --hire-date aaaa-mm-dd --out /fora/estrutura.json` — converte o organograma (NOME, ÁREA, CARGO, GESTOR, E-MAIL).
+2. `pnpm tsx scripts/backup-database.mts /fora/backup.json` — backup lógico completo (e, de preferência, um branch no Neon).
+3. `IMPORT_PASSWORD='…' pnpm org:import /fora/estrutura.json --dry-run`, depois sem `--dry-run` — cria as contas com senha provisória e troca obrigatória no primeiro acesso; atualiza lotação e gestor de quem já existe.
+4. `pnpm tsx scripts/purge-demo-people.mts --tenant <slug> --keep <admin> --keep-from /fora/estrutura.json [--reset-development]` (simulação), depois com `--apply` — remove as pessoas de demonstração e o conteúdo ligado a elas, numa transação, com registro na auditoria.
+
+A troca obrigatória de senha precisa estar **publicada antes** do passo 3.
+
+## Migrations em produção
+
+Aplique sempre com `pnpm db:migrate` (registra em `drizzle.__drizzle_migrations`). Em 15/10/2026 o registro estava parado na 0028 porque as migrations 0011–0016 e 0029–0041 tinham sido aplicadas fora do migrador; as proteções (RLS, permissões, cofre) foram conferidas, as entradas faltantes registradas e a 0042/0043 aplicadas.

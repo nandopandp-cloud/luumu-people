@@ -295,6 +295,20 @@
       "when": 1792069147224,
       "tag": "0041_surveys_audience_schedule_security",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1792080159439,
+      "tag": "0042_users_must_change_password",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1792080159934,
+      "tag": "0043_users_must_change_password_security",
+      "breakpoints": true
     }
   ]
 }
