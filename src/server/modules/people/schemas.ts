@@ -57,7 +57,7 @@ export const personCreateSchema = z.strictObject({
   /** Cargo e nível vêm de listas fixas; o cadastro da empresa é criado se ainda não existir. */
   position: z.enum(POSITION_NAMES),
   jobLevel: z.enum(JOB_LEVEL_NAMES),
-  managerId: z.uuid().nullable().optional(),
+  managerId: z.uuid(),
   contractType: z.enum(["clt", "pj", "intern", "apprentice", "temporary"]).default("clt"),
   /** Envia o e-mail de convite na hora (padrão). */
   sendInvite: z.boolean().default(true),

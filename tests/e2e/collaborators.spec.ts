@@ -76,6 +76,8 @@ test.describe("Colaboradores", () => {
     await dialog.getByLabel("Área").selectOption({ index: 1 });
     await dialog.getByLabel("Cargo").selectOption("Analista");
     await dialog.getByLabel("Nível").selectOption("Pleno");
+    await dialog.getByLabel("Gestor(a)").click();
+    await page.getByRole("option", { name: /Carla Mendes/ }).click();
     await expect(dialog.getByLabel("Unidade")).toHaveCount(0);
     await expectAccessible(page);
     await dialog.getByRole("button", { name: "Cadastrar e convidar" }).click();

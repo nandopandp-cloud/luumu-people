@@ -36,7 +36,7 @@ export function AddPersonButton({ options }: { options: AddPersonOptions }) {
   const set = <K extends keyof typeof EMPTY>(key: K, value: (typeof EMPTY)[K]) => setForm((f) => ({ ...f, [key]: value }));
 
   const emailInvalid = form.email.length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
-  const ready = form.name.trim().length >= 3 && form.email && !emailInvalid && form.hireDate && form.orgUnitId && form.position && form.jobLevel;
+  const ready = form.name.trim().length >= 3 && form.email && !emailInvalid && form.hireDate && form.orgUnitId && form.position && form.jobLevel && form.managerId;
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -53,7 +53,7 @@ export function AddPersonButton({ options }: { options: AddPersonOptions }) {
             orgUnitId: form.orgUnitId,
             position: form.position,
             jobLevel: form.jobLevel,
-            managerId: form.managerId || null,
+            managerId: form.managerId,
             contractType: form.contractType,
             sendInvite: form.sendInvite,
           },
@@ -138,12 +138,12 @@ export function AddPersonButton({ options }: { options: AddPersonOptions }) {
               </Select>
             )}
           </Field>
-          <Field label="Gestor(a) (opcional)">
+          <Field label="Gestor(a)" hint="Somente pessoas com o papel Gestor.">
             {({ id, describedBy }) => (
               <Combobox
                 id={id}
                 aria-describedby={describedBy}
-                placeholder="Sem gestor(a)"
+                placeholder="Selecione"
                 searchPlaceholder="Buscar pessoa…"
                 options={options.managers.map((m) => ({ value: m.id, label: m.name, avatar: { name: m.name, src: m.image } }))}
                 value={form.managerId ? [form.managerId] : []}

@@ -9,6 +9,7 @@ import * as s from "@/server/db/schema";
 import { withTenant, type Tx } from "@/server/db/tenant";
 import { badRequest, conflict, forbidden, notFound } from "@/server/http/errors";
 import { logger } from "@/server/observability/logger";
+import { MANAGER_IDS } from "./directory";
 import type { PersonCreate } from "./schemas";
 
 /**
@@ -80,10 +81,8 @@ export async function createPerson(actor: AuthenticatedActor, input: PersonCreat
       if (!unit) throw badRequest("Área não encontrada.");
       const positionId = await findOrCreatePosition(tx, actor.tenantId, input.position);
       const jobLevelId = await findOrCreateJobLevel(tx, actor.tenantId, input.jobLevel);
-      if (input.managerId) {
-        const [boss] = await tx.select({ id: s.users.id }).from(s.users).where(and(eq(s.users.id, input.managerId), eq(s.users.status, "active")));
-        if (!boss) throw badRequest("O(a) gestor(a) precisa ser uma pessoa ativa da empresa.");
-      }
+      const [boss] = await tx.select({ id: s.users.id }).from(s.users).where(and(eq(s.users.id, input.managerId), eq(s.users.status, "active"), sql`${s.users.id} in (${MANAGER_IDS})`));
+      if (!boss) throw badRequest("Escolha um(a) gestor(a) ativo(a) com o papel Gestor.");
       const [employeeRole] = await tx.select({ id: s.roles.id }).from(s.roles).where(and(eq(s.roles.key, "employee"), eq(s.roles.isSystem, true)));
       if (!employeeRole) throw new Error("Papel de sistema 'employee' ausente no tenant.");
 
@@ -102,11 +101,11 @@ export async function createPerson(actor: AuthenticatedActor, input: PersonCreat
         reason: "hire",
         createdBy: actor.userId,
       });
-      if (input.managerId) {
+      {
         await tx.insert(s.managerRelationships).values({ tenantId: actor.tenantId, userId: user!.id, managerId: input.managerId, validFrom: input.hireDate, createdBy: actor.userId });
       }
       await tx.insert(s.userRoles).values({ tenantId: actor.tenantId, userId: user!.id, roleId: employeeRole.id, scopeType: "SELF", grantedBy: actor.userId });
-      await audit(tx, actor, "people.created", user!.id, meta, { fields: ["name", "email", "hireDate", "orgUnit", "position", "jobLevel", ...(input.managerId ? ["manager"] : [])] });
+      await audit(tx, actor, "people.created", user!.id, meta, { fields: ["name", "email", "hireDate", "orgUnit", "position", "jobLevel", "manager"] });
       return user!;
     });
   } catch (error) {

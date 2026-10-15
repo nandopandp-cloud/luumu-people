@@ -42,6 +42,9 @@ export type DirectoryRow = {
   lastAccessAt: Date | null;
 };
 
+/** Quem tem o papel Gestor ativo. */
+export const MANAGER_IDS = sql`select ur.user_id from user_roles ur join roles r on r.id = ur.role_id where r.key = 'manager' and ur.revoked_at is null`;
+
 export const canSeeLastAccess = (actor: AuthenticatedActor) => hasTenantWide(actor, "people.manage");
 
 const FROM = sql`
@@ -174,14 +177,14 @@ export async function exportDirectoryCsv(actor: AuthenticatedActor, query: Direc
   });
 }
 
-/** Pessoas ativas que podem ser gestoras de alguém novo (formulário de cadastro). */
+/** Gestores (papel Gestor ativo) que podem receber alguém novo (formulário de cadastro). */
 export async function listManagerCandidates(actor: AuthenticatedActor) {
   if (!hasTenantWide(actor, "people.manage")) throw forbidden();
   return withTenant(actor, (tx) =>
     tx
       .select({ id: s.users.id, name: s.users.name, image: s.users.image })
       .from(s.users)
-      .where(and(sql`${s.users.status} = 'active'`, isNotNull(s.users.name)))
+      .where(and(sql`${s.users.status} = 'active'`, isNotNull(s.users.name), sql`${s.users.id} in (${MANAGER_IDS})`))
       .orderBy(asc(s.users.name)),
   );
 }

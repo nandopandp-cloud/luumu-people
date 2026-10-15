@@ -124,6 +124,11 @@ describe("colaboradores: diretório, cadastro e convite", () => {
     expect(after.status).toBe(200);
     await expect(auth.api.resetPassword({ body: { newPassword: "OutraSenha#20266", token: token! } })).rejects.toBeTruthy();
 
+    // Gestor(a) obrigatório(a) e com o papel Gestor.
+    const noManager = Object.fromEntries(Object.entries(body).filter(([k]) => k !== "managerId"));
+    expect((await call(peopleRoute.POST, { path: "/api/v1/people", method: "POST", cookie: session.cookie, body: { ...noManager, email: "sem.gestor@aurora.example" } })).status).toBe(400);
+    const camila = await userOf("aurora", "camila");
+    expect((await call(peopleRoute.POST, { path: "/api/v1/people", method: "POST", cookie: session.cookie, body: { ...body, email: "gestor.invalido@aurora.example", managerId: camila.id } })).status).toBe(400);
     // E-mail repetido (único na plataforma) → 409.
     expect((await call(peopleRoute.POST, { path: "/api/v1/people", method: "POST", cookie: session.cookie, body })).status).toBe(409);
     // Reenviar convite para quem já ativou → 409.
@@ -137,7 +142,7 @@ describe("colaboradores: diretório, cadastro e convite", () => {
     const ids = (await db.execute(sql`select (select id from org_units where tenant_id = ${org.tenantId} limit 1) as unit, (select id from positions where tenant_id = ${org.tenantId} limit 1) as position`)) as unknown as {
       rows: { unit: string; position: string }[];
     };
-    const body = { name: "Pessoa Teste", email: "pessoa.teste@aurora.example", hireDate: "2026-10-13", orgUnitId: ids.rows[0]!.unit, position: "Analista", jobLevel: "Pleno" };
+    const body = { name: "Pessoa Teste", email: "pessoa.teste@aurora.example", hireDate: "2026-10-13", orgUnitId: ids.rows[0]!.unit, position: "Analista", jobLevel: "Pleno", managerId: (await userOf("aurora", "carla")).id };
     expect((await call(peopleRoute.POST, { path: "/api/v1/people", method: "POST", cookie: carla.session.cookie, body })).status).toBe(403);
     // Campos fora do contrato (papel, empresa, status) → 400.
     const paula = await actorOf("paula");
@@ -177,7 +182,7 @@ describe("colaboradores: diretório, cadastro e convite", () => {
       path: "/api/v1/people",
       method: "POST",
       cookie: paula.session.cookie,
-      body: { name: "Davi Nunes", email: "davi.nunes@aurora.example", hireDate: "2026-10-14", orgUnitId: ids.rows[0]!.unit, position: "Assistente", jobLevel: "Estagiário", sendInvite: false },
+      body: { name: "Davi Nunes", email: "davi.nunes@aurora.example", hireDate: "2026-10-14", orgUnitId: ids.rows[0]!.unit, position: "Assistente", jobLevel: "Estagiário", managerId: (await userOf("aurora", "carla")).id, sendInvite: false },
     });
     expect(created.json.invited).toBe(false);
     const id = created.json.id as string;
