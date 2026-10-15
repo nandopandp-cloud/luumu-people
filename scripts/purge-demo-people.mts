@@ -10,6 +10,9 @@ import { ownerDatabase } from "./_db";
  *   pnpm tsx scripts/purge-demo-people.mts --tenant jovens-genios --keep admin@empresa.com            # simulação
  *   pnpm tsx scripts/purge-demo-people.mts --tenant jovens-genios --keep admin@empresa.com --apply    # de verdade
  *
+ * --reset-development: também apaga PDIs, avaliações e o histórico ENCERRADO de
+ * lotação/gestão de quem fica (dados de teste).
+ *
  * Apaga: pessoas (menos --keep) e os dados pessoais delas; TODAS as pesquisas
  * (pelo cofre: survey_vault.purge) e TODOS os comunicados; eventos, banners e
  * links rápidos criados por elas; áreas, cargos e níveis que ficarem sem uso.
@@ -95,6 +98,7 @@ try {
   if (values["reset-development"]) {
     await step("PDIs de teste de quem fica", "delete from pdis where tenant_id = $1", [tenant]);
     await step("avaliações de teste de quem fica", "delete from competency_assessments where tenant_id = $1", [tenant]);
+    await step("histórico encerrado de lotação e gestão (teste)", "with a as (delete from employment_assignments where tenant_id = $1 and valid_to is not null returning 1), b as (delete from manager_relationships where tenant_id = $1 and valid_to is not null returning 1) select 1 from a union all select 1 from b", [tenant]);
   }
 
   await step("relações de gestão", "delete from manager_relationships where user_id in (select id from doomed) or manager_id in (select id from doomed)");
