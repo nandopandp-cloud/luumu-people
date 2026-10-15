@@ -13,7 +13,15 @@ import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/desig
 import { useToast } from "@/design-system/components/toast";
 import { api, ApiError } from "@/lib/api-client";
 
-export type ActionSurvey = { id: string; title: string; description?: string | null; status: "draft" | "active" | "paused" | "closed"; closesAt: Date | string | null };
+export type ActionSurvey = {
+  id: string;
+  title: string;
+  description?: string | null;
+  status: "draft" | "active" | "paused" | "closed";
+  closesAt: Date | string | null;
+  /** Lançada com início no futuro: sem pausa; "encerrar" vira "cancelar agendamento". */
+  scheduled?: boolean;
+};
 
 type Dialog = "edit" | "resume" | "close" | "delete" | null;
 
@@ -89,7 +97,7 @@ export function SurveyActions({ survey, canDesign, canLaunch, layout = "menu" }:
           <Pencil aria-hidden /> Editar informações
         </MenuItem>
       ) : null}
-      {canLaunch && survey.status === "active" ? (
+      {canLaunch && survey.status === "active" && !survey.scheduled ? (
         <MenuItem onSelect={pause}>
           <Pause aria-hidden /> Pausar respostas
         </MenuItem>
@@ -101,7 +109,7 @@ export function SurveyActions({ survey, canDesign, canLaunch, layout = "menu" }:
       ) : null}
       {canLaunch && open ? (
         <MenuItem onSelect={() => show("close")}>
-          <Square aria-hidden /> Encerrar pesquisa
+          <Square aria-hidden /> {survey.scheduled ? "Cancelar agendamento" : "Encerrar pesquisa"}
         </MenuItem>
       ) : null}
       {canDesign ? (
@@ -232,15 +240,19 @@ export function SurveyActions({ survey, canDesign, canLaunch, layout = "menu" }:
       <Modal
         open={dialog === "close"}
         onOpenChange={(v) => !v && setDialog(null)}
-        title="Encerrar pesquisa?"
-        description="Ninguém mais poderá responder e o último lote de respostas é liberado nos resultados. Não dá para reabrir."
+        title={survey.scheduled ? "Cancelar o agendamento?" : "Encerrar pesquisa?"}
+        description={
+          survey.scheduled
+            ? "A pesquisa não vai abrir e vai para Encerradas, sem respostas. Para lançar de novo, duplique-a."
+            : "Ninguém mais poderá responder e o último lote de respostas é liberado nos resultados. Não dá para reabrir."
+        }
         footer={
           <>
             <Button variant="ghost" onClick={() => setDialog(null)}>
               Cancelar
             </Button>
-            <Button loading={pending} onClick={() => run(() => api(`/api/v1/surveys/${survey.id}/close`, { method: "POST" }), "Pesquisa encerrada")}>
-              <Square aria-hidden /> Encerrar agora
+            <Button loading={pending} onClick={() => run(() => api(`/api/v1/surveys/${survey.id}/close`, { method: "POST" }), survey.scheduled ? "Agendamento cancelado" : "Pesquisa encerrada")}>
+              <Square aria-hidden /> {survey.scheduled ? "Cancelar agendamento" : "Encerrar agora"}
             </Button>
           </>
         }

@@ -8,5 +8,5 @@ export const POST = defineRoute({
   params: surveyParamsSchema,
   body: launchInputSchema,
   rateLimit: SENSITIVE_RATE_LIMIT,
-  handler: ({ actor, params, body, meta }) => launchSurvey(actor, params.id, body.closesAt, meta),
+  handler: ({ actor, params, body, meta }) => launchSurvey(actor, params.id, body, meta),
 });

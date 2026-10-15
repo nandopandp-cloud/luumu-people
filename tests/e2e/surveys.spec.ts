@@ -76,7 +76,10 @@ test.describe("Pesquisas", () => {
     // Lançar.
     await page.getByRole("button", { name: "Lançar pesquisa" }).click();
     const launch = page.getByRole("dialog", { name: "Lançar pesquisa" });
-    await launch.getByLabel("Recebe respostas até").fill(new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
+    await expect(launch.getByText(/pessoas serão convidadas/)).toBeVisible();
+    await launch.getByLabel("Recebe respostas até").click();
+    await page.getByRole("button", { name: "Próximo mês" }).click();
+    await page.getByRole("grid").getByRole("button").filter({ hasText: /^15$/ }).first().click();
     await launch.getByRole("button", { name: "Lançar agora" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Clima de teste E2E" })).toBeVisible();
 
@@ -135,5 +138,56 @@ test.describe("Pesquisas", () => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
     await expectAccessible(page);
+  });
+
+  test("lista da gestão: indicadores, abas, busca, ordenação, exportação e agendamento", async ({ page }) => {
+    test.setTimeout(180_000);
+    await signIn(page, "paula.ribeiro@aurora.example");
+    await gotoHydrated(page, "/gestao/pesquisas");
+    const kpis = page.getByRole("region", { name: "Indicadores" });
+    for (const label of ["Total de pesquisas", "Participações totais", "Taxa média de participação", "eNPS médio"]) await expect(kpis.getByText(label)).toBeVisible();
+    await expectAccessible(page);
+
+    // Abas e situação "Agendada".
+    await page.getByRole("link", { name: /^Agendadas \(\d+\)$/ }).click();
+    await expect(page).toHaveURL(/status=agendadas/);
+    const scheduledRow = page.getByRole("row").filter({ hasText: "eNPS — 2º semestre de 2026" });
+    await expect(scheduledRow.getByText("Agendada")).toBeVisible();
+    await page.getByRole("link", { name: /^Todas \(\d+\)$/ }).click();
+
+    // Busca, tipo e ordenação.
+    await page.getByRole("searchbox", { name: "Buscar por nome da pesquisa" }).fill("pulso");
+    await expect(page).toHaveURL(/q=pulso/);
+    await expect(page.getByRole("row").filter({ hasText: "Pesquisa de Clima 2026" })).toHaveCount(0);
+    await page.getByRole("searchbox", { name: "Buscar por nome da pesquisa" }).fill("");
+    await page.getByRole("combobox", { name: "Tipo" }).selectOption("enps");
+    await expect(page).toHaveURL(/tipo=enps/);
+    await page.getByRole("link", { name: /^Período/ }).click();
+    await expect(page.getByRole("columnheader", { name: /Período/ })).toHaveAttribute("aria-sort", "ascending");
+
+    // Seleção → exportar participação.
+    await page.getByRole("table").getByRole("row").nth(1).getByRole("checkbox").click();
+    const download = page.waitForEvent("download");
+    await page.getByRole("link", { name: "Exportar participação" }).click();
+    expect((await download).suggestedFilename()).toMatch(/^pesquisas-participacao-.*\.csv$/);
+
+    // Nova pesquisa agendada para uma área.
+    await gotoHydrated(page, "/gestao/pesquisas/nova");
+    await page.getByLabel("Título", { exact: true }).fill("Pulso agendado E2E");
+    await page.getByRole("button", { name: "Lançar pesquisa" }).click();
+    const launch = page.getByRole("dialog", { name: "Lançar pesquisa" });
+    await launch.getByLabel("Público").selectOption({ label: "Toda a empresa" });
+    await launch.getByRole("radio", { name: "Agendar o início" }).click();
+    await launch.getByLabel("Abre em").click();
+    await page.getByRole("button", { name: "Próximo mês" }).click();
+    await page.getByRole("grid").getByRole("button").filter({ hasText: /^10$/ }).first().click();
+    await launch.getByLabel("Recebe respostas até").click();
+    await page.getByRole("button", { name: "Próximo mês" }).click();
+    await page.getByRole("grid").getByRole("button").filter({ hasText: /^20$/ }).first().click();
+    await expect(launch.getByText(/Abre em \d{2}\/\d{2}\/\d{4} e recebe respostas até/)).toBeVisible();
+    await launch.getByRole("button", { name: "Agendar pesquisa" }).click();
+    await expect(page.getByText("Pesquisa agendada").first()).toBeVisible();
+    await gotoHydrated(page, "/gestao/pesquisas?status=agendadas");
+    await expect(page.getByRole("row").filter({ hasText: "Pulso agendado E2E" }).getByText("Agendada")).toBeVisible();
   });
 });

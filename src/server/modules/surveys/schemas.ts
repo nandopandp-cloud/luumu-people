@@ -36,7 +36,15 @@ export type SurveyDetailsInput = z.infer<typeof surveyDetailsSchema>;
 
 export const resumeInputSchema = z.strictObject({ closesAt: z.iso.datetime({ offset: true }).optional() });
 
-export const launchInputSchema = z.strictObject({ closesAt: z.iso.datetime({ offset: true }) });
+/** Lançamento: prazo, início (agora ou agendado) e público (empresa toda ou uma área com subáreas). */
+export const launchInputSchema = z.strictObject({
+  closesAt: z.iso.datetime({ offset: true }),
+  opensAt: z.iso.datetime({ offset: true }).optional(),
+  audienceOrgUnitId: z.uuid().nullish(),
+});
+export type LaunchInput = z.infer<typeof launchInputSchema>;
+
+export const audienceQuerySchema = z.strictObject({ orgUnitId: z.uuid().optional() });
 
 export const surveyParamsSchema = z.strictObject({ id: z.uuid() });
 

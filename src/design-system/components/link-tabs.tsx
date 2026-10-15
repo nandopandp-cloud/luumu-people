@@ -11,12 +11,15 @@ export function LinkTabs({
   current,
   label,
   variant = "solid",
+  size = "md",
   className,
 }: {
   items: { href: ComponentProps<typeof Link>["href"]; label: string; value: string }[];
   current: string;
   label: string;
   variant?: "solid" | "soft";
+  /** `sm`: abas compactas (cabem na mesma linha de filtros). */
+  size?: "sm" | "md";
   className?: string;
 }) {
   if (variant === "soft") {
@@ -31,7 +34,9 @@ export function LinkTabs({
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "relative inline-flex h-12 items-center whitespace-nowrap rounded-lg px-5 text-body-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-500",
+                    "relative inline-flex items-center whitespace-nowrap rounded-lg text-body-sm transition-colors",
+                    size === "sm" ? "h-10 px-4" : "h-12 px-5",
+                    "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-500",
                     active ? "bg-white font-semibold text-purple-600 shadow-sm ring-1 ring-line" : "bg-neutral-100/80 font-medium text-neutral-700 hover:bg-purple-50 hover:text-purple-600",
                   )}
                 >

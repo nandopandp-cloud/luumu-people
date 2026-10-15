@@ -1,0 +1,2 @@
+ALTER TABLE "surveys" ADD COLUMN "audience_org_unit_id" uuid;--> statement-breakpoint
+ALTER TABLE "surveys" ADD CONSTRAINT "surveys_audience_org_unit_fk" FOREIGN KEY ("tenant_id","audience_org_unit_id") REFERENCES "public"."org_units"("tenant_id","id") ON DELETE no action ON UPDATE no action;

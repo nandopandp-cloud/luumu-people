@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { boolean, check, date, foreignKey, index, integer, jsonb, pgTable, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { id, tenantId, timestamps } from "./_columns";
 import { users } from "./auth";
+import { orgUnits } from "./organization";
 import { organizations } from "./tenancy";
 
 /**
@@ -40,7 +41,10 @@ export const surveys = pgTable(
     anonymityK: integer("anonymity_k").notNull().default(5),
     dimensions: jsonb("dimensions").$type<ApprovedDimensions>().notNull().default({}),
     closesAt: timestamp("closes_at", { withTimezone: true, mode: "date" }),
+    /** Início do período. No futuro = pesquisa AGENDADA (o cofre só aceita respostas a partir daqui). */
     launchedAt: timestamp("launched_at", { withTimezone: true, mode: "date" }),
+    /** Público: área (com subáreas) ou nulo = empresa toda. Congela no lançamento. */
+    audienceOrgUnitId: uuid("audience_org_unit_id"),
     closedAt: timestamp("closed_at", { withTimezone: true, mode: "date" }),
     createdBy: uuid("created_by"),
     ...timestamps(),
@@ -48,6 +52,7 @@ export const surveys = pgTable(
   (t) => [
     unique("surveys_tenant_id_id_key").on(t.tenantId, t.id),
     foreignKey({ name: "surveys_created_by_fk", columns: [t.tenantId, t.createdBy], foreignColumns: [users.tenantId, users.id] }),
+    foreignKey({ name: "surveys_audience_org_unit_fk", columns: [t.tenantId, t.audienceOrgUnitId], foreignColumns: [orgUnits.tenantId, orgUnits.id] }),
     index("surveys_tenant_status_idx").on(t.tenantId, t.status),
     check("surveys_k_check", sql`${t.anonymityK} in (5, 7, 10)`),
     check("surveys_launched_has_dates", sql`${t.status} = 'draft' or (${t.launchedAt} is not null and ${t.closesAt} is not null)`),

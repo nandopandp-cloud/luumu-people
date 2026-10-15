@@ -2,9 +2,18 @@
 
 export const SURVEY_KIND: Record<string, { label: string; tone: "purple" | "green" | "orange" | "blue" }> = {
   climate: { label: "Clima", tone: "purple" },
-  enps: { label: "eNPS", tone: "green" },
+  enps: { label: "eNPS", tone: "blue" },
   pulse: { label: "Pulso", tone: "orange" },
-  custom: { label: "Personalizada", tone: "blue" },
+  custom: { label: "Personalizada", tone: "green" },
+};
+
+/** Situação exibida na gestão ("Agendada" = lançada com início no futuro). */
+export const SURVEY_STATUS: Record<"draft" | "scheduled" | "active" | "paused" | "closed", { label: string; tone: "neutral" | "orange" | "green" | "yellow" }> = {
+  active: { label: "Em andamento", tone: "green" },
+  scheduled: { label: "Agendada", tone: "orange" },
+  paused: { label: "Pausada", tone: "yellow" },
+  closed: { label: "Encerrada", tone: "neutral" },
+  draft: { label: "Rascunho", tone: "neutral" },
 };
 
 export const QUESTION_TYPE_LABEL: Record<string, string> = {

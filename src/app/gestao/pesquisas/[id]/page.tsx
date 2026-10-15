@@ -11,6 +11,7 @@ import { SURVEY_DIMENSIONS, type SurveyDimension } from "@/server/db/schema/surv
 import { hasPermissionAnywhere, hasTenantWide } from "@/server/authz/policy";
 import { requireActor } from "@/server/dal";
 import { HttpError } from "@/server/http/errors";
+import { listOrgUnits } from "@/server/modules/organization/service";
 import { canReadAllResults, getManagedSurvey, getSurveyResults } from "@/server/modules/surveys/service";
 
 export const metadata: Metadata = { title: "Pesquisa" };
@@ -51,6 +52,7 @@ async function Survey({ params, searchParams }: Pick<Props, "params" | "searchPa
         <SurveyBuilder
           survey={{ id: survey.id, title: survey.title, description: survey.description, kind: survey.kind, anonymityK: survey.anonymityK, questions: questions.map((q) => ({ type: q.type, text: q.text, options: q.options ?? undefined, required: q.required })) }}
           organizationK={organizationK}
+          orgUnits={await listOrgUnits(actor)}
           canDesign={hasTenantWide(actor, "survey.design")}
           canLaunch={hasTenantWide(actor, "survey.launch")}
         />
@@ -66,7 +68,7 @@ async function Survey({ params, searchParams }: Pick<Props, "params" | "searchPa
           <h1 className="text-h1 font-extrabold tracking-[-0.02em] text-neutral-900">{survey.title}</h1>
           <SurveyActions
             layout="buttons"
-            survey={{ id, title: survey.title, description: survey.description, status: survey.status, closesAt: survey.closesAt }}
+            survey={{ id, title: survey.title, description: survey.description, status: survey.status, closesAt: survey.closesAt, scheduled: survey.scheduled }}
             canDesign={hasTenantWide(actor, "survey.design")}
             canLaunch={hasTenantWide(actor, "survey.launch")}
           />
@@ -91,7 +93,7 @@ async function Survey({ params, searchParams }: Pick<Props, "params" | "searchPa
       <SurveyResults data={data} basePath={`/gestao/pesquisas/${id}`} actions={
           <SurveyActions
             layout="buttons"
-            survey={{ id, title: survey.title, description: survey.description, status: survey.status, closesAt: survey.closesAt }}
+            survey={{ id, title: survey.title, description: survey.description, status: survey.status, closesAt: survey.closesAt, scheduled: survey.scheduled }}
             canDesign={hasTenantWide(actor, "survey.design")}
             canLaunch={hasTenantWide(actor, "survey.launch")}
           />

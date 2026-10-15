@@ -9,7 +9,8 @@ import type { QuestionType, SurveyDimension } from "@/server/db/schema/surveys";
 import { withTenant, type Tx } from "@/server/db/tenant";
 import { badRequest, conflict, forbidden, HttpError, notFound } from "@/server/http/errors";
 import { approveDimensions, dimensionProfiles, generalizedDimensions } from "./dimensions";
-import { MAX_COMMENT_LENGTH, type SurveyDetailsInput, type SurveyInput } from "./schemas";
+import { orgSubtreeSql } from "@/server/authz/resolver";
+import { MAX_COMMENT_LENGTH, type LaunchInput, type SurveyDetailsInput, type SurveyInput } from "./schemas";
 
 /**
  * Pesquisas anônimas (docs/anonymous-surveys.md).
@@ -29,6 +30,8 @@ const auditMeta = (meta: Meta) => ({ ipAddress: meta.ip, userAgent: meta.userAge
 
 const DAY = 24 * 60 * 60 * 1000;
 const MAX_OPEN_DAYS = 120;
+/** Até quanto tempo à frente uma pesquisa pode ser agendada. */
+const MAX_SCHEDULE_DAYS = 180;
 
 /* ----------------------------------------------------------- permissões */
 
@@ -49,7 +52,7 @@ export function canReadAllResults(actor: AuthenticatedActor) {
  * Encerra pesquisas cujo prazo passou e libera o restante do buffer. Roda
  * antes de qualquer leitura de gestão (sem worker contínuo na Vercel).
  */
-async function closeExpired(tx: Tx, tenantId: string) {
+export async function closeExpired(tx: Tx, tenantId: string) {
   const expired = await tx
     .select({ id: s.surveys.id })
     .from(s.surveys)
@@ -108,11 +111,14 @@ async function loadSurvey(tx: Tx, id: string) {
       closesAt: s.surveys.closesAt,
       launchedAt: s.surveys.launchedAt,
       closedAt: s.surveys.closedAt,
+      audienceOrgUnitId: s.surveys.audienceOrgUnitId,
     })
     .from(s.surveys)
     .where(eq(s.surveys.id, id));
   if (!survey) throw notFound("Pesquisa não encontrada.");
-  return survey;
+  // Agendada: lançada com início no futuro (o cofre só aceita respostas a partir dele).
+  const scheduled = (survey.status === "active" || survey.status === "paused") && survey.launchedAt !== null && survey.launchedAt.getTime() > Date.now();
+  return { ...survey, scheduled };
 }
 
 async function loadQuestions(tx: Tx, surveyId: string) {
@@ -233,12 +239,44 @@ export async function duplicateSurvey(actor: AuthenticatedActor, id: string, met
   });
 }
 
-function assertClosesAt(closesAt: string) {
+/** Encerramento entre 1 hora e MAX_OPEN_DAYS depois do início (agora, se não agendada). */
+function assertClosesAt(closesAt: string, opens = new Date()) {
   const closes = new Date(closesAt);
-  if (closes.getTime() < Date.now() + 60 * 60 * 1000 || closes.getTime() > Date.now() + MAX_OPEN_DAYS * DAY) {
-    throw badRequest(`Escolha um encerramento entre 1 hora e ${MAX_OPEN_DAYS} dias a partir de agora.`);
+  const from = Math.max(opens.getTime(), Date.now());
+  if (closes.getTime() < from + 60 * 60 * 1000 || closes.getTime() > from + MAX_OPEN_DAYS * DAY) {
+    throw badRequest(`Escolha um encerramento entre 1 hora e ${MAX_OPEN_DAYS} dias depois do início.`);
   }
   return closes;
+}
+
+/** Início agendado: no futuro, até MAX_SCHEDULE_DAYS. Sem data (ou no passado próximo) = agora. */
+function assertOpensAt(opensAt: string | undefined) {
+  if (!opensAt) return new Date();
+  const opens = new Date(opensAt);
+  if (opens.getTime() <= Date.now()) return new Date();
+  if (opens.getTime() > Date.now() + MAX_SCHEDULE_DAYS * DAY) throw badRequest(`Agende o início para até ${MAX_SCHEDULE_DAYS} dias a partir de hoje.`);
+  return opens;
+}
+
+/** Pessoas ativas com lotação vigente na área (e subáreas). */
+async function audienceUserIds(tx: Tx, orgUnitId: string) {
+  const result = rows<{ id: string }>(
+    await tx.execute(sql`select ea.user_id as id from employment_assignments ea join users u on u.id = ea.user_id
+      where ea.valid_to is null and u.status = 'active' and ea.org_unit_id in ${orgSubtreeSql(orgUnitId)}`),
+  );
+  return new Set(result.map((r) => r.id));
+}
+
+/** Tamanho do público (para o diálogo de lançamento) e o k que precisa ser atingido. */
+export async function getAudienceSize(actor: AuthenticatedActor, orgUnitId?: string) {
+  requireTenantWide(actor, "survey.launch");
+  return withTenant(actor, async (tx) => {
+    const k = await organizationK(tx);
+    if (!orgUnitId) return { size: (await dimensionProfiles(tx)).length, k };
+    const [unit] = await tx.select({ id: s.orgUnits.id }).from(s.orgUnits).where(eq(s.orgUnits.id, orgUnitId));
+    if (!unit) throw notFound("Área não encontrada.");
+    return { size: (await audienceUserIds(tx, orgUnitId)).size, k };
+  });
 }
 
 /**
@@ -257,7 +295,7 @@ export async function updateSurveyDetails(actor: AuthenticatedActor, id: string,
     if (input.description !== undefined) changes.description = input.description || null;
     if (input.closesAt !== undefined) {
       if (survey.status === "closed") throw conflict("Pesquisa encerrada não muda de prazo.");
-      changes.closesAt = assertClosesAt(input.closesAt);
+      changes.closesAt = assertClosesAt(input.closesAt, survey.launchedAt ?? undefined);
     }
     await tx.update(s.surveys).set(changes).where(eq(s.surveys.id, id));
     await recordAudit(tx, { tenantId: actor.tenantId, actorUserId: actor.userId, action: "survey.updated", resourceType: "survey", resourceId: id, metadata: { fields: Object.keys(changes) }, ...auditMeta(meta) });
@@ -285,7 +323,7 @@ export async function resumeSurvey(actor: AuthenticatedActor, id: string, closes
     await closeExpired(tx, actor.tenantId);
     const survey = await loadSurvey(tx, id);
     if (survey.status !== "paused") throw conflict("Somente pesquisas pausadas podem ser retomadas.");
-    const closes = closesAt ? assertClosesAt(closesAt) : survey.closesAt;
+    const closes = closesAt ? assertClosesAt(closesAt, survey.launchedAt ?? undefined) : survey.closesAt;
     if (!closes || closes.getTime() < Date.now() + 60 * 60 * 1000) throw badRequest("O prazo está acabando: escolha um novo encerramento para retomar.");
     await tx.update(s.surveys).set({ status: "active", closesAt: closes }).where(eq(s.surveys.id, id));
     await recordAudit(tx, { tenantId: actor.tenantId, actorUserId: actor.userId, action: "survey.resumed", resourceType: "survey", resourceId: id, metadata: { closesAt: closes.toISOString() }, ...auditMeta(meta) });
@@ -297,30 +335,38 @@ export async function resumeSurvey(actor: AuthenticatedActor, id: string, closes
  * Lança a pesquisa para todas as pessoas ativas: cria os convites, congela o k
  * (nunca abaixo do da empresa) e aprova as dimensões de segmentação.
  */
-export async function launchSurvey(actor: AuthenticatedActor, id: string, closesAt: string, meta: Meta) {
+export async function launchSurvey(actor: AuthenticatedActor, id: string, input: LaunchInput, meta: Meta) {
   requireTenantWide(actor, "survey.launch");
-  const closes = assertClosesAt(closesAt);
+  const opens = assertOpensAt(input.opensAt);
+  const closes = assertClosesAt(input.closesAt, opens);
+  const scheduled = opens.getTime() > Date.now();
   return withTenant(actor, async (tx) => {
     const survey = await loadSurvey(tx, id);
     if (survey.status !== "draft") throw conflict("Esta pesquisa já foi lançada.");
     if ((await loadQuestions(tx, id)).length === 0) throw conflict("Inclua ao menos uma pergunta antes de lançar.");
     const k = Math.max(survey.anonymityK, await organizationK(tx));
-    const profiles = await dimensionProfiles(tx);
+    const audience = input.audienceOrgUnitId ?? null;
+    if (audience) {
+      const [unit] = await tx.select({ id: s.orgUnits.id }).from(s.orgUnits).where(eq(s.orgUnits.id, audience));
+      if (!unit) throw badRequest("Área do público não encontrada.");
+    }
+    const members = audience ? await audienceUserIds(tx, audience) : null;
+    const profiles = (await dimensionProfiles(tx)).filter((p) => !members || members.has(p.userId));
     if (profiles.length < k) throw conflict(`O público precisa ter ao menos ${k} pessoas para preservar o anonimato.`);
 
     await tx.insert(s.surveyInvitations).values(profiles.map((p) => ({ tenantId: actor.tenantId, surveyId: id, userId: p.userId })));
     const dimensions = approveDimensions(profiles, k);
-    await tx.update(s.surveys).set({ status: "active", launchedAt: new Date(), closesAt: closes, anonymityK: k, dimensions }).where(eq(s.surveys.id, id));
+    await tx.update(s.surveys).set({ status: "active", launchedAt: opens, closesAt: closes, anonymityK: k, dimensions, audienceOrgUnitId: audience }).where(eq(s.surveys.id, id));
     await recordAudit(tx, {
       tenantId: actor.tenantId,
       actorUserId: actor.userId,
       action: "survey.launched",
       resourceType: "survey",
       resourceId: id,
-      metadata: { invited: profiles.length, k, dimensions: Object.keys(dimensions), closesAt: closes.toISOString() },
+      metadata: { invited: profiles.length, k, dimensions: Object.keys(dimensions), closesAt: closes.toISOString(), opensAt: opens.toISOString(), scheduled, audience: audience ?? "company" },
       ...auditMeta(meta),
     });
-    return { id, invited: profiles.length, k };
+    return { id, invited: profiles.length, k, scheduled };
   });
 }
 
@@ -429,7 +475,7 @@ export async function listMySurveys(actor: AuthenticatedActor): Promise<MySurvey
                (select count(*)::int from survey_questions q where q.survey_id = s.id) as questions,
                (select count(*)::int from survey_questions q where q.survey_id = s.id and q.type = 'text') as "textQuestions"
         from survey_invitations i join surveys s on s.id = i.survey_id
-        where i.user_id = ${actor.userId} and s.status <> 'draft' and (s.status <> 'paused' or i.status = 'completed')
+        where i.user_id = ${actor.userId} and s.status <> 'draft' and s.launched_at <= now() and (s.status <> 'paused' or i.status = 'completed')
         order by s.closes_at desc`),
     );
     const now = Date.now();
@@ -466,6 +512,8 @@ export async function getSurveyToAnswer(actor: AuthenticatedActor, id: string) {
       .where(and(eq(s.surveyInvitations.surveyId, id), eq(s.surveyInvitations.userId, actor.userId)));
     if (!invitation) throw notFound("Pesquisa não encontrada.");
     const survey = await loadSurvey(tx, id);
+    // Agendada (início no futuro): para o colaborador, ainda não existe.
+    if (!survey.launchedAt || survey.launchedAt.getTime() > Date.now()) throw notFound("Pesquisa não encontrada.");
     const open = survey.status === "active" && survey.closesAt !== null && survey.closesAt.getTime() > Date.now();
     return {
       survey: { id: survey.id, title: survey.title, description: survey.description, kind: survey.kind, closesAt: survey.closesAt, anonymityMode: survey.anonymityMode },
@@ -520,6 +568,7 @@ export async function submitSurveyResponse(actor: AuthenticatedActor, surveyId: 
     if (!invitation) throw notFound("Pesquisa não encontrada.");
     if (invitation.status === "completed") throw conflict("Você já respondeu esta pesquisa. Obrigado!");
     const survey = await loadSurvey(tx, surveyId);
+    if (!survey.launchedAt || survey.launchedAt.getTime() > Date.now()) throw notFound("Pesquisa não encontrada.");
     if (survey.status === "paused") throw conflict("Esta pesquisa está pausada. Tente novamente mais tarde.");
     if (survey.status !== "active" || !survey.closesAt || survey.closesAt.getTime() <= Date.now()) throw conflict("Esta pesquisa está encerrada.");
     if (survey.anonymityMode !== "anonymous") throw badRequest("Pesquisas identificadas ainda não são suportadas.");

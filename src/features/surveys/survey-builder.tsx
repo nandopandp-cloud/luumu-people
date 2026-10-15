@@ -7,13 +7,13 @@ import { useState, useTransition } from "react";
 import { EmojiInput } from "@/design-system/components/emoji-input";
 import { Button, IconButton } from "@/design-system/components/button";
 import { Checkbox } from "@/design-system/components/choice";
-import { Modal } from "@/design-system/components/dialog";
 import { Alert } from "@/design-system/components/feedback";
 import { Field, Input, Textarea } from "@/design-system/components/field";
 import { Select } from "@/design-system/components/select";
 import { useToast } from "@/design-system/components/toast";
 import { api, ApiError } from "@/lib/api-client";
 import { QUESTION_TYPE_LABEL, SURVEY_KIND } from "./labels";
+import { LaunchDialog, type LaunchBody } from "./launch-dialog";
 import { SURVEY_TEMPLATES, type TemplateQuestion } from "./templates";
 
 type Kind = "climate" | "enps" | "pulse" | "custom";
@@ -28,7 +28,20 @@ const blank = (): Question => withKey({ type: "scale", text: "", required: true 
  * Builder de pesquisa (rascunho). Toda pesquisa é ANÔNIMA nesta versão. Depois
  * do lançamento, perguntas, k e dimensões congelam (garantido no banco).
  */
-export function SurveyBuilder({ survey, organizationK, canDesign, canLaunch }: { survey?: BuilderSurvey; organizationK: number; canDesign: boolean; canLaunch: boolean }) {
+export function SurveyBuilder({
+  survey,
+  organizationK,
+  canDesign,
+  canLaunch,
+  orgUnits,
+}: {
+  survey?: BuilderSurvey;
+  organizationK: number;
+  canDesign: boolean;
+  canLaunch: boolean;
+  /** Áreas para escolher o público no lançamento. */
+  orgUnits: { id: string; name: string; type: string }[];
+}) {
   const router = useRouter();
   const toast = useToast();
   const [title, setTitle] = useState(survey?.title ?? "");
@@ -38,10 +51,7 @@ export function SurveyBuilder({ survey, organizationK, canDesign, canLaunch }: {
   const [questions, setQuestions] = useState<Question[]>(() => (survey?.questions.length ? survey.questions.map(withKey) : SURVEY_TEMPLATES.climate.map(withKey)));
   const [error, setError] = useState<string | null>(null);
   const [launchOpen, setLaunchOpen] = useState(false);
-  const [closesOn, setClosesOn] = useState("");
   const [pending, startTransition] = useTransition();
-  // Amanhã (data local) como menor encerramento possível.
-  const [minDate] = useState(() => new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
 
   const updateQuestion = (key: string, patch: Partial<Question>) => setQuestions((qs) => qs.map((q) => (q.key === key ? { ...q, ...patch } : q)));
   const move = (index: number, delta: number) =>
@@ -95,15 +105,14 @@ export function SurveyBuilder({ survey, organizationK, canDesign, canLaunch }: {
       router.refresh();
     }, survey ? "Rascunho salvo" : "Pesquisa criada");
 
-  const launch = () =>
+  const launch = (body: LaunchBody) =>
     run(async () => {
       const id = canDesign ? await save() : survey!.id;
-      // Encerra ao fim do dia escolhido (horário de Brasília).
-      await api(`/api/v1/surveys/${id}/launch`, { method: "POST", body: { closesAt: `${closesOn}T23:59:00-03:00` } });
+      await api(`/api/v1/surveys/${id}/launch`, { method: "POST", body });
       setLaunchOpen(false);
       router.push(`/gestao/pesquisas/${id}` as Route);
       router.refresh();
-    }, "Pesquisa lançada");
+    }, body.opensAt ? "Pesquisa agendada" : "Pesquisa lançada");
 
   const remove = () => {
     if (!survey || !window.confirm("Excluir este rascunho de pesquisa?")) return;
@@ -254,31 +263,7 @@ export function SurveyBuilder({ survey, organizationK, canDesign, canLaunch }: {
         ) : null}
       </div>
 
-      <Modal
-        open={launchOpen}
-        onOpenChange={setLaunchOpen}
-        title="Lançar pesquisa"
-        description="Todas as pessoas ativas da empresa serão convidadas."
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setLaunchOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={launch} disabled={!closesOn} loading={pending}>
-              <Rocket aria-hidden /> Lançar agora
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <Field label="Recebe respostas até" hint="A pesquisa encerra às 23h59 (horário de Brasília) deste dia.">
-            {(f) => <Input id={f.id} aria-describedby={f.describedBy} type="date" min={minDate} value={closesOn} onChange={(e) => setClosesOn(e.target.value)} />}
-          </Field>
-          <Alert tone="warning" title="Depois do lançamento, nada disso muda">
-            Perguntas, k ({k}) e os grupos de segmentação ficam congelados para proteger o anonimato. Os resultados aparecem em lotes de pelo menos {k} respostas.
-          </Alert>
-        </div>
-      </Modal>
+      <LaunchDialog open={launchOpen} onOpenChange={setLaunchOpen} k={k} orgUnits={orgUnits} pending={pending} onConfirm={launch} />
     </form>
   );
 }

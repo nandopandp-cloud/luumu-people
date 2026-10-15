@@ -66,6 +66,27 @@ const PULSE_CLOSED: SurveySeed = {
   ],
 };
 
+const ENPS_SCHEDULED: SurveySeed = {
+  title: "eNPS — 2º semestre de 2026",
+  description: "Quanto você recomendaria a empresa como lugar para trabalhar?",
+  kind: "enps",
+  questions: [
+    { type: "enps", text: "Em uma escala de 0 a 10, o quanto você recomendaria a empresa como um bom lugar para trabalhar?" },
+    { type: "text", text: "Quer contar o motivo da sua nota?", required: false },
+  ],
+};
+
+const AREA_PULSE: SurveySeed = {
+  title: "Pulso da equipe",
+  description: "Como está a colaboração no seu time?",
+  kind: "pulse",
+  questions: [
+    { type: "scale", text: "Meu time colabora bem para entregar os objetivos." },
+    { type: "scale", text: "Tenho clareza sobre as prioridades da semana." },
+    { type: "text", text: "Algo que ajudaria o time?", required: false },
+  ],
+};
+
 const ONBOARDING_CLOSED: SurveySeed = {
   title: "Semana de integração 2026",
   description: "Conte como foi a semana de integração para melhorarmos as próximas turmas.",
@@ -173,5 +194,51 @@ export async function seedSurveys(db: Database, tenantId: string): Promise<void>
       await db.update(s.surveys).set({ status: "closed", closesAt, closedAt: closesAt }).where(eq(s.surveys.id, id));
       await db.execute(sql`select survey_vault.close(${id}::uuid)`);
     }
+  }
+
+  // Agendada: lançada com início daqui a 12 dias (ninguém vê nem responde até lá).
+  {
+    const { id } = await insertSurvey(db, tenantId, ENPS_SCHEDULED, k);
+    await db.insert(s.surveyInvitations).values(profiles.map((p) => ({ tenantId, surveyId: id, userId: p.userId })));
+    await db
+      .update(s.surveys)
+      .set({ status: "active", launchedAt: new Date(Date.now() + 12 * DAY), closesAt: new Date(Date.now() + 22 * DAY), dimensions })
+      .where(eq(s.surveys.id, id));
+  }
+
+  // Público por área: a maior área (com ≥ k pessoas), encerrada, com respostas.
+  const [area] = (
+    (await db.execute(sql`
+      select ou.id, array_agg(ea.user_id) as members from org_units ou
+      join employment_assignments ea on ea.org_unit_id = ou.id and ea.valid_to is null
+      join users u on u.id = ea.user_id and u.status = 'active'
+      where ou.tenant_id = ${tenantId} and ou.type = 'area'
+      group by ou.id having count(*) >= ${k} order by count(*) desc limit 1`)) as unknown as { rows: { id: string; members: string[] }[] }
+  ).rows;
+  if (area) {
+    const members = new Set(area.members);
+    const audience = profiles.filter((p) => members.has(p.userId));
+    const areaDimensions = approveDimensions(audience, k);
+    const { id, questionIds } = await insertSurvey(db, tenantId, AREA_PULSE, k);
+    const launchedAt = new Date(Date.now() - 45 * DAY);
+    await db.insert(s.surveyInvitations).values(audience.map((p) => ({ tenantId, surveyId: id, userId: p.userId })));
+    await db.update(s.surveys).set({ status: "active", launchedAt, closesAt: new Date(Date.now() + DAY), dimensions: areaDimensions, audienceOrgUnitId: area.id }).where(eq(s.surveys.id, id));
+    const rnd = random(23);
+    for (const [index, profile] of audience.entries()) {
+      if (rnd() > 0.85) continue;
+      const answers: Record<string, number | string> = {};
+      AREA_PULSE.questions.forEach((q, i) => {
+        const value = answerFor(q, rnd);
+        if (value !== undefined) answers[questionIds[i]!] = value;
+      });
+      await db
+        .update(s.surveyInvitations)
+        .set({ status: "completed", completedOn: new Date(launchedAt.getTime() + (index % 4) * DAY).toISOString().slice(0, 10) })
+        .where(and(eq(s.surveyInvitations.surveyId, id), eq(s.surveyInvitations.userId, profile.userId)));
+      await db.execute(sql`select survey_vault.submit(${id}::uuid, ${JSON.stringify(generalizedDimensions(profile, areaDimensions))}::jsonb, ${JSON.stringify(answers)}::jsonb)`);
+    }
+    const closesAt = new Date(launchedAt.getTime() + 14 * DAY);
+    await db.update(s.surveys).set({ status: "closed", closesAt, closedAt: closesAt }).where(eq(s.surveys.id, id));
+    await db.execute(sql`select survey_vault.close(${id}::uuid)`);
   }
 }

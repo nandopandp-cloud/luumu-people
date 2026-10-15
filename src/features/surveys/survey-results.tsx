@@ -7,7 +7,7 @@ import { Alert } from "@/design-system/components/feedback";
 import { Progress } from "@/design-system/components/progress";
 import { cn } from "@/design-system/cn";
 import type { getSurveyResults, QuestionResult } from "@/server/modules/surveys/service";
-import { ANONYMITY_COPY, DIMENSION_LABEL, formatDay, SCALE_LABELS, SURVEY_KIND } from "./labels";
+import { ANONYMITY_COPY, DIMENSION_LABEL, formatDay, SCALE_LABELS, SURVEY_KIND, SURVEY_STATUS } from "./labels";
 
 type Data = Awaited<ReturnType<typeof getSurveyResults>>;
 type Question = Data["questions"][number];
@@ -25,7 +25,7 @@ export function enps(distribution: Record<string, number>) {
   return { total, promoters, passives, detractors, score: pct(promoters, total) - pct(detractors, total) };
 }
 
-const STATUS = { active: { label: "Em andamento", tone: "green" }, paused: { label: "Pausada", tone: "yellow" }, closed: { label: "Encerrada", tone: "neutral" }, draft: { label: "Rascunho", tone: "neutral" } } as const;
+
 
 /**
  * Resultados AGREGADOS. Tudo vem do cofre já com supressão por k; esta tela
@@ -37,6 +37,9 @@ export function SurveyResults({ data, basePath, actions }: { data: Data; basePat
   const released = results.suppressed ? 0 : results.responses;
   const href = (d?: string, b?: string) => ({ pathname: basePath, query: { ...(d && { dimensao: d }), ...(b && { grupo: b }) } });
 
+  const scheduled = survey.scheduled;
+  const status = scheduled ? "scheduled" : survey.status;
+
   return (
     <div className="space-y-6">
       <header className="card p-6">
@@ -44,7 +47,7 @@ export function SurveyResults({ data, basePath, actions }: { data: Data; basePat
           <div>
             <div className="flex flex-wrap gap-1.5">
               <Badge tone={kind.tone}>{kind.label}</Badge>
-              <Badge tone={STATUS[survey.status].tone}>{STATUS[survey.status].label}</Badge>
+              <Badge tone={SURVEY_STATUS[status].tone}>{SURVEY_STATUS[status].label}</Badge>
               <Badge tone="purple">
                 <Lock aria-hidden /> Anônima · k = {survey.anonymityK}
               </Badge>
@@ -52,7 +55,7 @@ export function SurveyResults({ data, basePath, actions }: { data: Data; basePat
             <h1 className="mt-3 text-h1 font-extrabold tracking-[-0.02em] text-neutral-900">{survey.title}</h1>
             <p className="mt-1 flex items-center gap-1.5 text-body-sm text-neutral-600">
               <CalendarClock aria-hidden className="size-4" />
-              {survey.launchedAt ? `Lançada em ${formatDay(survey.launchedAt)}` : null}
+              {survey.launchedAt ? `${scheduled ? "Abre em" : "Lançada em"} ${formatDay(survey.launchedAt)}` : null}
               {survey.closesAt ? ` · ${survey.status === "closed" ? "encerrada em" : "encerra em"} ${formatDay(survey.closedAt ?? survey.closesAt)}` : null}
             </p>
           </div>

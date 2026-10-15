@@ -281,6 +281,20 @@
       "when": 1792013381462,
       "tag": "0039_usage_days_security",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1792069146722,
+      "tag": "0040_surveys_audience",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1792069147224,
+      "tag": "0041_surveys_audience_schedule_security",
+      "breakpoints": true
     }
   ]
 }

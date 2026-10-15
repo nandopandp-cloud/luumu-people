@@ -94,12 +94,14 @@ Durante o processamento da requisição de envio, o processo da aplicação vê 
 | Comentários | Devolvidos só com ≥ k respostas no grupo, em ordem aleatória, sem data nem dimensão | ✅ |
 | Observabilidade | A rota de envio usa `defineRoute({ anonymous: true })`: rate limit só em memória volátil e, em erro inesperado, log apenas com `requestId`. Nada é auditado no envio | ✅ TESTE 5 |
 | Rascunho | Somente `sessionStorage` do navegador; apagado ao enviar | — |
+| Público | Empresa toda ou uma área (com subáreas), escolhido no lançamento (`audience_org_unit_id`). O público precisa ter ≥ k pessoas; dimensões são aprovadas sobre ele. Congela no lançamento (trigger `surveys_guard`) | ✅ `surveys-management.test.ts` |
+| Agendamento | `launched_at` no futuro = **agendada**. Convites são criados no agendamento, mas a pesquisa some da lista do colaborador e o cofre recusa respostas até o início (`survey_vault.submit` exige `launched_at <= now()`) | ✅ `surveys-management.test.ts` |
 
 **Ainda não implementado (próximas etapas):**
 
 - Pesquisas **identificadas** (`survey_identified_response`, aviso na interface). Hoje toda pesquisa é anônima; a coluna `anonymity_mode` e o trigger de imutabilidade já existem.
 - Resultados para **gestores com escopo de equipe** (exigem uma dimensão de equipe aprovada no lançamento, sempre com k). Hoje só quem tem `survey.results.read_aggregate` com escopo TENANT vê resultados.
-- Público segmentado (hoje: todas as pessoas ativas), recorrência, lógica condicional entre perguntas e exportação (que usará as mesmas funções de agregação).
+- Recorrência, lógica condicional entre perguntas e exportação de resultados (que usará as mesmas funções de agregação). A exportação que existe é só de **participação** (convites), nunca de respostas.
 - Cron diário para encerrar pesquisas vencidas mesmo sem acesso à gestão.
 - Teste estatístico de "ordem física pós-flush não correlacionada" (o embaralhamento existe, mas o teste automatizado não).
 
