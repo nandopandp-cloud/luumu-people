@@ -20,6 +20,17 @@ import type { ChatFile, ChatMessage, ConversationDetail, MessagesPage } from "./
 
 /** Atualização periódica da conversa em foco; janelas flutuantes em segundo plano usam `pollMs` maior. */
 const POLL_MS = 3_000;
+/**
+ * Conversa parada fica menos "viva": quanto mais tempo sem mensagem nova, envio ou digitação,
+ * mais espaçadas as consultas (cada uma é uma chamada ao servidor). Qualquer atividade, ou
+ * voltar para a janela, retoma o ritmo normal na hora.
+ */
+const IDLE_BACKOFF: { afterMs: number; pollMs: number }[] = [
+  { afterMs: 10 * 60_000, pollMs: 30_000 },
+  { afterMs: 2 * 60_000, pollMs: 10_000 },
+  { afterMs: 30_000, pollMs: 6_000 },
+];
+const pollDelay = (base: number, idleMs: number) => Math.max(base, IDLE_BACKOFF.find((step) => idleMs >= step.afterMs)?.pollMs ?? base);
 const TYPING_EVERY_MS = 3_000;
 const ACCEPT = "image/png,image/jpeg,image/webp,application/pdf";
 
@@ -163,9 +174,19 @@ export function ChatPanel(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- carga inicial por conversa
   }, [id]);
 
+  // Último movimento da conversa (mensagem nova ou enviada, alguém digitando): define o ritmo da consulta.
+  const lastActivity = useRef(0);
+  const lastMessageId = messages[messages.length - 1]?.id;
+  const someoneTyping = typing.length > 0;
+  useEffect(() => {
+    lastActivity.current = Date.now();
+  }, [lastMessageId, someoneTyping, id]);
+  // (o efeito acima roda ao montar, então o ref nunca é lido com o valor inicial 0)
+
   // Atualização periódica: mensagens novas (e apagadas), leitura, digitação e presença.
   useEffect(() => {
     let alive = true;
+    let timer: number | undefined;
     const tick = async () => {
       if (document.visibilityState !== "visible" || !since.current) return;
       try {
@@ -188,16 +209,28 @@ export function ChatPanel(props: Props) {
         /* silencioso: tenta de novo no próximo ciclo */
       }
     };
-    const timer = window.setInterval(tick, pollMs);
-    const onFocus = () => {
-      void tick();
+    const schedule = () => {
+      timer = window.setTimeout(async () => {
+        await tick();
+        if (alive) schedule();
+      }, pollDelay(pollMs, Date.now() - lastActivity.current));
+    };
+    // Volta para a janela: consulta já e retoma o ritmo normal.
+    const wake = () => {
+      if (document.visibilityState !== "visible") return;
+      lastActivity.current = Date.now();
+      window.clearTimeout(timer);
+      void tick().then(() => alive && schedule());
       markRead();
     };
-    window.addEventListener("focus", onFocus);
+    schedule();
+    window.addEventListener("focus", wake);
+    document.addEventListener("visibilitychange", wake);
     return () => {
       alive = false;
-      window.clearInterval(timer);
-      window.removeEventListener("focus", onFocus);
+      window.clearTimeout(timer);
+      window.removeEventListener("focus", wake);
+      document.removeEventListener("visibilitychange", wake);
     };
   }, [id, markRead, onActivity, pollMs]);
 

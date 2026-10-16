@@ -13,6 +13,7 @@ import * as bannersRoute from "@/app/api/v1/banners/route";
 import { call } from "../support/http";
 import * as s from "@/server/db/schema";
 import { signIn } from "../support/auth";
+import { setStorageDriver, storage } from "@/server/files/storage";
 import { testDatabase } from "../support/db";
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 73, 72, 68, 82]);
@@ -55,6 +56,29 @@ describe("arquivos", () => {
     expect(file.headers.get("content-security-policy")).toContain("sandbox");
     expect(file.headers.get("cache-control")).toContain("private");
     expect(new Uint8Array(await file.arrayBuffer())).toEqual(PNG);
+  });
+
+  it("revalidação (If-None-Match) responde 304 sem ler o conteúdo no storage; sem permissão continua 404", async () => {
+    const fernando = await signIn("aurora", "fernando");
+    const res = await upload(avatarRoute.POST as never, "/api/v1/me/avatar", fernando.cookie, PNG, "foto.png");
+    const first = await download(res.json.id, fernando.cookie);
+    const etag = first.headers.get("etag")!;
+    expect(etag).toBeTruthy();
+    expect(first.headers.get("cache-control")).toBe("private, max-age=604800, immutable");
+
+    const real = storage();
+    let reads = 0;
+    setStorageDriver({ ...real, name: "spy", get: async (key) => (reads++, real.get(key)) });
+    try {
+      const revalidate = (cookie: string) =>
+        fileRoute.GET(new Request(`${ORIGIN}/api/v1/files/${res.json.id}`, { headers: { cookie, "if-none-match": etag } }), { params: Promise.resolve({ id: res.json.id }) });
+      expect((await revalidate(fernando.cookie)).status).toBe(304);
+      expect(reads).toBe(0);
+      const sergio = await signIn("horizonte", "sergio");
+      expect((await revalidate(sergio.cookie)).status).toBe(404);
+    } finally {
+      setStorageDriver(real);
+    }
   });
 
   it("arquivo disfarçado (HTML com nome .png) é recusado", async () => {

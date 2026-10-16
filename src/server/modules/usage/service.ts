@@ -3,8 +3,9 @@ import { sql } from "drizzle-orm";
 import type { AuthenticatedActor } from "@/server/auth/session";
 import { hasTenantWide } from "@/server/authz/policy";
 import * as s from "@/server/db/schema";
-import { withTenant } from "@/server/db/tenant";
+import { withTenant, type Tx } from "@/server/db/tenant";
 import { forbidden } from "@/server/http/errors";
+import { touchPresenceIn } from "@/server/modules/friends/conversations";
 
 /**
  * Uso da plataforma: acessos, pessoas únicas e tempo de uso.
@@ -22,22 +23,32 @@ const NEW_VISIT_AFTER = sql`interval '30 minutes'`;
 const MAX_GAP_SECONDS = 120;
 
 export async function recordUsage(actor: AuthenticatedActor) {
+  await withTenant(actor, (tx) => recordUsageIn(tx, actor));
+}
+
+/** Sinal periódico da aba aberta: presença e uso na MESMA transação (uma ida ao banco por batida). */
+export async function recordActivity(actor: AuthenticatedActor) {
   await withTenant(actor, async (tx) => {
-    const u = s.usageDays;
-    await tx
-      .insert(u)
-      .values({ tenantId: actor.tenantId, userId: actor.userId, day: sql`${TODAY}` })
-      .onConflictDoUpdate({
-        target: [u.tenantId, u.userId, u.day],
-        set: {
-          visits: sql`case when ${u.lastSeenAt} < now() - ${NEW_VISIT_AFTER} then ${u.visits} + 1 else ${u.visits} end`,
-          activeSeconds: sql`${u.activeSeconds} + case when ${u.lastSeenAt} >= now() - ${NEW_VISIT_AFTER} then least(extract(epoch from now() - ${u.lastSeenAt}), ${MAX_GAP_SECONDS})::int else 0 end`,
-          lastSeenAt: sql`now()`,
-        },
-        // Abas duplicadas ou foco repetido não contam duas vezes.
-        setWhere: sql`${u.lastSeenAt} < now() - interval '20 seconds'`,
-      });
+    await touchPresenceIn(tx, actor);
+    await recordUsageIn(tx, actor);
   });
+}
+
+async function recordUsageIn(tx: Tx, actor: AuthenticatedActor) {
+  const u = s.usageDays;
+  await tx
+    .insert(u)
+    .values({ tenantId: actor.tenantId, userId: actor.userId, day: sql`${TODAY}` })
+    .onConflictDoUpdate({
+      target: [u.tenantId, u.userId, u.day],
+      set: {
+        visits: sql`case when ${u.lastSeenAt} < now() - ${NEW_VISIT_AFTER} then ${u.visits} + 1 else ${u.visits} end`,
+        activeSeconds: sql`${u.activeSeconds} + case when ${u.lastSeenAt} >= now() - ${NEW_VISIT_AFTER} then least(extract(epoch from now() - ${u.lastSeenAt}), ${MAX_GAP_SECONDS})::int else 0 end`,
+        lastSeenAt: sql`now()`,
+      },
+      // Abas duplicadas ou foco repetido não contam duas vezes.
+      setWhere: sql`${u.lastSeenAt} < now() - interval '20 seconds'`,
+    });
 }
 
 export const USAGE_PERIODS = [7, 30] as const;

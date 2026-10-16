@@ -1,7 +1,7 @@
 import "server-only";
 import { loadGrants } from "@/server/authz/grants";
 import type { Actor } from "@/server/authz/policy";
-import { withTenant } from "@/server/db/tenant";
+import { withTenant, type Tx } from "@/server/db/tenant";
 import { env } from "@/server/env";
 import { getAuth } from "./auth";
 
@@ -24,8 +24,10 @@ export type AuthenticatedActor = Actor & {
  * Resolve a sessão a partir dos cabeçalhos (cookie) e carrega as permissões.
  * Retorna null se não houver sessão válida. Aplica, além da expiração por
  * ociosidade do Better Auth, o limite ABSOLUTO de duração da sessão.
+ * `alongside` roda na MESMA transação que carrega as permissões (a API usa para
+ * contar o rate limit sem abrir outra transação).
  */
-export async function resolveActor(headers: Headers): Promise<AuthenticatedActor | null> {
+export async function resolveActor(headers: Headers, alongside?: (tx: Tx, userId: string) => Promise<void>): Promise<AuthenticatedActor | null> {
   const auth = await getAuth();
   const result = await auth.api.getSession({ headers });
   if (!result) return null;
@@ -42,7 +44,11 @@ export async function resolveActor(headers: Headers): Promise<AuthenticatedActor
   const status = (user as { status?: unknown }).status;
   if (typeof tenantId !== "string" || status !== "active") return null;
 
-  const grants = await withTenant({ tenantId, userId: user.id }, (tx) => loadGrants(tx, user.id));
+  const grants = await withTenant({ tenantId, userId: user.id }, async (tx) => {
+    const loaded = await loadGrants(tx, user.id);
+    await alongside?.(tx, user.id);
+    return loaded;
+  });
 
   return {
     userId: user.id,

@@ -48,6 +48,8 @@ export function NotificationBell({ initialUnread }: { initialUnread: number }) {
   useEffect(() => {
     let alive = true;
     const refresh = async () => {
+      // Aba em segundo plano não precisa do contador: ele atualiza ao voltar (evento de visibilidade).
+      if (document.visibilityState !== "visible") return;
       try {
         const { unread: n } = await api<{ unread: number }>("/api/v1/me/notifications/unread-count");
         if (alive) setUnread(n);
@@ -58,11 +60,13 @@ export function NotificationBell({ initialUnread }: { initialUnread: number }) {
     const timer = window.setInterval(refresh, POLL_MS);
     const onFocus = () => void refresh();
     window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
     window.addEventListener(NOTIFICATIONS_CHANGED, onFocus);
     return () => {
       alive = false;
       window.clearInterval(timer);
       window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
       window.removeEventListener(NOTIFICATIONS_CHANGED, onFocus);
     };
   }, []);

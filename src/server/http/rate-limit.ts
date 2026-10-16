@@ -12,16 +12,19 @@ import { withTenant } from "@/server/db/tenant";
  */
 export interface RateLimitStore {
   hit(ctx: TenantContext, key: string, windowMs: number): Promise<{ count: number; resetAt: number }>;
+  /** Opcional: a mesma contagem dentro de uma transação de tenant já aberta (poupa uma transação por requisição). */
+  hitIn?(tx: Tx, key: string, windowMs: number): Promise<{ count: number; resetAt: number }>;
+}
+
+async function hitInTransaction(tx: Tx, key: string, windowMs: number) {
+  const result = await tx.execute(sql`select hits, reset_at from app.rate_limit_hit(${key}, ${windowMs})`);
+  const row = (result as unknown as { rows: { hits: number; reset_at: Date | string }[] }).rows[0]!;
+  return { count: Number(row.hits), resetAt: new Date(row.reset_at).getTime() };
 }
 
 export const postgresStore: RateLimitStore = {
-  async hit(ctx, key, windowMs) {
-    return withTenant(ctx, async (tx: Tx) => {
-      const result = await tx.execute(sql`select hits, reset_at from app.rate_limit_hit(${key}, ${windowMs})`);
-      const row = (result as unknown as { rows: { hits: number; reset_at: Date | string }[] }).rows[0]!;
-      return { count: Number(row.hits), resetAt: new Date(row.reset_at).getTime() };
-    });
-  },
+  hit: (ctx, key, windowMs) => withTenant(ctx, (tx: Tx) => hitInTransaction(tx, key, windowMs)),
+  hitIn: hitInTransaction,
 };
 
 /** Store em memória (por processo): testes unitários e o limite volátil abaixo. */
@@ -57,6 +60,15 @@ let store: RateLimitStore = postgresStore;
 
 export function setRateLimitStore(next: RateLimitStore) {
   store = next;
+}
+
+/** O store atual consegue contar dentro de uma transação já aberta? (o de produção, no Postgres, sim) */
+export const rateLimitCanRunInTransaction = () => store.hitIn !== undefined;
+
+/** Conta o acesso numa transação de tenant já aberta. Só chamar se `rateLimitCanRunInTransaction()`. */
+export async function checkRateLimitIn(tx: Tx, key: string, rule: RateLimitRule, now = Date.now()) {
+  const bucket = await store.hitIn!(tx, key, rule.windowMs);
+  return { allowed: bucket.count <= rule.limit, retryAfterSeconds: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)) };
 }
 
 export async function checkRateLimit(

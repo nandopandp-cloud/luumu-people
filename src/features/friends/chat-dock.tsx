@@ -29,7 +29,7 @@ import type { ConversationDetail, ConversationSummary } from "./types";
  * esconde o widget até a pessoa iniciar uma conversa ou receber mensagem nova.
  */
 
-const LIST_POLL_MS = 15_000;
+const LIST_POLL_MS = 30_000;
 
 function useMedia(query: string) {
   const [matches, setMatches] = useState(false);

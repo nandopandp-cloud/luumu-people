@@ -25,7 +25,7 @@ import type { ConversationDetail, ConversationSummary, FriendRequests, MessagesP
 
 type Filter = "todas" | "nao-lidas" | "grupos";
 
-const LIST_POLL_MS = 10_000;
+const LIST_POLL_MS = 20_000;
 
 type Initial = {
   conversations: ConversationSummary[];

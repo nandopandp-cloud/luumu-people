@@ -7,7 +7,7 @@ import { hasPermissionAnywhere } from "@/server/authz/policy";
 import { trustedOrigins } from "@/server/env";
 import { logger } from "@/server/observability/logger";
 import { badRequest, forbidden, HttpError, problem, unauthorized } from "./errors";
-import { checkRateLimit, checkVolatileRateLimit, DEFAULT_RATE_LIMIT, type RateLimitRule } from "./rate-limit";
+import { checkRateLimit, checkRateLimitIn, checkVolatileRateLimit, DEFAULT_RATE_LIMIT, rateLimitCanRunInTransaction, type RateLimitRule } from "./rate-limit";
 
 /**
  * Wrapper único para route handlers da API (/api/v1). Toda rota declara:
@@ -127,7 +127,19 @@ export function defineRoute<QS extends Schema | undefined = undefined, BS extend
         throw forbidden("Origem da requisição não permitida.");
       }
 
-      const actor = await resolveActor(request.headers);
+      const rule = config.rateLimit ?? DEFAULT_RATE_LIMIT;
+      // O contador (compartilhado, no Postgres) roda na mesma transação que carrega as permissões:
+      // uma transação a menos por requisição, sem mudar a garantia do limite.
+      const counted: { limit?: { allowed: boolean; retryAfterSeconds: number } } = {};
+      const countInSession = !config.anonymous && rateLimitCanRunInTransaction();
+      const actor = await resolveActor(
+        request.headers,
+        countInSession
+          ? async (tx, userId) => {
+              counted.limit = await checkRateLimitIn(tx, `api:${userId}:${rule.limit}`, rule);
+            }
+          : undefined,
+      );
       if (!actor) throw unauthorized();
       // Senha provisória: nada da API até criar a própria (a troca é pelo Better Auth, fora daqui).
       if (actor.mustChangePassword) throw forbidden("Crie sua senha para continuar usando a plataforma.");
@@ -136,10 +148,11 @@ export function defineRoute<QS extends Schema | undefined = undefined, BS extend
         throw forbidden();
       }
 
-      const rule = config.rateLimit ?? DEFAULT_RATE_LIMIT;
-      const limit = config.anonymous
-        ? await checkVolatileRateLimit(actor, `anon:${actor.userId}`, rule)
-        : await checkRateLimit(actor, `api:${actor.userId}:${rule.limit}`, rule);
+      const limit =
+        counted.limit ??
+        (config.anonymous
+          ? await checkVolatileRateLimit(actor, `anon:${actor.userId}`, rule)
+          : await checkRateLimit(actor, `api:${actor.userId}:${rule.limit}`, rule));
       if (!limit.allowed) {
         return problem(429, "Muitas requisições", "Aguarde um instante e tente novamente.", undefined, {
           "retry-after": String(limit.retryAfterSeconds),

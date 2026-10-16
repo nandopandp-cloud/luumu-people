@@ -105,7 +105,7 @@ export async function uploadFile(actor: AuthenticatedActor, purpose: FilePurpose
  * invisíveis pela RLS (404). Anexos de conversa: só quem enviou e quem vê a
  * mensagem (participantes, pela RLS de chat_messages); para os demais, 404.
  */
-export async function openFile(actor: AuthenticatedActor, id: string) {
+export async function openFile(actor: AuthenticatedActor, id: string, opts: { ifNoneMatch?: string | null } = {}) {
   const row = await withTenant(actor, async (tx) => {
     const [found] = await tx
       .select({
@@ -126,9 +126,15 @@ export async function openFile(actor: AuthenticatedActor, id: string) {
     return found;
   });
   if (!row) throw notFound();
+  // O navegador já tem este conteúdo (a permissão acima foi checada): não gasta uma leitura no Blob.
+  if (opts.ifNoneMatch && opts.ifNoneMatch === fileEtag(row.sha256)) return { ...row, body: null };
   const object = await storage().get(row.storageKey);
   if (!object) throw notFound();
   return { ...row, body: object.body };
+}
+
+export function fileEtag(sha256: string) {
+  return `"${sha256}"`;
 }
 
 /** Define a foto do próprio perfil a partir de um upload do tipo avatar feito pela própria pessoa. */

@@ -69,3 +69,13 @@ A troca obrigatória de senha precisa estar **publicada antes** do passo 3.
 ## Migrations em produção
 
 Aplique sempre com `pnpm db:migrate` (registra em `drizzle.__drizzle_migrations`). Em 15/10/2026 o registro estava parado na 0028 porque as migrations 0011–0016 e 0029–0041 tinham sido aplicadas fora do migrador; as proteções (RLS, permissões, cofre) foram conferidas, as entradas faltantes registradas e a 0042/0043 aplicadas.
+
+## Custos (Vercel Functions e Blob)
+
+O custo vem de **chamadas à API** (cada uma é uma invocação + transações no Neon) e de **arquivos no Blob**. O que já está aplicado:
+
+- **Polling com freio**: o sino só consulta com a aba visível; a conversa aberta espaça as consultas quando está parada (3 s → 6 s → 10 s → 30 s) e volta ao ritmo normal com qualquer atividade ou ao focar a janela; listas de conversa a cada 30 s (dock) e 20 s (página).
+- **Uma transação a menos por requisição**: o contador de rate limit (Postgres, compartilhado) roda na mesma transação que carrega as permissões (`resolveActor(headers, alongside)`); o sinal de presença grava presença e uso numa só transação (`recordActivity`).
+- **Arquivos**: `If-None-Match` válido responde 304 sem ler o Blob (a permissão continua checada); avatares, capas e banners ficam 7 dias no cache do navegador (anexos de conversa, 1 dia).
+- **Imagens do chat** (PNG/JPEG > 300 KB) são reduzidas no navegador antes do envio (lado maior 1920 px, qualidade 85); sem ganho real, vai o original.
+- **Limpeza do Blob**: `pnpm tsx scripts/purge-orphan-files.mts` (simulação) e `--apply` (com `BLOB_READ_WRITE_TOKEN`) apagam arquivos de mensagens apagadas e órfãos (foto/capa trocadas, banner substituído, uploads abandonados). Rode de tempos em tempos, depois da simulação.

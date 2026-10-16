@@ -1,6 +1,7 @@
 "use client";
 
 import { api, ApiError } from "@/lib/api-client";
+import { compressImageForUpload } from "@/lib/compress-image";
 import type { ChatFile, ChatMessage, ConnectionCard, ConnectionsCounts, ConversationDetail, ConversationSummary, DiscoverFilter, FriendRequests, MessagesPage, PersonCard, PersonProfile, Relation, SharedMedia } from "./types";
 
 /** Chamadas da área "Amigos" à API (mesma origem, cookie de sessão). */
@@ -38,7 +39,8 @@ export const friendsApi = {
   presence: () => api<void>("/api/v1/me/presence", { method: "POST" }),
 
   /** Envia um anexo de conversa (PDF ou imagem até 4 MB) e devolve o arquivo. */
-  async upload(file: File): Promise<ChatFile> {
+  async upload(original: File): Promise<ChatFile> {
+    const file = await compressImageForUpload(original);
     const form = new FormData();
     form.set("file", file);
     const response = await fetch("/api/v1/files?purpose=chat_attachment", { method: "POST", body: form, credentials: "same-origin" }).catch(() => null);

@@ -570,15 +570,18 @@ export async function friendsBadgeCount(actor: AuthenticatedActor): Promise<{ co
 
 /** Sinal de presença ("online agora"); grava no máximo a cada 30 s. */
 export async function touchPresence(actor: AuthenticatedActor) {
-  await withTenant(actor, async (tx) => {
-    await tx
-      .insert(s.userPresence)
-      .values({ tenantId: actor.tenantId, userId: actor.userId })
-      .onConflictDoUpdate({
-        target: [s.userPresence.tenantId, s.userPresence.userId],
-        set: { lastSeenAt: sql`now()` },
-        setWhere: sql`${s.userPresence.lastSeenAt} < now() - interval '30 seconds'`,
-      });
-  });
+  await withTenant(actor, (tx) => touchPresenceIn(tx, actor));
+}
+
+/** Mesma gravação, dentro de uma transação já aberta (sinal de atividade: presença + uso numa só ida ao banco). */
+export async function touchPresenceIn(tx: Tx, actor: AuthenticatedActor) {
+  await tx
+    .insert(s.userPresence)
+    .values({ tenantId: actor.tenantId, userId: actor.userId })
+    .onConflictDoUpdate({
+      target: [s.userPresence.tenantId, s.userPresence.userId],
+      set: { lastSeenAt: sql`now()` },
+      setWhere: sql`${s.userPresence.lastSeenAt} < now() - interval '30 seconds'`,
+    });
 }
 
