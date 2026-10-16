@@ -45,6 +45,8 @@ const schema = z.object({
   /** Logins por minuto por IP. Padrão seguro: 10. Só testes automatizados devem elevar. */
   AUTH_SIGNIN_RATE_LIMIT: z.coerce.number().int().min(3).max(1000).default(10),
   SESSION_ABSOLUTE_HOURS: z.coerce.number().int().min(1).max(72).default(12),
+  /** Segundos que a consulta da sessão fica em memória na instância (0 desliga). Ver resolveActor. */
+  SESSION_CACHE_SECONDS: z.coerce.number().int().min(0).max(120).default(30),
   /** Remetente: `Nome <email@dominio>` ou `email@dominio` (ver normalizeEmailFrom). */
   EMAIL_FROM: z.string().default("Luumu People <nao-responda@luumu.app>"),
   RESEND_API_KEY: z.string().optional(),

@@ -2,9 +2,10 @@ import { and, eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import { getAuth } from "@/server/auth/auth";
 import { MAX_FAILURES } from "@/server/auth/login-throttle";
-import { resolveActor } from "@/server/auth/session";
+import { resolveActor, revokeUserSessions } from "@/server/auth/session";
 import { hasPermissionAnywhere } from "@/server/authz/policy";
 import * as s from "@/server/db/schema";
+import { sql } from "drizzle-orm";
 import { headersWith, signIn } from "../support/auth";
 import { testDatabase, userOf } from "../support/db";
 
@@ -22,6 +23,36 @@ describe("autenticação", () => {
     expect(actor?.tenantId).toBe(tenantId);
     expect(actor?.grants.map((g) => g.roleKey)).toEqual(["employee"]);
     expect(hasPermissionAnywhere(actor!, "management.access")).toBe(false);
+  });
+
+  it("cache da consulta de sessão: sair, revogar, desativar e senha provisória valem na hora", async () => {
+    const { db } = await testDatabase();
+    const ctx = async (cookie: string) => resolveActor(headersWith(cookie));
+    const auth = await getAuth();
+
+    // Sair: a mesma cookie não funciona logo em seguida (mesmo com a consulta em cache).
+    const a = await signIn("aurora", "camila");
+    expect(await ctx(a.cookie)).not.toBeNull();
+    expect(await ctx(a.cookie)).not.toBeNull();
+    await auth.api.signOut({ headers: headersWith(a.cookie) });
+    expect(await ctx(a.cookie)).toBeNull();
+
+    // Revogar todas as sessões (troca de papel, reset).
+    const b = await signIn("aurora", "simone");
+    expect(await ctx(b.cookie)).not.toBeNull();
+    await revokeUserSessions(b.userId);
+    expect(await ctx(b.cookie)).toBeNull();
+
+    // Desativação e senha provisória não dependem do cache.
+    const c = await signIn("aurora", "helena");
+    expect((await ctx(c.cookie))?.mustChangePassword).toBe(false);
+    await db.execute(sql`update users set must_change_password = true where id = ${c.userId}`);
+    expect((await ctx(c.cookie))?.mustChangePassword).toBe(true);
+    await db.execute(sql`update users set must_change_password = false where id = ${c.userId}`);
+    expect((await ctx(c.cookie))?.mustChangePassword).toBe(false);
+    await db.execute(sql`update users set status = 'inactive' where id = ${c.userId}`);
+    expect(await ctx(c.cookie)).toBeNull();
+    await db.execute(sql`update users set status = 'active' where id = ${c.userId}`);
   });
 
   it("o cookie de sessão é HttpOnly e SameSite=Lax", async () => {

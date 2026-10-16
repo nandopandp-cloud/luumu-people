@@ -9,7 +9,7 @@
 | Expiração | ociosidade de 8 h (deslizante) + limite **absoluto** de 12 h (`resolveActor`) |
 | Senha provisória | contas importadas em lote (`scripts/import-structure.mts`, senha em `IMPORT_PASSWORD`) nascem com `must_change_password`: qualquer página leva a `/trocar-senha` e toda a API responde 403 até a pessoa criar a própria senha (diferente da provisória). Trocar ou redefinir a senha libera o acesso |
 | Convite de acesso | conta criada pela empresa nasce "convidada" (login bloqueado). O convite usa o mesmo token da redefinição de senha do Better Auth (aleatório, guardado com hash, uso único), com validade de 7 dias; ao criar a senha, `onPasswordReset` ativa só quem estava "convidado" (desativados continuam inativos) e audita `people.activated`. Reenviar gera um novo link |
-| Revogação | desativar usuário, trocar papel ou redefinir senha encerram as sessões na hora (sem cache de sessão em cookie) |
+| Revogação | desativar usuário barra o acesso na hora (status e permissões são lidos do banco a cada requisição). Trocar papel, redefinir senha ou sair encerram a sessão na hora na instância que processou a ação e em até `SESSION_CACHE_SECONDS` (30 s) nas demais, por causa do cache em memória da consulta de sessão. Sem cache de sessão em cookie |
 | Força bruta | rate limit persistente por IP (Better Auth/`rate_limits`) + bloqueio por conta após 5 falhas em 15 min (`login_throttles`, chave HMAC do e-mail) |
 | Enumeração | mesma resposta para e-mail inexistente e senha errada; "esqueci a senha" sempre responde igual |
 | Recuperação | token de uso único, guardado com **hash**, válido por 30 min |

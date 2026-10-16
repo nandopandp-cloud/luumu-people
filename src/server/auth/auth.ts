@@ -12,6 +12,7 @@ import { env, trustedOrigins } from "@/server/env";
 import { logger } from "@/server/observability/logger";
 import { clearFailures, isLocked, registerFailure } from "./login-throttle";
 import { hashPassword, verifyPassword } from "./password";
+import { evictSession } from "./session-cache";
 
 /**
  * Autenticação (Better Auth) — sessões opacas em banco, cookies HttpOnly,
@@ -142,7 +143,8 @@ function buildOptions(database: BetterAuthOptions["database"]): BetterAuthOption
       // Expiração por ociosidade (deslizante). O limite absoluto é aplicado em getActor().
       expiresIn: config.SESSION_IDLE_HOURS * 60 * 60,
       updateAge: 15 * 60,
-      // Sem cache em cookie: revogações (desativação, troca de papel) valem na hora.
+      // Sem cache em cookie (o servidor não consegue renová-lo em Server Components). O cache de
+      // consulta fica em memória da instância, com status e permissões ao vivo: ver resolveActor.
       cookieCache: { enabled: false },
     },
     account: {
@@ -273,6 +275,7 @@ function buildOptions(database: BetterAuthOptions["database"]): BetterAuthOption
         },
         delete: {
           async after(session, context) {
+            evictSession(session.id);
             await audit(session.userId, context?.path === "/sign-out" ? "auth.logout" : "auth.session_revoked");
           },
         },

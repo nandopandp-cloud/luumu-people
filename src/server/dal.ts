@@ -1,6 +1,7 @@
 import "server-only";
 import { headers } from "next/headers";
 import { forbidden, redirect } from "next/navigation";
+import { connection } from "next/server";
 import { cache } from "react";
 import { resolveActor, type AuthenticatedActor } from "@/server/auth/session";
 import type { Permission } from "@/server/authz/permissions";
@@ -14,7 +15,12 @@ import { getTodayMood, type TodayMood } from "@/server/modules/wellbeing/service
  * Data Access Layer para Server Components. Lê a sessão uma vez por request
  * (React cache). Deve ser chamada dentro de um <Suspense> (Cache Components).
  */
-export const getSessionActor = cache(async (): Promise<AuthenticatedActor | null> => resolveActor(await headers()));
+export const getSessionActor = cache(async (): Promise<AuthenticatedActor | null> => {
+  // Marca a renderização como dinâmica (dado de request) antes de a sessão sair do cache em memória,
+  // que não faz E/S e, sem isto, deixava o Next reclamar de Date.now() na pré-renderização.
+  await connection();
+  return resolveActor(await headers());
+});
 
 /**
  * Pessoa da sessão para as páginas. Com senha provisória, qualquer página leva
