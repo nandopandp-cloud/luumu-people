@@ -10,7 +10,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Regras do projeto Luumu People
 
-- Leia `docs/architecture.md`, `docs/security.md` e `docs/rbac.md` antes de mudar código de servidor.
+- Mapa da documentação: `docs/README.md`. Leia `docs/architecture.md`, `docs/security.md` e `docs/rbac.md` antes de mudar código de servidor; `docs/data-model.md` antes de mudar o schema.
+- Mudou comportamento, tabela ou tela? Atualize o documento correspondente no mesmo commit. Não renomeie nem mova documentos existentes: os caminhos são citados no código e em migrations já aplicadas.
 - Dados de tenant: somente via `withTenant()`. Toda tabela nova precisa de RLS, policy e grants explícitos em uma migration de segurança.
 - Rotas de API: sempre com `defineRoute()` e permissão declarada. Escopo checado no serviço com `can()`.
 - Nunca criar permissão, endpoint, log ou export que exponha resposta individual de pesquisa anônima (`docs/anonymous-surveys.md`).

@@ -2,6 +2,8 @@
 
 PostgreSQL 17 (Neon em preview/produção; PGlite, o Postgres em WASM, em desenvolvimento e testes). Schema em `src/server/db/schema`, migrations versionadas em `db/migrations`.
 
+Este documento trata do banco **físico**: convenções, roles, RLS, grants e migrations. Entidades e relacionamentos, com diagramas por domínio, estão em [data-model.md](data-model.md).
+
 ## Convenções
 
 - PK `uuid` (`gen_random_uuid()`); tabelas e colunas em `snake_case` e inglês.
@@ -11,7 +13,7 @@ PostgreSQL 17 (Neon em preview/produção; PGlite, o Postgres em WASM, em desenv
 - `CHECK` constraints garantem regras de domínio (k ∈ {5, 7, 10}, hierarquia de áreas, e-mail minúsculo, sem autoatribuição de papel…).
 - JSON só para configuração livre (`organizations.settings`, `audit_logs.metadata`), nunca para relacionamentos.
 
-## Entidades da Fase 1
+## Entidades por domínio
 
 | Domínio | Tabelas |
 |---|---|
@@ -31,13 +33,13 @@ PostgreSQL 17 (Neon em preview/produção; PGlite, o Postgres em WASM, em desenv
 
 No desenvolvimento, "atrasada" é **derivado** (prazo vencido e ação em aberto), nunca gravado; `pdi_actions` garante por `CHECK` que `status = 'done'` ⇔ `completed_at` preenchido e que o link de evidência é `https://`. A role de runtime só tem `SELECT`/`INSERT` em `competency_assessments`: o histórico de avaliações não pode ser editado nem apagado.
 
-O progresso de uma matrícula é **derivado** das aulas concluídas (`lesson_progress`); ao chegar a 100% é emitido um certificado com código de verificação.
+O progresso de uma matrícula é **calculado** das aulas concluídas (`lesson_progress`) e gravado em `enrollments.progress_pct`/`status` a cada aula concluída; um `CHECK` mantém os dois coerentes (`completed` ⇔ 100%). Ao chegar a 100% é emitido um certificado com código de verificação.
 
 `mood_checkins` (sentimento do dia, escala 1 = muito mal a 6 = muito bem, comentário até 300 caracteres) é legível por todas as pessoas do tenant (decisão de produto); policies `RESTRICTIVE` só deixam inserir e alterar a própria linha. `mood_prompt_dismissals` guarda o "agora não" do modal diário e é estritamente pessoal (`own_rows_only`). `withTenant()` define `app.tenant_id` e `app.user_id` numa única ida ao banco.
 
 Capas de comunicados, trilhas e cursos usam `theme` + `illustration` do design system até a chegada do upload de imagens. Comunicados: `pinned` fixa no topo; `cover_file_id` é a capa opcional (arquivo privado com finalidade `announcement_cover`); agendamento = `status = 'published'` com `published_at` futuro (o mural só mostra `published_at <= now()`). **Público:** `audience_org_unit_id` nulo = empresa toda; com área, só quem tem lotação atual nela ou em subárea vê o comunicado (mural, detalhe, busca, curtidas e comentários — regra em `modules/announcements/audience.ts`). Curtir e comentar só em nome próprio também no banco (policies `RESTRICTIVE` sobre `app.current_user_id()`).
 
-**Pesquisas.** No core, a pesquisa é a própria campanha (uma aplicação por pesquisa). `survey_invitations` guarda só `status` e `completed_on` (**data**, sem timestamps). Triggers: `anonymity_mode` imutável após o lançamento (e sem grant de UPDATE para o runtime), k só sobe, dimensões e perguntas congelam, ciclo `draft → active → closed`, só rascunho é excluído. O schema `survey_vault` (`anon_submission_buffer`, `anon_response`, `anon_answer`, `anon_response_dimension`) não tem identidade, timestamp nem FK para o core, e nenhuma role de runtime tem grant nas tabelas: só `EXECUTE` em `submit`, `close`, `results` e `breakdown` (`SECURITY DEFINER`). Ver [anonymous-surveys.md](anonymous-surveys.md).
+**Pesquisas.** No core, a pesquisa é a própria campanha (uma aplicação por pesquisa). `survey_invitations` guarda só `status` e `completed_on` (**data**, sem timestamps). Triggers: `anonymity_mode` imutável após o lançamento (e sem grant de UPDATE para o runtime), k só sobe, dimensões, perguntas e público (`audience_org_unit_id`) congelam, ciclo `draft → active ⇄ paused → closed`. O runtime só exclui rascunho; pesquisa já lançada sai inteira, com as respostas do cofre, por `survey_vault.purge`. O schema `survey_vault` (`anon_submission_buffer`, `anon_response`, `anon_answer`, `anon_response_dimension`) não tem identidade, timestamp nem FK para o core, e nenhuma role de runtime tem grant nas tabelas: só `EXECUTE` em `submit`, `close`, `results`, `breakdown` e `purge` (`SECURITY DEFINER`). Ver [anonymous-surveys.md](anonymous-surveys.md).
 
 **Amigos e conversas.** Pedidos pendentes só são vistos pelas duas pessoas; amizades aceitas são legíveis na empresa (amigos em comum). Conversas, participantes e mensagens só são legíveis por quem participa, e mensagens só a partir da própria entrada (`created_at >= app.chat_member_since(...)`). As funções `app.chat_member_since`, `app.chat_is_admin` e `app.chat_is_creator` (`SECURITY DEFINER`, só sobre a própria pessoa) evitam recursão nas policies. Triggers: `conversation_members_guard` (papel, entrada e reentrada só pela administração; leitura e "digitando" só em nome próprio) e `chat_messages_guard` (só o texto é editado; apagada não muda mais; o anexo não é trocado; `edited_at`/`updated_at` pelo banco) e `chat_message_likes_touch` (`SECURITY DEFINER`: curtir marca a mensagem como alterada, para a atualização periódica). Sem `DELETE` para o runtime em conversas, participantes e mensagens.
 

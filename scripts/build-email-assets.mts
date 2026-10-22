@@ -34,11 +34,11 @@ async function shot(name: string, html: string, { transparent = true }: { transp
 await shot("logo.png", `<div style="width:188px">${(await svg("wordmark.svg")).replace("<svg ", '<svg style="width:100%;height:auto;display:block" ')}</div>`);
 await shot("mascot.png", `<div style="width:56px">${(await svg("mascot.svg")).replace("<svg ", '<svg style="width:100%;height:auto;display:block" ')}</div>`);
 
-// Destaque: a ilustração oficial do e-mail (scripts/email-assets/hero-source.png,
+// Destaque: a ilustração oficial do e-mail (brand/email-hero.png,
 // 1994×789) em duas fatias. A esquerda (só fundo) vira fundo da célula do texto;
 // a direita (mascote e pessoa) é uma <img> comum — aparece em qualquer cliente.
 // Recorte: x 215→1994 (o começo é só fundo liso). Divisão em x = 1000.
-const source = await dataUri("scripts/email-assets/hero-source.png", "image/png");
+const source = await dataUri("brand/email-hero.png", "image/png");
 // Escala para o cartão de 568 px (600 do e-mail − 2 × 16 de margem).
 const HERO = (() => {
   const from = 215, split = 1000, to = 1994, card = 568;

@@ -30,14 +30,17 @@ A RFC 0001 propunha uma API NestJS separada. Com a decisão por Next na Vercel, 
 ```
 src/
   app/                    rotas (camada fina): páginas, layouts, route handlers
-    (auth)/               login, recuperação e redefinição de senha
-    (colaborador)/        início, cursos, trilhas, desenvolvimento, pesquisas…
-    gestao/               dashboard, usuários, auditoria e módulos futuros
+    (auth)/               entrar, convite, recuperar, redefinir e trocar senha
+    (colaborador)/        início, comunicados, desenvolvimento, pesquisas, amigos, conversas…
+    gestao/               dashboard, colaboradores, comunicação, desenvolvimento, pesquisas…
+    certificados/         certificado de curso (página para imprimir)
+    design-system/        vitrine dos componentes (fora de produção)
     api/auth/             Better Auth
     api/v1/               API REST da plataforma
-  design-system/          tokens (globals.css) e componentes reutilizáveis
+  design-system/          componentes reutilizáveis e ilustrações (tokens em app/globals.css)
   features/<domínio>/     componentes de UI específicos de um domínio
-  lib/                    utilitários de cliente (api-client, auth-client, format)
+  lib/                    utilitários de cliente (api-client, auth-client, format, rich-text…)
+  proxy.ts                checagem otimista de sessão (não é autorização)
   server/                 tudo que só roda no servidor ("server-only")
     env.ts                variáveis de ambiente validadas (Zod)
     dal.ts                acesso à sessão em Server Components
@@ -46,11 +49,16 @@ src/
     db/                   schema Drizzle, cliente, withTenant, migrations, seed
     http/                 defineRoute, erros (problem+json), rate limit
     audit/                trilha de auditoria
-    modules/<domínio>/    serviços e schemas de entrada (people, access, audit…)
+    email/                envio (Resend) e templates transacionais
+    files/                armazenamento (Vercel Blob) e validação de uploads
+    modules/<domínio>/    serviços e schemas de entrada (people, surveys, development…)
     observability/        logger com redação
 db/migrations/            SQL versionado (drizzle-kit + migrations de segurança)
-scripts/                  CLI: migrations, seed, provisionamento, marca
-tests/                    integração, unitários, e2e, suporte
+brand/                    arquivos-fonte oficiais da marca
+public/                   arquivos servidos (marca e e-mail gerados a partir de brand/)
+scripts/                  CLI de operação (docs/scripts.md)
+tests/                    unitários, integração, e2e, capturas da documentação, suporte
+docs/                     documentação (índice em docs/README.md)
 ```
 
 ## Regras de dependência (verificadas pelo ESLint)

@@ -11,6 +11,7 @@ Fontes: o styleguide da Luumu People e os mockups de interface. Código em `src/
   - `wordmark.svg`: "Luumú people" sem o mascote (usos compactos);
   - `mascot.svg`: estados vazios, ajuda, heros e ícone do app;
   - `symbol.svg`: mascote com balão.
+- A ilustração oficial dos e-mails fica em `brand/email-hero.png`; `scripts/build-email-assets.mts` gera os PNGs de `public/email/` (e-mail não exibe SVG).
 - **A folha existe apenas sobre o "ú" final. Nunca adicione folha junto ao "L".** Alguns mockups antigos mostram essa folha; a logo oficial não tem.
 - Componentes: `<Logo />`, `<Wordmark />`, `<Mascot />`. O mascote é decorativo por padrão (`alt=""`).
 - As ilustrações temáticas dos mockups (troféu, megafone, lupa, placas) exigem os arquivos originais. Até chegarem, os heros usam o mascote oficial com folhas e formas suaves.
@@ -36,7 +37,7 @@ Fontes: o styleguide da Luumu People e os mockups de interface. Código em `src/
 - `neutral-500` só é usado sobre branco. Sobre o `canvas`, o texto secundário usa `neutral-600`.
 - O axe roda nos testes E2E e falha com qualquer violação séria.
 
-## Componentes (Fase 1)
+## Componentes
 
 | Componente | Arquivo |
 |---|---|
@@ -44,7 +45,7 @@ Fontes: o styleguide da Luumu People e os mockups de interface. Código em `src/
 | Field, Input, Textarea | `field.tsx`: label associado, dica, erro anunciado (`role=alert`) com ícone |
 | Select | `select.tsx` (nativo estilizado) |
 | Switch, Checkbox, RadioGroup | `choice.tsx` (Radix) |
-| Charts | `charts.tsx`: AreaChart, ColumnChart, DonutChart e `RadarChart` (perfil em várias dimensões, atual x referência; ofereça a tabela equivalente ao lado) |
+| Charts | `charts.tsx`: AreaChart, ColumnChart, DonutChart e `RadarChart` (perfil em várias dimensões, atual x referência), SVG próprio, tooltip e "Ver como tabela" |
 | Tabs, LinkTabs | `tabs.tsx` (Radix), `link-tabs.tsx` (estado na URL; `variant="soft"`: blocos claros e a aba atual branca, roxa e sublinhada — Desenvolvimento) |
 | Badge | `badge.tsx`: tons da paleta |
 | Avatar, AvatarGroup | `avatar.tsx`: foto ou iniciais com tom estável |
@@ -56,12 +57,10 @@ Fontes: o styleguide da Luumu People e os mockups de interface. Código em `src/
 | Breadcrumb, CursorPagination | `navigation.tsx` |
 | Table (vira lista no mobile) | `table.tsx` |
 | Logo, Wordmark, Mascot | `brand.tsx` |
-
 | Combobox (select com busca e multiselect com chips) | `combobox.tsx` — listbox acessível, setas/Enter/Esc |
 | DatePicker | `date-picker.tsx` — calendário pt-BR, grade navegável por teclado, mín./máx. |
 | FileUpload | `file-upload.tsx` — padrão, com arquivo, enviando, concluído, erro; arrastar e soltar |
 | Toast | `toast.tsx` — `useToast()`, provedor no layout raiz |
-| AreaChart, ColumnChart, DonutChart | `charts.tsx` — SVG próprio, tooltip, "Ver como tabela" |
 | DataTable | `data-table.tsx` — ordenação (`aria-sort`) e paginação no cliente |
 | NotificationBell, NotificationList | `notification.tsx` |
 | Lightbox | `lightbox.tsx` — imagem ampliada ou cartão do documento, Baixar / Abrir em nova aba, ← → entre arquivos, Esc fecha |

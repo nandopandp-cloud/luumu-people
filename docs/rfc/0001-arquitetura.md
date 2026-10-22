@@ -6,6 +6,8 @@
 | **Data** | 2026-10-07 |
 | **Escopo** | Stack, arquitetura, multi-tenancy, autenticação, RBAC, modelo de dados, anonimato de pesquisas, design system, testes e roadmap |
 
+> Registro da decisão original. Partes foram alteradas em §15 (por exemplo, não há NestJS nem `packages/`: é um único app Next.js). Onde divergir, valem os documentos vivos listados em [docs/README.md](../README.md).
+
 Prioridades que guiam toda decisão abaixo, em ordem: **segurança → privacidade → anonimato → integridade → autorização → arquitetura → UX → performance → escalabilidade → estética.**
 
 ---
