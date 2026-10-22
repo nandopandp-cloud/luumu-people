@@ -24,6 +24,10 @@ export function ChangePasswordForm() {
     setResult(null);
     startTransition(async () => {
       const { error } = await authClient.changePassword({ currentPassword: current, newPassword: next, revokeOtherSessions: true });
+      if (error?.code === "CREDENTIAL_ACCOUNT_NOT_FOUND") {
+        setResult({ tone: "error", text: "Você entra com o Google e ainda não tem senha. Para criar uma, use “Esqueci minha senha” na tela de entrada." });
+        return;
+      }
       if (error) {
         setResult({ tone: "error", text: error.status === 400 || error.status === 401 ? "A senha atual não confere." : "Não foi possível alterar a senha agora. Tente novamente." });
         return;

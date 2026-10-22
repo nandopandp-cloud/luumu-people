@@ -36,4 +36,23 @@ describe("senha provisória: troca obrigatória no primeiro acesso", () => {
     const after = await signIn("aurora", "helena", "MinhaSenhaNova#2026");
     expect((await call(profileRoute.GET, { path: "/api/v1/me/profile", cookie: after.cookie })).status).toBe(200);
   });
+
+  it("login pelo Google libera direto e apaga a senha provisória", async () => {
+    const isabela = await userOf("aurora", "isabela");
+    const { db } = await testDatabase();
+    await db.execute(sql`update users set must_change_password = true where id = ${isabela.id}`);
+
+    // Mesma chamada que o callback do Google faz ao criar a sessão.
+    const session = await signIn("aurora", "isabela");
+    const actor = await resolveActor(headersWith(session.cookie));
+    const auth = await getAuth();
+    const hook = auth.options.databaseHooks?.session?.create?.after;
+    await hook!({ userId: isabela.id, id: actor!.sessionId } as never, { path: "/callback/google", params: { id: "google" } } as never);
+
+    expect((await resolveActor(headersWith(session.cookie)))?.mustChangePassword).toBe(false);
+    expect((await call(profileRoute.GET, { path: "/api/v1/me/profile", cookie: session.cookie })).status).toBe(200);
+    const credential = (await db.execute(sql`select count(*)::int as n from accounts where user_id = ${isabela.id} and provider_id = 'credential'`)) as unknown as { rows: { n: number }[] };
+    expect(credential.rows[0]!.n).toBe(0);
+    await expect(signIn("aurora", "isabela")).rejects.toThrow(/login falhou/);
+  });
 });

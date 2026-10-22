@@ -16,6 +16,7 @@ export const AUDIT_ACTIONS = [
   "auth.password_changed",
   "auth.account_locked",
   "auth.sso_linked",
+  "auth.provisional_password_discarded",
   "access.role_granted",
   "access.role_revoked",
   "people.created",

@@ -22,9 +22,12 @@ import { evictSession } from "./session-cache";
  * Conecta-se com a role luumu_auth, que só enxerga tabelas de autenticação.
  */
 
-async function tenantOfUser(userId: string): Promise<{ tenantId: string; status: string } | null> {
+async function tenantOfUser(userId: string): Promise<{ tenantId: string; status: string; mustChangePassword: boolean } | null> {
   const db = await authDb();
-  const [row] = await db.select({ tenantId: s.users.tenantId, status: s.users.status }).from(s.users).where(eq(s.users.id, userId));
+  const [row] = await db
+    .select({ tenantId: s.users.tenantId, status: s.users.status, mustChangePassword: s.users.mustChangePassword })
+    .from(s.users)
+    .where(eq(s.users.id, userId));
   return row ?? null;
 }
 
@@ -77,6 +80,20 @@ async function clearMustChangePassword(userId: string) {
   await withTenant({ tenantId: owner.tenantId, userId }, (tx) =>
     tx.update(s.users).set({ mustChangePassword: false }).where(and(eq(s.users.id, userId), eq(s.users.mustChangePassword, true))),
   );
+}
+
+/**
+ * Entrou pelo Google com senha provisória pendente: o Google já provou a identidade, então não
+ * há senha a criar. A provisória é apagada ANTES de liberar (não pode virar senha definitiva sem
+ * troca); quem quiser também entrar com senha cria uma por "esqueci minha senha".
+ */
+async function discardProvisionalPassword(userId: string) {
+  const owner = await tenantOfUser(userId);
+  if (!owner?.mustChangePassword) return;
+  const db = await authDb();
+  await db.delete(s.accounts).where(and(eq(s.accounts.userId, userId), eq(s.accounts.providerId, "credential")));
+  await clearMustChangePassword(userId);
+  await audit(userId, "auth.provisional_password_discarded");
 }
 
 /** Login só é permitido para usuários ativos de empresas ativas. */
@@ -269,7 +286,9 @@ function buildOptions(database: BetterAuthOptions["database"]): BetterAuthOption
             if (!(await assertCanSignIn(session.userId))) return false;
           },
           async after(session, context) {
-            const method = context?.path?.startsWith("/callback/") ? context.params?.id : "password";
+            const sso = context?.path?.startsWith("/callback/") === true;
+            const method = sso ? context?.params?.id : "password";
+            if (sso) await discardProvisionalPassword(session.userId);
             await audit(session.userId, "auth.login", { ip: session.ipAddress, userAgent: session.userAgent, metadata: method ? { method } : undefined });
           },
         },

@@ -11,6 +11,7 @@ export const AUDIT_LABELS: Record<AuditAction, string> = {
   "auth.password_changed": "Alterou a senha",
   "auth.account_locked": "Conta bloqueada temporariamente",
   "auth.sso_linked": "Vinculou um login corporativo (SSO)",
+  "auth.provisional_password_discarded": "Senha provisória descartada (entrou pelo Google)",
   "access.role_granted": "Papel concedido",
   "access.role_revoked": "Papel revogado",
   "people.created": "Colaborador cadastrado",
