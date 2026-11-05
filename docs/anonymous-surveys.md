@@ -62,7 +62,7 @@ A rota de envio não loga request, payload nem usuário, e não gera spans com a
 
 ## Imutabilidade
 
-Um trigger impede mudar `anonymity_mode` depois do lançamento. Pesquisas **identificadas** usam tabelas próprias (`survey_identified_response`) e a interface informa *"Esta pesquisa é identificada"*.
+Quem cria a pesquisa escolhe, no rascunho, entre **anônima** (cofre) e **identificada**, e se a anônima é **livre** (`no_minimum`: sem mínimo de público e com k efetivo 1 no cofre, liberando resultados desde a 1ª resposta; nunca tem recortes por grupo — trigger `surveys_guard`). `anonymity_mode` e `no_minimum` congelam no lançamento. Pesquisas **identificadas** são sempre livres, não passam pelo cofre e gravam em `survey_identified_responses` (somente inserção, só em nome próprio — policy `RESTRICTIVE` —, só com a pesquisa aberta e a pessoa convidada); a interface informa *"Esta pesquisa é identificada"*. Respostas identificadas, por pessoa, só para `survey.identified.read` na empresa toda (papel G&G). Nada disso vale para pesquisa anônima: nenhuma permissão lê resposta anônima individual.
 
 ## Risco residual (documentado)
 
@@ -94,12 +94,11 @@ Durante o processamento da requisição de envio, o processo da aplicação vê 
 | Comentários | Devolvidos só com ≥ k respostas no grupo, em ordem aleatória, sem data nem dimensão | ✅ |
 | Observabilidade | A rota de envio usa `defineRoute({ anonymous: true })`: rate limit só em memória volátil e, em erro inesperado, log apenas com `requestId`. Nada é auditado no envio | ✅ TESTE 5 |
 | Rascunho | Somente `sessionStorage` do navegador; apagado ao enviar | — |
-| Público | Empresa toda ou uma área (com subáreas), escolhido no lançamento (`audience_org_unit_id`). O público precisa ter ≥ k pessoas; dimensões são aprovadas sobre ele. Congela no lançamento (trigger `surveys_guard`) | ✅ `surveys-management.test.ts` |
+| Público | Empresa toda ou uma ou mais áreas (com subáreas, até 50), escolhido no lançamento (`survey_audience_units`; `audience_org_unit_id` é legado e foi migrado). Anônima com k: o público precisa ter ≥ k pessoas; livre ou identificada: ao menos 1; dimensões são aprovadas sobre ele. Congela no lançamento (trigger `surveys_guard`) | ✅ `surveys-management.test.ts` |
 | Agendamento | `launched_at` no futuro = **agendada**. Convites são criados no agendamento, mas a pesquisa some da lista do colaborador e o cofre recusa respostas até o início (`survey_vault.submit` exige `launched_at <= now()`) | ✅ `surveys-management.test.ts` |
 
 **Ainda não implementado (próximas etapas):**
 
-- Pesquisas **identificadas** (`survey_identified_response`, aviso na interface). Hoje toda pesquisa é anônima; a coluna `anonymity_mode` e o trigger de imutabilidade já existem.
 - Resultados para **gestores com escopo de equipe** (exigem uma dimensão de equipe aprovada no lançamento, sempre com k). Hoje só quem tem `survey.results.read_aggregate` com escopo TENANT vê resultados.
 - Recorrência, lógica condicional entre perguntas e exportação de resultados (que usará as mesmas funções de agregação). A exportação que existe é só de **participação** (convites), nunca de respostas.
 - Cron diário para encerrar pesquisas vencidas mesmo sem acesso à gestão.

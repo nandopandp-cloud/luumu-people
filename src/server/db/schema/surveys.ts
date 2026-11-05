@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, date, foreignKey, index, integer, jsonb, pgTable, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, date, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { id, tenantId, timestamps } from "./_columns";
 import { users } from "./auth";
 import { orgUnits } from "./organization";
@@ -9,6 +9,7 @@ import { organizations } from "./tenancy";
  * Pesquisas (Fase 4) — parte CORE. As respostas anônimas NÃO ficam aqui: vivem
  * no schema `survey_vault` (migration de segurança), sem identidade, sem
  * timestamp e sem FK para estas tabelas. Ver docs/anonymous-surveys.md.
+ * Respostas de pesquisas IDENTIFICADAS ficam em `survey_identified_responses`.
  *
  * Simplificação desta versão: a pesquisa é a própria campanha (uma aplicação
  * por pesquisa). Lançada, ela congela perguntas, k e dimensões.
@@ -37,13 +38,19 @@ export const surveys = pgTable(
     kind: text("kind", { enum: SURVEY_KINDS }).notNull().default("custom"),
     anonymityMode: text("anonymity_mode", { enum: ANONYMITY_MODES }).notNull().default("anonymous"),
     status: text("status", { enum: SURVEY_STATUSES }).notNull().default("draft"),
-    /** k-anonimato da pesquisa: nunca menor que o da empresa; congela no lançamento e só pode subir. */
+    /**
+     * Pesquisa LIVRE: sem mínimo de público nem de respostas por grupo. Anônima e
+     * livre = o cofre libera resultados desde a 1ª resposta e não há recortes por
+     * grupo. Identificada = sempre livre. Congela no lançamento.
+     */
+    noMinimum: boolean("no_minimum").notNull().default(false),
+    /** k-anonimato da pesquisa: nunca menor que o da empresa; congela no lançamento e só pode subir. Só vale para anônima com mínimo. */
     anonymityK: integer("anonymity_k").notNull().default(5),
     dimensions: jsonb("dimensions").$type<ApprovedDimensions>().notNull().default({}),
     closesAt: timestamp("closes_at", { withTimezone: true, mode: "date" }),
     /** Início do período. No futuro = pesquisa AGENDADA (o cofre só aceita respostas a partir daqui). */
     launchedAt: timestamp("launched_at", { withTimezone: true, mode: "date" }),
-    /** Público: área (com subáreas) ou nulo = empresa toda. Congela no lançamento. */
+    /** LEGADO (até a 0044): público de uma área. Substituído por `survey_audience_units`; remover na próxima release. */
     audienceOrgUnitId: uuid("audience_org_unit_id"),
     closedAt: timestamp("closed_at", { withTimezone: true, mode: "date" }),
     createdBy: uuid("created_by"),
@@ -81,6 +88,24 @@ export const surveyQuestions = pgTable(
   ],
 );
 
+/**
+ * Público da pesquisa: uma ou mais áreas (cada uma com subáreas). Sem linhas =
+ * empresa toda. Gravado no lançamento e congelado (trigger).
+ */
+export const surveyAudienceUnits = pgTable(
+  "survey_audience_units",
+  {
+    tenantId: tenantId(),
+    surveyId: uuid("survey_id").notNull(),
+    orgUnitId: uuid("org_unit_id").notNull(),
+  },
+  (t) => [
+    primaryKey({ name: "survey_audience_units_pkey", columns: [t.surveyId, t.orgUnitId] }),
+    foreignKey({ name: "survey_audience_units_survey_fk", columns: [t.tenantId, t.surveyId], foreignColumns: [surveys.tenantId, surveys.id] }).onDelete("cascade"),
+    foreignKey({ name: "survey_audience_units_org_unit_fk", columns: [t.tenantId, t.orgUnitId], foreignColumns: [orgUnits.tenantId, orgUnits.id] }),
+  ],
+);
+
 export const INVITATION_STATUSES = ["pending", "completed"] as const;
 
 /**
@@ -103,5 +128,30 @@ export const surveyInvitations = pgTable(
     unique("survey_invitations_survey_user_key").on(t.surveyId, t.userId),
     index("survey_invitations_user_idx").on(t.tenantId, t.userId, t.status),
     check("survey_invitations_completed_has_date", sql`(${t.status} = 'completed') = (${t.completedOn} is not null)`),
+  ],
+);
+
+/**
+ * Resposta de pesquisa IDENTIFICADA (a pessoa sabe, pelo aviso no formulário,
+ * que responde com nome). Lida só por quem tem `survey.identified.read` na
+ * empresa toda. Somente inserção: o runtime não altera nem apaga (some só com a
+ * própria pesquisa, por `survey_vault.purge`).
+ */
+export const surveyIdentifiedResponses = pgTable(
+  "survey_identified_responses",
+  {
+    id: id(),
+    tenantId: tenantId(),
+    surveyId: uuid("survey_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    /** id da pergunta → valor (número da escala/eNPS ou texto). */
+    answers: jsonb("answers").$type<Record<string, number | string>>().notNull(),
+    submittedAt: timestamp("submitted_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({ name: "survey_identified_responses_survey_fk", columns: [t.tenantId, t.surveyId], foreignColumns: [surveys.tenantId, surveys.id] }).onDelete("cascade"),
+    foreignKey({ name: "survey_identified_responses_user_fk", columns: [t.tenantId, t.userId], foreignColumns: [users.tenantId, users.id] }),
+    unique("survey_identified_responses_survey_user_key").on(t.surveyId, t.userId),
+    index("survey_identified_responses_tenant_survey_idx").on(t.tenantId, t.surveyId),
   ],
 );

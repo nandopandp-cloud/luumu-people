@@ -176,7 +176,8 @@ export const employmentAssignments = pgTable(
     foreignKey({ name: "employment_assignments_created_by_fk", columns: [t.tenantId, t.createdBy], foreignColumns: [users.tenantId, users.id] }),
     uniqueIndex("employment_assignments_one_current").on(t.tenantId, t.userId).where(sql`${t.validTo} is null`),
     index("employment_assignments_org_unit_idx").on(t.tenantId, t.orgUnitId).where(sql`${t.validTo} is null`),
-    check("employment_assignments_valid_range", sql`${t.validTo} is null or ${t.validTo} > ${t.validFrom}`),
+    // ≥: um registro aberto e corrigido no mesmo dia fica com vigência vazia (nunca vale).
+    check("employment_assignments_valid_range", sql`${t.validTo} is null or ${t.validTo} >= ${t.validFrom}`),
   ],
 );
 
@@ -200,7 +201,7 @@ export const managerRelationships = pgTable(
     uniqueIndex("manager_relationships_one_current").on(t.tenantId, t.userId).where(sql`${t.validTo} is null`),
     index("manager_relationships_manager_idx").on(t.tenantId, t.managerId).where(sql`${t.validTo} is null`),
     check("manager_relationships_not_self", sql`${t.userId} <> ${t.managerId}`),
-    check("manager_relationships_valid_range", sql`${t.validTo} is null or ${t.validTo} > ${t.validFrom}`),
+    check("manager_relationships_valid_range", sql`${t.validTo} is null or ${t.validTo} >= ${t.validFrom}`),
   ],
 );
 

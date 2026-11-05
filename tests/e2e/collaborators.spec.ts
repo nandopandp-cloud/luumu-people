@@ -113,4 +113,28 @@ test.describe("Colaboradores", () => {
     await expect(page.getByRole("heading", { name: /Crie sua senha/ })).toBeVisible();
     await expect(page.getByText("Este convite não é mais válido")).toBeVisible();
   });
+
+  test("administradora edita dados profissionais e de RH, inclusive uma localização nova", async ({ page }) => {
+    test.setTimeout(120_000);
+    await signIn(page, "paula.ribeiro@aurora.example");
+    await gotoHydrated(page, "/gestao/colaboradores?q=Simone");
+    await page.getByRole("link", { name: /Simone Batista/ }).first().click();
+    await expect(page.getByRole("heading", { level: 1, name: "Simone Batista" })).toBeVisible();
+    await page.waitForLoadState("networkidle");
+
+    await page.getByRole("button", { name: "Editar dados" }).click();
+    const dialog = page.getByRole("dialog", { name: "Editar dados" });
+    await dialog.getByLabel("Tipo de contrato").selectOption("pj");
+    await dialog.getByLabel("Localização").selectOption({ label: "Outra cidade…" });
+    await dialog.getByLabel("Cidade").fill("Recife");
+    await dialog.getByLabel("UF").fill("pe");
+    await dialog.getByLabel("Matrícula").fill("E2E-777");
+    await expectAccessible(page);
+    await dialog.getByRole("button", { name: "Salvar alterações" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByText("Dados atualizados").first()).toBeVisible();
+    await expect(page.getByText("Recife - PE")).toBeVisible();
+    await expect(page.getByText("E2E-777")).toBeVisible();
+    await expect(page.locator("dd").filter({ hasText: /^PJ$/ })).toBeVisible();
+  });
 });

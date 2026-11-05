@@ -6,27 +6,29 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { EmojiInput } from "@/design-system/components/emoji-input";
 import { Button, IconButton } from "@/design-system/components/button";
-import { Checkbox } from "@/design-system/components/choice";
+import { Checkbox, RadioGroup } from "@/design-system/components/choice";
 import { Alert } from "@/design-system/components/feedback";
 import { Field, Input, Textarea } from "@/design-system/components/field";
 import { Select } from "@/design-system/components/select";
 import { useToast } from "@/design-system/components/toast";
 import { api, ApiError } from "@/lib/api-client";
-import { QUESTION_TYPE_LABEL, SURVEY_KIND } from "./labels";
+import { PRIVACY_COPY, QUESTION_TYPE_LABEL, SURVEY_KIND } from "./labels";
 import { LaunchDialog, type LaunchBody } from "./launch-dialog";
 import { SURVEY_TEMPLATES, type TemplateQuestion } from "./templates";
 
 type Kind = "climate" | "enps" | "pulse" | "custom";
+type Mode = "anonymous" | "identified";
 type Question = TemplateQuestion & { key: string; optionsText: string };
-export type BuilderSurvey = { id: string; title: string; description: string | null; kind: Kind; anonymityK: number; questions: TemplateQuestion[] };
+export type BuilderSurvey = { id: string; title: string; description: string | null; kind: Kind; anonymityMode: Mode; noMinimum: boolean; anonymityK: number; questions: TemplateQuestion[] };
 
 let counter = 0;
 const withKey = (q: TemplateQuestion): Question => ({ ...q, key: `q${++counter}`, optionsText: (q.options ?? []).join("\n") });
 const blank = (): Question => withKey({ type: "scale", text: "", required: true });
 
 /**
- * Builder de pesquisa (rascunho). Toda pesquisa é ANÔNIMA nesta versão. Depois
- * do lançamento, perguntas, k e dimensões congelam (garantido no banco).
+ * Builder de pesquisa (rascunho). Quem cria escolhe a privacidade: anônima (com
+ * mínimo k ou livre) ou identificada (sempre livre). Depois do lançamento,
+ * privacidade, perguntas, k e dimensões congelam (garantido no banco).
  */
 export function SurveyBuilder({
   survey,
@@ -47,7 +49,11 @@ export function SurveyBuilder({
   const [title, setTitle] = useState(survey?.title ?? "");
   const [description, setDescription] = useState(survey?.description ?? "");
   const [kind, setKind] = useState<Kind>(survey?.kind ?? "climate");
+  const [mode, setMode] = useState<Mode>(survey?.anonymityMode ?? "anonymous");
+  const [noMinimum, setNoMinimum] = useState(survey?.noMinimum ?? false);
   const [k, setK] = useState(Math.max(survey?.anonymityK ?? organizationK, organizationK));
+  const identified = mode === "identified";
+  const withK = !identified && !noMinimum;
   const [questions, setQuestions] = useState<Question[]>(() => (survey?.questions.length ? survey.questions.map(withKey) : SURVEY_TEMPLATES.climate.map(withKey)));
   const [error, setError] = useState<string | null>(null);
   const [launchOpen, setLaunchOpen] = useState(false);
@@ -67,6 +73,8 @@ export function SurveyBuilder({
       title,
       description: description.trim() || null,
       kind,
+      anonymityMode: mode,
+      noMinimum: identified || noMinimum,
       anonymityK: k,
       questions: questions.map((q) => ({
         type: q.type,
@@ -146,19 +154,54 @@ export function SurveyBuilder({
           <Field label="Descrição" hint="Explique o objetivo e quanto tempo leva. Aparece para quem vai responder.">
             {(f) => <Textarea id={f.id} aria-describedby={f.describedBy} value={description} maxLength={600} rows={3} onChange={(e) => setDescription(e.target.value)} />}
           </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Tipo">
-              {(f) => (
-                <Select id={f.id} value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
-                  {Object.entries(SURVEY_KIND).map(([value, item]) => (
-                    <option key={value} value={value}>
-                      {item.label}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            </Field>
-            <Field label="Mínimo de respostas por grupo (k)" hint={`Grupos com menos respostas nunca aparecem. Mínimo da empresa: ${organizationK}.`}>
+          <Field label="Tipo" className="sm:max-w-[calc(50%-0.5rem)]">
+            {(f) => (
+              <Select id={f.id} value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
+                {Object.entries(SURVEY_KIND).map(([value, item]) => (
+                  <option key={value} value={value}>
+                    {item.label}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+        </section>
+
+        <section className="card space-y-5 p-6" aria-labelledby="privacidade-pesquisa">
+          <div>
+            <h2 id="privacidade-pesquisa" className="text-h3 font-bold text-neutral-900">
+              Privacidade das respostas
+            </h2>
+            <p className="mt-1 text-body-sm text-neutral-600">Definida agora e congelada no lançamento. Quem responde vê este aviso antes de começar.</p>
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <fieldset>
+              <legend className="mb-2.5 text-body-sm font-semibold text-neutral-800">Respostas</legend>
+              <RadioGroup
+                aria-label="Respostas"
+                value={mode}
+                onValueChange={(v) => setMode(v as Mode)}
+                options={[
+                  { value: "anonymous", label: "Anônimas: ninguém sabe quem respondeu" },
+                  { value: "identified", label: "Identificadas: com o nome de quem respondeu" },
+                ]}
+              />
+            </fieldset>
+            <fieldset disabled={identified}>
+              <legend className="mb-2.5 text-body-sm font-semibold text-neutral-800">Mínimo de respostas</legend>
+              <RadioGroup
+                aria-label="Mínimo de respostas"
+                value={identified || noMinimum ? "livre" : "minimo"}
+                onValueChange={(v) => setNoMinimum(v === "livre")}
+                options={[
+                  { value: "minimo", label: "Com mínimo por grupo (mais proteção)", disabled: identified },
+                  { value: "livre", label: "Pesquisa livre: sem mínimo de pessoas ou de respostas" },
+                ]}
+              />
+            </fieldset>
+          </div>
+          {withK ? (
+            <Field label="Mínimo de respostas por grupo (k)" hint={`Grupos com menos respostas nunca aparecem. Mínimo da empresa: ${organizationK}.`} className="sm:max-w-[calc(50%-0.5rem)]">
               {(f) => (
                 <Select id={f.id} aria-describedby={f.describedBy} value={k} onChange={(e) => setK(Number(e.target.value))}>
                   {[5, 7, 10]
@@ -171,10 +214,20 @@ export function SurveyBuilder({
                 </Select>
               )}
             </Field>
-          </div>
-          <Alert tone="info" title="Pesquisa anônima">
-            As respostas não ficam ligadas a ninguém e os resultados só aparecem agregados, em grupos com pelo menos {k} respostas.
-          </Alert>
+          ) : null}
+          {identified ? (
+            <Alert tone="info" title={PRIVACY_COPY.identified.title}>
+              {PRIVACY_COPY.identified.builder}
+            </Alert>
+          ) : noMinimum ? (
+            <Alert tone="warning" title={PRIVACY_COPY.free.title}>
+              {PRIVACY_COPY.free.builder}
+            </Alert>
+          ) : (
+            <Alert tone="info" title="Pesquisa anônima">
+              As respostas não ficam ligadas a ninguém e os resultados só aparecem agregados, em grupos com pelo menos {k} respostas.
+            </Alert>
+          )}
         </section>
 
         <section className="card p-6" aria-labelledby="perguntas">
@@ -263,7 +316,7 @@ export function SurveyBuilder({
         ) : null}
       </div>
 
-      <LaunchDialog open={launchOpen} onOpenChange={setLaunchOpen} k={k} orgUnits={orgUnits} pending={pending} onConfirm={launch} />
+      <LaunchDialog open={launchOpen} onOpenChange={setLaunchOpen} k={withK ? k : null} identified={identified} orgUnits={orgUnits} pending={pending} onConfirm={launch} />
     </form>
   );
 }

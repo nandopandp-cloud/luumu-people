@@ -9,7 +9,8 @@ import type { QuestionType, SurveyKind } from "../schema/surveys";
  * andamento, um eNPS encerrado, duas encerradas que todos responderam
  * ("Pesquisas respondidas" na página do colaborador) e um rascunho. As respostas demonstrativas
  * passam pelo MESMO caminho do produto: survey_vault.submit (buffer → lotes
- * embaralhados), sem nenhum vínculo com quem "respondeu".
+ * embaralhados), sem nenhum vínculo com quem "respondeu". Há também uma
+ * pesquisa IDENTIFICADA e livre, encerrada, com respostas por pessoa.
  */
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -98,6 +99,17 @@ const ONBOARDING_CLOSED: SurveySeed = {
   ],
 };
 
+const IDENTIFIED_CLOSED: SurveySeed = {
+  title: "Confraternização de fim de ano",
+  description: "Ajude a escolher o formato da confraternização. Pesquisa identificada.",
+  kind: "custom",
+  questions: [
+    { type: "choice", text: "Qual formato você prefere?", options: ["Almoço", "Happy hour", "Atividade ao ar livre"] },
+    { type: "scale", text: "Gostaria que a confraternização fosse em um dia útil." },
+    { type: "text", text: "Alguma sugestão?", required: false },
+  ],
+};
+
 const COMMENTS = [
   "Mais momentos de integração entre as áreas.",
   "Gostaria de rituais de feedback mais frequentes.",
@@ -129,8 +141,8 @@ function answerFor(q: QuestionSeed, rnd: () => number): number | string | undefi
   return rnd() < 0.45 ? COMMENTS[Math.floor(rnd() * COMMENTS.length)] : undefined;
 }
 
-async function insertSurvey(db: Database, tenantId: string, seed: SurveySeed, k: number) {
-  const [row] = await db.insert(s.surveys).values({ tenantId, title: seed.title, description: seed.description, kind: seed.kind, anonymityK: k }).returning({ id: s.surveys.id });
+async function insertSurvey(db: Database, tenantId: string, seed: SurveySeed, k: number, privacy: { anonymityMode: "anonymous" | "identified"; noMinimum: boolean } = { anonymityMode: "anonymous", noMinimum: false }) {
+  const [row] = await db.insert(s.surveys).values({ tenantId, title: seed.title, description: seed.description, kind: seed.kind, anonymityK: k, ...privacy }).returning({ id: s.surveys.id });
   const ids = await db
     .insert(s.surveyQuestions)
     .values(seed.questions.map((q, i) => ({ tenantId, surveyId: row!.id, position: i + 1, type: q.type, text: q.text, options: q.options ?? null, required: q.required ?? true })))
@@ -222,7 +234,8 @@ export async function seedSurveys(db: Database, tenantId: string): Promise<void>
     const { id, questionIds } = await insertSurvey(db, tenantId, AREA_PULSE, k);
     const launchedAt = new Date(Date.now() - 45 * DAY);
     await db.insert(s.surveyInvitations).values(audience.map((p) => ({ tenantId, surveyId: id, userId: p.userId })));
-    await db.update(s.surveys).set({ status: "active", launchedAt, closesAt: new Date(Date.now() + DAY), dimensions: areaDimensions, audienceOrgUnitId: area.id }).where(eq(s.surveys.id, id));
+    await db.insert(s.surveyAudienceUnits).values({ tenantId, surveyId: id, orgUnitId: area.id });
+    await db.update(s.surveys).set({ status: "active", launchedAt, closesAt: new Date(Date.now() + DAY), dimensions: areaDimensions }).where(eq(s.surveys.id, id));
     const rnd = random(23);
     for (const [index, profile] of audience.entries()) {
       if (rnd() > 0.85) continue;
@@ -240,5 +253,27 @@ export async function seedSurveys(db: Database, tenantId: string): Promise<void>
     const closesAt = new Date(launchedAt.getTime() + 14 * DAY);
     await db.update(s.surveys).set({ status: "closed", closesAt, closedAt: closesAt }).where(eq(s.surveys.id, id));
     await db.execute(sql`select survey_vault.close(${id}::uuid)`);
+  }
+
+  // Identificada e livre, encerrada: respostas com nome (só G&G vê).
+  {
+    const { id, questionIds } = await insertSurvey(db, tenantId, IDENTIFIED_CLOSED, k, { anonymityMode: "identified", noMinimum: true });
+    const launchedAt = new Date(Date.now() - 25 * DAY);
+    await db.insert(s.surveyInvitations).values(profiles.map((p) => ({ tenantId, surveyId: id, userId: p.userId })));
+    await db.update(s.surveys).set({ status: "active", launchedAt, closesAt: new Date(Date.now() + DAY) }).where(eq(s.surveys.id, id));
+    const rnd = random(29);
+    for (const [index, profile] of profiles.entries()) {
+      if (KEEP_PENDING.test(emails.get(profile.userId) ?? "") || rnd() > 0.6) continue;
+      const answers: Record<string, number | string> = {};
+      IDENTIFIED_CLOSED.questions.forEach((q, i) => {
+        const value = answerFor(q, rnd);
+        if (value !== undefined) answers[questionIds[i]!] = value;
+      });
+      const completedOn = new Date(launchedAt.getTime() + (index % 5) * DAY).toISOString().slice(0, 10);
+      await db.update(s.surveyInvitations).set({ status: "completed", completedOn }).where(and(eq(s.surveyInvitations.surveyId, id), eq(s.surveyInvitations.userId, profile.userId)));
+      await db.insert(s.surveyIdentifiedResponses).values({ tenantId, surveyId: id, userId: profile.userId, answers, submittedAt: new Date(`${completedOn}T15:00:00Z`) });
+    }
+    const closesAt = new Date(launchedAt.getTime() + 10 * DAY);
+    await db.update(s.surveys).set({ status: "closed", closesAt, closedAt: closesAt }).where(eq(s.surveys.id, id));
   }
 }

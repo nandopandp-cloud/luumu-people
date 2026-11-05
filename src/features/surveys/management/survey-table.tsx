@@ -19,6 +19,8 @@ export type SurveyItem = {
   title: string;
   description: string | null;
   kind: string;
+  /** "Anônima · k = 5", "Anônima · livre" ou "Identificada". */
+  privacy: string;
   status: "draft" | "active" | "paused" | "closed";
   displayStatus: keyof typeof SURVEY_STATUS;
   opensAt: string | null;
@@ -161,9 +163,12 @@ export function SurveyTable({ items, params, total, page, perPage, canDesign, ca
                   </td>
                   <td className="border-b border-line px-3 py-3">
                     <Badge tone={kind.tone}>{kind.label}</Badge>
+                    <span className="mt-1 block whitespace-nowrap text-caption text-neutral-500">{s.privacy}</span>
                   </td>
                   <td className="border-b border-line px-3 py-3 text-neutral-700">
-                    <span className="block">{s.audienceName ?? "Toda a empresa"}</span>
+                    <span className="block max-w-48 truncate" title={s.audienceName ?? undefined}>
+                      {s.audienceName ?? "Toda a empresa"}
+                    </span>
                     <span className="block text-caption text-neutral-500">
                       ({num.format(s.audienceSize)} {s.audienceSize === 1 ? "pessoa" : "pessoas"})
                     </span>

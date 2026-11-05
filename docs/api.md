@@ -49,6 +49,7 @@ Paginação por cursor: `?cursor=…&limit=…` → `{ items, nextCursor }`.
 | POST | `/api/v1/people/:id/status` | `people.manage` | `{ status: "active" \| "inactive" }`; nunca o próprio acesso (400); reativar quem nunca acessou volta a "convidado" |
 | GET | `/api/v1/people/export` | `reports.export` | CSV do diretório filtrado (mesmos filtros da página) ou da seleção (`ids`, até 500); só pessoas no escopo de `people.directory.read` **e** `reports.export`; auditado (`data.exported`, `report: "people"`) |
 | GET | `/api/v1/people/:id` | `people.directory.read` | dados profissionais; `personal` só com `people.profile.read_full` no escopo |
+| PATCH | `/api/v1/people/:id` | `people.manage` (empresa toda) | edita só os campos enviados `{ name?, preferredName?, email?, hireDate?, orgUnitId?, positionId? \| position?, jobLevelId? \| jobLevel?, managerId?, location?, employeeCode?, contractType?, employmentStatus?, phone? }`; área, cargo, nível, local e gestor(a) geram histórico; auditado (`people.updated`, `people.transferred`, `people.manager_changed`) |
 | GET | `/api/v1/people/:id/roles` | `access.roles.assign` | papéis ativos |
 | POST | `/api/v1/people/:id/roles` | `access.roles.assign` | concede papel `{ roleId, scopeType, scopeOrgUnitId? }` |
 | DELETE | `/api/v1/people/:id/roles/:assignmentId` | `access.roles.assign` | revoga papel |
@@ -92,8 +93,8 @@ Paginação por cursor: `?cursor=…&limit=…` → `{ items, nextCursor }`.
 | DELETE | `/api/v1/surveys/:id` | `survey.design` (+ `survey.launch` se lançada) | exclui; se lançada, apaga junto convites e respostas anônimas pelo cofre (`survey_vault.purge`) |
 | POST | `/api/v1/surveys/:id/pause` · `/resume` | `survey.launch` | pausa (ninguém responde) e retoma `{ closesAt? }` |
 | POST | `/api/v1/surveys/:id/duplicate` | `survey.design` | copia perguntas, tipo e k como novo rascunho |
-| POST | `/api/v1/surveys/:id/launch` | `survey.launch` | lança `{ closesAt, opensAt?, audienceOrgUnitId? }`: público = empresa toda ou uma área (com subáreas), sempre com ≥ k pessoas; `opensAt` no futuro = **agendada** (até 180 dias). Congela k, dimensões e público |
-| GET | `/api/v1/surveys/audience` | `survey.launch` | `?orgUnitId=` → `{ size, k }`: pessoas ativas que o público teria |
+| POST | `/api/v1/surveys/:id/launch` | `survey.launch` | lança `{ closesAt, opensAt?, audienceOrgUnitIds? }`: público = empresa toda (vazio) ou até 50 áreas (com subáreas), com ≥ k pessoas na anônima com k (≥ 1 na livre/identificada); `opensAt` no futuro = **agendada** (até 180 dias). Congela k, dimensões e público |
+| GET | `/api/v1/surveys/audience` | `survey.launch` | `?orgUnitIds=a,b` → `{ size, k }`: pessoas ativas que o público teria |
 | GET | `/api/v1/surveys/export` | `reports.export` (TENANT) | CSV de **participação** (público, período, convidados, respostas, taxa) das pesquisas filtradas (mesmos parâmetros da página) ou selecionadas (`ids`); nunca respostas; auditado (`data.exported`, `report: "surveys"`) |
 | POST | `/api/v1/surveys/:id/close` | `survey.launch` | encerra (em andamento ou pausada) e libera o último lote |
 | GET | `/api/v1/surveys/:id/results` | `survey.results.read_aggregate` (TENANT) | **somente agregados** (`dimension`, `bucket`); grupos < k → `suppressed` |

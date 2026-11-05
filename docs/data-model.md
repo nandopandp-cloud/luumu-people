@@ -70,6 +70,7 @@ erDiagram
     text slug UK "kebab-case"
     text name
     text status "active | suspended"
+    bool no_minimum "livre: sem k"
     int anonymity_k "5, 7 ou 10"
     jsonb settings "configuração livre"
   }
@@ -725,7 +726,10 @@ erDiagram
   surveys ||--o{ survey_questions : "perguntas"
   surveys ||--o{ survey_invitations : "convites"
   users ||--o{ survey_invitations : "convidada"
-  org_units |o--o{ surveys : "público"
+  surveys ||--o{ survey_audience_units : "público"
+  org_units ||--o{ survey_audience_units : "área"
+  surveys ||--o{ survey_identified_responses : "respostas identificadas"
+  users ||--o{ survey_identified_responses : "respondente"
 
   surveys {
     uuid id PK
@@ -734,7 +738,7 @@ erDiagram
     text status "draft | active | paused | closed"
     int anonymity_k "5, 7 ou 10"
     jsonb dimensions "valores aprovados no lançamento"
-    uuid audience_org_unit_id FK "nulo = empresa toda"
+    uuid audience_org_unit_id FK "legado"
     timestamptz launched_at "futuro = agendada"
     timestamptz closes_at
     timestamptz closed_at
@@ -747,6 +751,17 @@ erDiagram
     jsonb options "só choice"
     bool required
   }
+  survey_audience_units {
+    uuid survey_id PK
+    uuid org_unit_id PK
+  }
+  survey_identified_responses {
+    uuid id PK
+    uuid survey_id UK
+    uuid user_id UK
+    jsonb answers
+    timestamptz submitted_at
+  }
   survey_invitations {
     uuid id PK
     uuid survey_id FK
@@ -758,7 +773,9 @@ erDiagram
 
 - A pesquisa é a própria campanha (uma aplicação por pesquisa).
 - **Ciclo** (trigger): `draft → active ⇄ paused → closed` (e `active → closed`). Pausada não recebe respostas. Lançada exige `launched_at` e `closes_at`; encerrada exige `closed_at` (CHECKs).
-- **Congela no lançamento** (trigger): `anonymity_mode`, perguntas, `dimensions` e público. O k nunca é menor que o da empresa e, depois de lançado, só sobe.
+- **Público:** sem linhas em `survey_audience_units` = empresa toda; com linhas, quem tem lotação atual em alguma das áreas ou subáreas.
+- **Privacidade:** `anonymity_mode` (anônima → cofre; identificada → `survey_identified_responses`, só inserção e só a própria linha) e `no_minimum` (livre: sem k nem recortes; identificada é sempre livre).
+- **Congela no lançamento** (trigger): `anonymity_mode`, `no_minimum`, perguntas, `dimensions` e público (`survey_audience_units` só aceita escrita no rascunho). O k nunca é menor que o da empresa e, depois de lançado, só sobe.
 - Só rascunho é excluído pelo runtime; pesquisa lançada só sai por `survey_vault.purge`, que leva junto as respostas do cofre.
 - `survey_invitations` registra **participação**, nunca resposta: só `status` e a **data** de conclusão, sem timestamps, para não permitir correlação com o cofre.
 

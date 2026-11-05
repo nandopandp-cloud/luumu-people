@@ -1,4 +1,4 @@
-import { CalendarClock, CircleCheck } from "lucide-react";
+import { CalendarClock, CircleCheck, Lock, UserRound } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -9,7 +9,7 @@ import { Button } from "@/design-system/components/button";
 import { EmptyState } from "@/design-system/components/empty-state";
 import { Skeleton } from "@/design-system/components/feedback";
 import { Breadcrumb } from "@/design-system/components/navigation";
-import { formatDay, SURVEY_KIND } from "@/features/surveys/labels";
+import { formatDay, PRIVACY_COPY, SURVEY_KIND } from "@/features/surveys/labels";
 import { SurveyForm } from "@/features/surveys/survey-form";
 import { requireActor } from "@/server/dal";
 import { HttpError } from "@/server/http/errors";
@@ -47,6 +47,15 @@ async function Answer({ params }: { params: PageProps<"/pesquisas/[id]">["params
       <header className="card mb-5 p-6 sm:p-8">
         <div className="flex flex-wrap gap-1.5">
           <Badge tone={kind.tone}>{kind.label}</Badge>
+          {survey.anonymityMode === "identified" ? (
+            <Badge tone="blue">
+              <UserRound aria-hidden /> {PRIVACY_COPY.identified.badge}
+            </Badge>
+          ) : (
+            <Badge tone="purple">
+              <Lock aria-hidden /> Anônima
+            </Badge>
+          )}
           {survey.closesAt ? (
             <Badge tone="neutral">
               <CalendarClock aria-hidden /> Até {formatDay(survey.closesAt)}
@@ -58,7 +67,7 @@ async function Answer({ params }: { params: PageProps<"/pesquisas/[id]">["params
       </header>
 
       {state === "open" ? (
-        <SurveyForm surveyId={survey.id} questions={questions} />
+        <SurveyForm surveyId={survey.id} questions={questions} privacy={{ anonymityMode: survey.anonymityMode, noMinimum: survey.noMinimum }} />
       ) : (
         <div className="card p-6">
           <EmptyState

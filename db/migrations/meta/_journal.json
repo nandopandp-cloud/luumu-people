@@ -309,6 +309,20 @@
       "when": 1792080159934,
       "tag": "0043_users_must_change_password_security",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1793882708798,
+      "tag": "0044_surveys_privacy_audience",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1793882714309,
+      "tag": "0045_surveys_privacy_audience_security",
+      "breakpoints": true
     }
   ]
 }

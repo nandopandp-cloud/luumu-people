@@ -9,18 +9,21 @@ import type { QuestionType, SurveyDimension } from "@/server/db/schema/surveys";
 import { withTenant, type Tx } from "@/server/db/tenant";
 import { badRequest, conflict, forbidden, HttpError, notFound } from "@/server/http/errors";
 import { approveDimensions, dimensionProfiles, generalizedDimensions } from "./dimensions";
-import { orgSubtreeSql } from "@/server/authz/resolver";
 import { MAX_COMMENT_LENGTH, type LaunchInput, type SurveyDetailsInput, type SurveyInput } from "./schemas";
 
 /**
- * Pesquisas anônimas (docs/anonymous-surveys.md).
+ * Pesquisas (docs/anonymous-surveys.md). Quem cria escolhe a privacidade:
  *
- * O CORE guarda pesquisa, perguntas e convites (participação, só com a DATA de
- * conclusão). As respostas vão para o cofre `survey_vault` por funções
- * SECURITY DEFINER, em transação separada, sem identidade. Leitura só por
- * agregados com supressão por k (survey_vault.results / breakdown).
+ *  - ANÔNIMA: o CORE guarda pesquisa, perguntas e convites (participação, só
+ *    com a DATA de conclusão). As respostas vão para o cofre `survey_vault` por
+ *    funções SECURITY DEFINER, em transação separada, sem identidade. Leitura
+ *    só por agregados com supressão por k (survey_vault.results / breakdown).
+ *    LIVRE (sem mínimo): o cofre usa k = 1 e não há recortes por grupo.
+ *  - IDENTIFICADA: a pessoa é avisada de que responde com nome; a resposta fica
+ *    em `survey_identified_responses` e só G&G (`survey.identified.read` na
+ *    empresa toda) a lê. Sempre livre.
  *
- * Este módulo NUNCA loga, audita ou devolve respostas individuais.
+ * Este módulo NUNCA loga, audita ou devolve respostas individuais de pesquisa anônima.
  */
 
 type Meta = { ip: string | null; userAgent: string | null; requestId: string };
@@ -40,6 +43,12 @@ const MANAGEMENT_PERMISSIONS: Permission[] = ["survey.design", "survey.launch", 
 function requireTenantWide(actor: AuthenticatedActor, permission: Permission, detail?: string) {
   if (!hasTenantWide(actor, permission)) throw forbidden(detail);
 }
+
+/** Anônima COM mínimo (k): a única com público mínimo, liberação em lotes e recortes por grupo. */
+export const requiresK = (survey: { anonymityMode: string; noMinimum: boolean }) => survey.anonymityMode === "anonymous" && !survey.noMinimum;
+
+/** Identificada é sempre livre (o k protege anonimato, que ela não promete). */
+const privacyOf = (input: Pick<SurveyInput, "anonymityMode" | "noMinimum">) => ({ anonymityMode: input.anonymityMode, noMinimum: input.anonymityMode === "identified" || input.noMinimum });
 
 /** Pode ver resultados da empresa toda (escopo TENANT). Gestores com escopo de equipe: próxima etapa. */
 export function canReadAllResults(actor: AuthenticatedActor) {
@@ -73,6 +82,8 @@ export type ManagedSurvey = {
   status: "draft" | "active" | "paused" | "closed";
   closesAt: Date | null;
   launchedAt: Date | null;
+  anonymityMode: "anonymous" | "identified";
+  noMinimum: boolean;
   anonymityK: number;
   questions: number;
   invited: number;
@@ -86,7 +97,7 @@ export async function listManagedSurveys(actor: AuthenticatedActor) {
     await closeExpired(tx, actor.tenantId);
     return rows<ManagedSurvey>(
       await tx.execute(sql`
-        select s.id, s.title, s.kind, s.status, s.closes_at as "closesAt", s.launched_at as "launchedAt", s.anonymity_k as "anonymityK",
+        select s.id, s.title, s.kind, s.status, s.closes_at as "closesAt", s.launched_at as "launchedAt", s.anonymity_mode as "anonymityMode", s.no_minimum as "noMinimum", s.anonymity_k as "anonymityK",
                (select count(*)::int from survey_questions q where q.survey_id = s.id) as questions,
                (select count(*)::int from survey_invitations i where i.survey_id = s.id) as invited,
                (select count(*)::int from survey_invitations i where i.survey_id = s.id and i.status = 'completed') as completed
@@ -106,12 +117,12 @@ async function loadSurvey(tx: Tx, id: string) {
       kind: s.surveys.kind,
       status: s.surveys.status,
       anonymityMode: s.surveys.anonymityMode,
+      noMinimum: s.surveys.noMinimum,
       anonymityK: s.surveys.anonymityK,
       dimensions: s.surveys.dimensions,
       closesAt: s.surveys.closesAt,
       launchedAt: s.surveys.launchedAt,
       closedAt: s.surveys.closedAt,
-      audienceOrgUnitId: s.surveys.audienceOrgUnitId,
     })
     .from(s.surveys)
     .where(eq(s.surveys.id, id));
@@ -119,6 +130,16 @@ async function loadSurvey(tx: Tx, id: string) {
   // Agendada: lançada com início no futuro (o cofre só aceita respostas a partir dele).
   const scheduled = (survey.status === "active" || survey.status === "paused") && survey.launchedAt !== null && survey.launchedAt.getTime() > Date.now();
   return { ...survey, scheduled };
+}
+
+/** Áreas do público (vazio = empresa toda). */
+async function loadAudience(tx: Tx, surveyId: string) {
+  return tx
+    .select({ id: s.orgUnits.id, name: s.orgUnits.name })
+    .from(s.surveyAudienceUnits)
+    .innerJoin(s.orgUnits, eq(s.orgUnits.id, s.surveyAudienceUnits.orgUnitId))
+    .where(eq(s.surveyAudienceUnits.surveyId, surveyId))
+    .orderBy(asc(s.orgUnits.name));
 }
 
 async function loadQuestions(tx: Tx, surveyId: string) {
@@ -135,7 +156,7 @@ export async function getManagedSurvey(actor: AuthenticatedActor, id: string) {
     await closeExpired(tx, actor.tenantId);
     const survey = await loadSurvey(tx, id);
     if (survey.status === "draft" && !(hasTenantWide(actor, "survey.design") || hasTenantWide(actor, "survey.launch"))) throw notFound("Pesquisa não encontrada.");
-    return { survey, questions: await loadQuestions(tx, id), organizationK: await organizationK(tx) };
+    return { survey, questions: await loadQuestions(tx, id), audience: await loadAudience(tx, id), organizationK: await organizationK(tx) };
   });
 }
 
@@ -162,10 +183,10 @@ export async function createSurvey(actor: AuthenticatedActor, input: SurveyInput
     const k = Math.max(input.anonymityK, await organizationK(tx));
     const [row] = await tx
       .insert(s.surveys)
-      .values({ tenantId: actor.tenantId, title: input.title, description: input.description || null, kind: input.kind, anonymityMode: "anonymous", anonymityK: k, createdBy: actor.userId })
+      .values({ tenantId: actor.tenantId, title: input.title, description: input.description || null, kind: input.kind, ...privacyOf(input), anonymityK: k, createdBy: actor.userId })
       .returning({ id: s.surveys.id });
     await writeQuestions(tx, actor.tenantId, row!.id, input.questions);
-    await recordAudit(tx, { tenantId: actor.tenantId, actorUserId: actor.userId, action: "survey.created", resourceType: "survey", resourceId: row!.id, metadata: { title: input.title, questions: input.questions.length }, ...auditMeta(meta) });
+    await recordAudit(tx, { tenantId: actor.tenantId, actorUserId: actor.userId, action: "survey.created", resourceType: "survey", resourceId: row!.id, metadata: { title: input.title, questions: input.questions.length, ...privacyOf(input) }, ...auditMeta(meta) });
     return { id: row!.id };
   });
 }
@@ -176,9 +197,9 @@ export async function updateSurvey(actor: AuthenticatedActor, id: string, input:
     const survey = await loadSurvey(tx, id);
     if (survey.status !== "draft") throw conflict("Pesquisas lançadas não podem ser editadas: perguntas, k e dimensões ficam congelados.");
     const k = Math.max(input.anonymityK, await organizationK(tx));
-    await tx.update(s.surveys).set({ title: input.title, description: input.description || null, kind: input.kind, anonymityK: k }).where(eq(s.surveys.id, id));
+    await tx.update(s.surveys).set({ title: input.title, description: input.description || null, kind: input.kind, ...privacyOf(input), anonymityK: k }).where(eq(s.surveys.id, id));
     await writeQuestions(tx, actor.tenantId, id, input.questions);
-    await recordAudit(tx, { tenantId: actor.tenantId, actorUserId: actor.userId, action: "survey.updated", resourceType: "survey", resourceId: id, metadata: { title: input.title, questions: input.questions.length }, ...auditMeta(meta) });
+    await recordAudit(tx, { tenantId: actor.tenantId, actorUserId: actor.userId, action: "survey.updated", resourceType: "survey", resourceId: id, metadata: { title: input.title, questions: input.questions.length, ...privacyOf(input) }, ...auditMeta(meta) });
     return { id };
   });
 }
@@ -215,7 +236,7 @@ export async function deleteSurvey(actor: AuthenticatedActor, id: string, meta: 
   });
 }
 
-/** Copia a pesquisa (perguntas, tipo e k) como um novo rascunho. */
+/** Copia a pesquisa (perguntas, tipo, privacidade e k) como um novo rascunho. */
 export async function duplicateSurvey(actor: AuthenticatedActor, id: string, meta: Meta) {
   requireTenantWide(actor, "survey.design");
   return withTenant(actor, async (tx) => {
@@ -224,7 +245,7 @@ export async function duplicateSurvey(actor: AuthenticatedActor, id: string, met
     const title = `${survey.title} (cópia)`.slice(0, 120);
     const [row] = await tx
       .insert(s.surveys)
-      .values({ tenantId: actor.tenantId, title, description: survey.description, kind: survey.kind, anonymityMode: "anonymous", anonymityK: survey.anonymityK, createdBy: actor.userId })
+      .values({ tenantId: actor.tenantId, title, description: survey.description, kind: survey.kind, anonymityMode: survey.anonymityMode, noMinimum: survey.noMinimum, anonymityK: survey.anonymityK, createdBy: actor.userId })
       .returning({ id: s.surveys.id });
     if (questions.length) {
       await writeQuestions(
@@ -258,24 +279,38 @@ function assertOpensAt(opensAt: string | undefined) {
   return opens;
 }
 
-/** Pessoas ativas com lotação vigente na área (e subáreas). */
-async function audienceUserIds(tx: Tx, orgUnitId: string) {
+/** Pessoas ativas com lotação vigente em qualquer das áreas (e subáreas). */
+async function audienceUserIds(tx: Tx, orgUnitIds: string[]) {
   const result = rows<{ id: string }>(
-    await tx.execute(sql`select ea.user_id as id from employment_assignments ea join users u on u.id = ea.user_id
-      where ea.valid_to is null and u.status = 'active' and ea.org_unit_id in ${orgSubtreeSql(orgUnitId)}`),
+    await tx.execute(sql`
+      with recursive tree(id) as (
+        select ou.id from org_units ou where ou.id in ${orgUnitIds}
+        union
+        select ou.id from org_units ou join tree t on ou.parent_id = t.id
+      )
+      select distinct ea.user_id as id from employment_assignments ea join users u on u.id = ea.user_id
+      where ea.valid_to is null and u.status = 'active' and ea.org_unit_id in (select id from tree)`),
   );
   return new Set(result.map((r) => r.id));
 }
 
-/** Tamanho do público (para o diálogo de lançamento) e o k que precisa ser atingido. */
-export async function getAudienceSize(actor: AuthenticatedActor, orgUnitId?: string) {
+/** Confere que todas as áreas existem na empresa (a RLS limita ao tenant) e tira repetições. */
+async function assertOrgUnits(tx: Tx, orgUnitIds: string[]) {
+  const ids = [...new Set(orgUnitIds)];
+  if (ids.length === 0) return ids;
+  const found = await tx.select({ id: s.orgUnits.id }).from(s.orgUnits).where(inArray(s.orgUnits.id, ids));
+  if (found.length !== ids.length) throw badRequest("Área do público não encontrada.");
+  return ids;
+}
+
+/** Tamanho do público (para o diálogo de lançamento) e o k da empresa. Sem áreas = empresa toda. */
+export async function getAudienceSize(actor: AuthenticatedActor, orgUnitIds: string[]) {
   requireTenantWide(actor, "survey.launch");
   return withTenant(actor, async (tx) => {
     const k = await organizationK(tx);
-    if (!orgUnitId) return { size: (await dimensionProfiles(tx)).length, k };
-    const [unit] = await tx.select({ id: s.orgUnits.id }).from(s.orgUnits).where(eq(s.orgUnits.id, orgUnitId));
-    if (!unit) throw notFound("Área não encontrada.");
-    return { size: (await audienceUserIds(tx, orgUnitId)).size, k };
+    const ids = await assertOrgUnits(tx, orgUnitIds);
+    if (ids.length === 0) return { size: (await dimensionProfiles(tx)).length, k };
+    return { size: (await audienceUserIds(tx, ids)).size, k };
   });
 }
 
@@ -332,8 +367,10 @@ export async function resumeSurvey(actor: AuthenticatedActor, id: string, closes
 }
 
 /**
- * Lança a pesquisa para todas as pessoas ativas: cria os convites, congela o k
- * (nunca abaixo do da empresa) e aprova as dimensões de segmentação.
+ * Lança a pesquisa para o público (empresa toda ou áreas): cria os convites,
+ * congela o k (nunca abaixo do da empresa) e, só na anônima com mínimo, aprova
+ * as dimensões de segmentação e exige ao menos k pessoas no público. Livre e
+ * identificada: qualquer público com ao menos 1 pessoa, sem recortes.
  */
 export async function launchSurvey(actor: AuthenticatedActor, id: string, input: LaunchInput, meta: Meta) {
   requireTenantWide(actor, "survey.launch");
@@ -345,28 +382,38 @@ export async function launchSurvey(actor: AuthenticatedActor, id: string, input:
     if (survey.status !== "draft") throw conflict("Esta pesquisa já foi lançada.");
     if ((await loadQuestions(tx, id)).length === 0) throw conflict("Inclua ao menos uma pergunta antes de lançar.");
     const k = Math.max(survey.anonymityK, await organizationK(tx));
-    const audience = input.audienceOrgUnitId ?? null;
-    if (audience) {
-      const [unit] = await tx.select({ id: s.orgUnits.id }).from(s.orgUnits).where(eq(s.orgUnits.id, audience));
-      if (!unit) throw badRequest("Área do público não encontrada.");
-    }
-    const members = audience ? await audienceUserIds(tx, audience) : null;
+    const audience = await assertOrgUnits(tx, input.audienceOrgUnitIds ?? []);
+    const members = audience.length ? await audienceUserIds(tx, audience) : null;
     const profiles = (await dimensionProfiles(tx)).filter((p) => !members || members.has(p.userId));
-    if (profiles.length < k) throw conflict(`O público precisa ter ao menos ${k} pessoas para preservar o anonimato.`);
+    const withK = requiresK(survey);
+    if (withK && profiles.length < k) throw conflict(`O público precisa ter ao menos ${k} pessoas para preservar o anonimato.`);
+    if (profiles.length === 0) throw conflict("Não há pessoas ativas no público escolhido.");
 
     await tx.insert(s.surveyInvitations).values(profiles.map((p) => ({ tenantId: actor.tenantId, surveyId: id, userId: p.userId })));
-    const dimensions = approveDimensions(profiles, k);
-    await tx.update(s.surveys).set({ status: "active", launchedAt: opens, closesAt: closes, anonymityK: k, dimensions, audienceOrgUnitId: audience }).where(eq(s.surveys.id, id));
+    // O público entra enquanto a pesquisa ainda é rascunho (o trigger congela depois).
+    if (audience.length) await tx.insert(s.surveyAudienceUnits).values(audience.map((orgUnitId) => ({ tenantId: actor.tenantId, surveyId: id, orgUnitId })));
+    const dimensions = withK ? approveDimensions(profiles, k) : {};
+    await tx.update(s.surveys).set({ status: "active", launchedAt: opens, closesAt: closes, anonymityK: k, dimensions }).where(eq(s.surveys.id, id));
     await recordAudit(tx, {
       tenantId: actor.tenantId,
       actorUserId: actor.userId,
       action: "survey.launched",
       resourceType: "survey",
       resourceId: id,
-      metadata: { invited: profiles.length, k, dimensions: Object.keys(dimensions), closesAt: closes.toISOString(), opensAt: opens.toISOString(), scheduled, audience: audience ?? "company" },
+      metadata: {
+        invited: profiles.length,
+        k: withK ? k : null,
+        anonymityMode: survey.anonymityMode,
+        noMinimum: survey.noMinimum,
+        dimensions: Object.keys(dimensions),
+        closesAt: closes.toISOString(),
+        opensAt: opens.toISOString(),
+        scheduled,
+        audience: audience.length ? audience : "company",
+      },
       ...auditMeta(meta),
     });
-    return { id, invited: profiles.length, k, scheduled };
+    return { id, invited: profiles.length, k: withK ? k : null, scheduled };
   });
 }
 
@@ -394,21 +441,76 @@ export type QuestionResult = {
 };
 export type VaultResults = { suppressed: true } | { suppressed: false; responses: number; questions: QuestionResult[] };
 export type Group = { bucket: string; responses: number };
+/** Resposta de pesquisa IDENTIFICADA (só para quem tem survey.identified.read na empresa toda). */
+export type IdentifiedResponse = { userId: string; name: string; image: string | null; orgUnit: string | null; submittedAt: Date; answers: Record<string, number | string> };
+
+async function identifiedResponses(tx: Tx, surveyId: string): Promise<IdentifiedResponse[]> {
+  return rows<Omit<IdentifiedResponse, "submittedAt"> & { submittedAt: string }>(
+    await tx.execute(sql`
+      select r.user_id as "userId", u.name, u.image, ou.name as "orgUnit", r.submitted_at as "submittedAt", r.answers
+      from survey_identified_responses r
+      join users u on u.id = r.user_id
+      left join employment_assignments ea on ea.user_id = r.user_id and ea.valid_to is null
+      left join org_units ou on ou.id = ea.org_unit_id
+      where r.survey_id = ${surveyId}
+      order by u.name`),
+  ).map((r) => ({ ...r, submittedAt: new Date(r.submittedAt) }));
+}
+
+/** Agregados de uma pesquisa identificada, no mesmo formato do cofre (sem supressão: não há anonimato a proteger). */
+export function aggregateIdentified(questions: { id: string; type: QuestionType }[], responses: Pick<IdentifiedResponse, "answers">[]): VaultResults {
+  return {
+    suppressed: false,
+    responses: responses.length,
+    questions: questions.map((q) => {
+      const values = responses.map((r) => r.answers[q.id]).filter((v): v is number | string => v !== undefined && v !== "");
+      const numbers = values.filter((v): v is number => typeof v === "number");
+      const distribution: Record<string, number> = {};
+      if (q.type !== "text") for (const v of values) distribution[String(v)] = (distribution[String(v)] ?? 0) + 1;
+      return {
+        questionId: q.id,
+        answered: values.length,
+        suppressed: false,
+        average: (q.type === "scale" || q.type === "enps") && numbers.length ? Math.round((numbers.reduce((a, b) => a + b, 0) / numbers.length) * 100) / 100 : null,
+        distribution: q.type === "text" ? null : distribution,
+        comments: q.type === "text" ? values.filter((v): v is string => typeof v === "string") : null,
+      };
+    }),
+  };
+}
 
 /**
- * Resultado AGREGADO (empresa toda ou um grupo de uma dimensão aprovada).
- * Tudo que vem do cofre já passou pela supressão primária e complementar.
+ * Resultados. Anônima: AGREGADO do cofre (empresa toda ou um grupo de uma
+ * dimensão aprovada), já com supressão primária e complementar. Identificada:
+ * agregados + respostas por pessoa, só para `survey.identified.read` na empresa toda.
  */
 export async function getSurveyResults(actor: AuthenticatedActor, id: string, filter: { dimension?: SurveyDimension; bucket?: string } = {}) {
   requireTenantWide(actor, "survey.results.read_aggregate", "Resultados por equipe chegam na próxima etapa. Por enquanto, só quem tem acesso à empresa toda vê resultados.");
   return withTenant(actor, async (tx) => {
     await closeExpired(tx, actor.tenantId);
     const survey = await loadSurvey(tx, id);
-    if (survey.status === "draft" || survey.anonymityMode !== "anonymous") throw notFound("Pesquisa não encontrada.");
+    if (survey.status === "draft") throw notFound("Pesquisa não encontrada.");
     const questions = await loadQuestions(tx, id);
+    const audience = await loadAudience(tx, id);
     const [participation] = rows<{ invited: number; completed: number }>(
       await tx.execute(sql`select count(*)::int as invited, (count(*) filter (where status = 'completed'))::int as completed from survey_invitations where survey_id = ${id}`),
     );
+    if (survey.anonymityMode === "identified") {
+      if (!hasTenantWide(actor, "survey.identified.read")) throw forbidden("Somente o time de Gente e Gestão vê respostas de pesquisas identificadas.");
+      const individual = await identifiedResponses(tx, id);
+      return {
+        survey,
+        questions,
+        audience,
+        participation: participation ?? { invited: 0, completed: 0 },
+        dimensions: [] as SurveyDimension[],
+        dimension: undefined,
+        bucket: undefined,
+        groups: [] as Group[],
+        results: aggregateIdentified(questions, individual),
+        individual,
+      };
+    }
     const dimension = filter.dimension && survey.dimensions[filter.dimension] ? filter.dimension : undefined;
     const groups = dimension ? rows<{ r: Group[] }>(await tx.execute(sql`select survey_vault.breakdown(${id}::uuid, ${dimension}) as r`))[0]!.r : [];
     const bucket = dimension && filter.bucket && groups.some((g) => g.bucket === filter.bucket) ? filter.bucket : undefined;
@@ -418,12 +520,14 @@ export async function getSurveyResults(actor: AuthenticatedActor, id: string, fi
     return {
       survey,
       questions,
+      audience,
       participation: participation ?? { invited: 0, completed: 0 },
       dimensions: Object.keys(survey.dimensions) as SurveyDimension[],
       dimension,
       bucket,
       groups,
       results: result!.r,
+      individual: null as IdentifiedResponse[] | null,
     };
   });
 }
@@ -436,6 +540,8 @@ export type MySurvey = {
   description: string | null;
   kind: s.SurveyKind;
   anonymous: boolean;
+  /** Pesquisa livre (sem mínimo de respostas). */
+  noMinimum: boolean;
   closesAt: Date;
   questions: number;
   /** Tempo estimado para responder, em minutos (≈15 s por pergunta fechada, 45 s por texto livre). */
@@ -461,6 +567,7 @@ export async function listMySurveys(actor: AuthenticatedActor): Promise<MySurvey
       description: string | null;
       kind: s.SurveyKind;
       anonymityMode: string;
+      noMinimum: boolean;
       closesAt: string;
       launchedAt: string | null;
       status: string;
@@ -470,7 +577,7 @@ export async function listMySurveys(actor: AuthenticatedActor): Promise<MySurvey
       textQuestions: number;
     }>(
       await tx.execute(sql`
-        select s.id, s.title, s.description, s.kind, s.anonymity_mode as "anonymityMode", s.closes_at as "closesAt", s.launched_at as "launchedAt",
+        select s.id, s.title, s.description, s.kind, s.anonymity_mode as "anonymityMode", s.no_minimum as "noMinimum", s.closes_at as "closesAt", s.launched_at as "launchedAt",
                s.status, i.status as invitation, i.completed_on::text as "completedOn",
                (select count(*)::int from survey_questions q where q.survey_id = s.id) as questions,
                (select count(*)::int from survey_questions q where q.survey_id = s.id and q.type = 'text') as "textQuestions"
@@ -491,6 +598,7 @@ export async function listMySurveys(actor: AuthenticatedActor): Promise<MySurvey
         description: r.description,
         kind: r.kind,
         anonymous: r.anonymityMode === "anonymous",
+        noMinimum: r.noMinimum,
         closesAt,
         questions: r.questions,
         estimatedMinutes: Math.max(1, Math.ceil((closedQuestions * 15 + r.textQuestions * 45) / 60)),
@@ -516,7 +624,7 @@ export async function getSurveyToAnswer(actor: AuthenticatedActor, id: string) {
     if (!survey.launchedAt || survey.launchedAt.getTime() > Date.now()) throw notFound("Pesquisa não encontrada.");
     const open = survey.status === "active" && survey.closesAt !== null && survey.closesAt.getTime() > Date.now();
     return {
-      survey: { id: survey.id, title: survey.title, description: survey.description, kind: survey.kind, closesAt: survey.closesAt, anonymityMode: survey.anonymityMode },
+      survey: { id: survey.id, title: survey.title, description: survey.description, kind: survey.kind, closesAt: survey.closesAt, anonymityMode: survey.anonymityMode, noMinimum: survey.noMinimum },
       questions: await loadQuestions(tx, id),
       state: invitation.status === "completed" ? ("answered" as const) : open ? ("open" as const) : survey.status === "paused" ? ("paused" as const) : ("closed" as const),
     };
@@ -552,15 +660,18 @@ export function validateAnswers(questions: Question[], answers: Record<string, n
 }
 
 /**
- * Envio anônimo:
+ * Envio.
+ * Identificada: numa única transação, conclui o convite e grava a resposta com
+ * o id da pessoa (a interface avisou que a pesquisa é identificada).
+ * Anônima:
  *  1. Tx core: valida convite e respostas, deriva as dimensões generalizadas e
  *     marca o convite como concluído (só a DATA) — resposta única.
  *  2. Tx cofre (sem usuário no contexto): survey_vault.submit grava no buffer;
- *     o lote vai para as tabelas finais, embaralhado, ao chegar a k.
+ *     o lote vai para as tabelas finais, embaralhado, ao chegar a k (livre: 1).
  * Se a etapa 2 falhar, o convite volta a pendente (nada foi gravado no cofre).
  */
 export async function submitSurveyResponse(actor: AuthenticatedActor, surveyId: string, answers: Record<string, number | string>) {
-  const { payload, dimensions } = await withTenant(actor, async (tx) => {
+  const prepared = await withTenant(actor, async (tx) => {
     const [invitation] = await tx
       .select({ status: s.surveyInvitations.status })
       .from(s.surveyInvitations)
@@ -571,20 +682,26 @@ export async function submitSurveyResponse(actor: AuthenticatedActor, surveyId: 
     if (!survey.launchedAt || survey.launchedAt.getTime() > Date.now()) throw notFound("Pesquisa não encontrada.");
     if (survey.status === "paused") throw conflict("Esta pesquisa está pausada. Tente novamente mais tarde.");
     if (survey.status !== "active" || !survey.closesAt || survey.closesAt.getTime() <= Date.now()) throw conflict("Esta pesquisa está encerrada.");
-    if (survey.anonymityMode !== "anonymous") throw badRequest("Pesquisas identificadas ainda não são suportadas.");
 
     const payload = validateAnswers(await loadQuestions(tx, surveyId), answers);
-    const [profile] = await dimensionProfiles(tx, actor.userId);
-    const dimensions = generalizedDimensions(profile ?? { userId: actor.userId, diretoria: null, area: null, hireDate: null }, survey.dimensions);
-
-    const updated = await tx
+    const completed = await tx
       .update(s.surveyInvitations)
       .set({ status: "completed", completedOn: sql`(now() at time zone 'America/Sao_Paulo')::date` })
       .where(and(eq(s.surveyInvitations.surveyId, surveyId), eq(s.surveyInvitations.userId, actor.userId), eq(s.surveyInvitations.status, "pending")))
       .returning({ status: s.surveyInvitations.status });
-    if (updated.length === 0) throw conflict("Você já respondeu esta pesquisa. Obrigado!");
+    if (completed.length === 0) throw conflict("Você já respondeu esta pesquisa. Obrigado!");
+
+    if (survey.anonymityMode === "identified") {
+      await tx.insert(s.surveyIdentifiedResponses).values({ tenantId: actor.tenantId, surveyId, userId: actor.userId, answers: payload });
+      return null;
+    }
+
+    const [profile] = await dimensionProfiles(tx, actor.userId);
+    const dimensions = generalizedDimensions(profile ?? { userId: actor.userId, diretoria: null, area: null, hireDate: null }, survey.dimensions);
     return { payload, dimensions };
   });
+  if (!prepared) return;
+  const { payload, dimensions } = prepared;
 
   try {
     await withTenant({ tenantId: actor.tenantId, userId: null }, (tx) =>

@@ -14,7 +14,7 @@ import { SurveyToolbar } from "@/features/surveys/management/toolbar";
 import { parseSurveyParams, toSurveyQuery } from "@/lib/survey-params";
 import { hasPermissionAnywhere, hasTenantWide } from "@/server/authz/policy";
 import { requireActor } from "@/server/dal";
-import { getSurveyKpis, listAudienceAreas, listSurveyDirectory } from "@/server/modules/surveys/overview";
+import { getSurveyKpis, listAudienceAreas, listSurveyDirectory, privacyLabel } from "@/server/modules/surveys/overview";
 import { canReadAllResults } from "@/server/modules/surveys/service";
 
 export const metadata: Metadata = { title: "Pesquisas" };
@@ -130,6 +130,7 @@ async function Surveys({ searchParams }: { searchParams: SP }) {
             title: s.title,
             description: s.description,
             kind: s.kind,
+            privacy: privacyLabel(s),
             status: s.status,
             displayStatus: s.displayStatus,
             opensAt: s.opensAt?.toISOString() ?? null,

@@ -19,7 +19,7 @@ async function query<T extends Row>(statement: ReturnType<typeof sql>): Promise<
 }
 
 const AUTH_TABLES = ["sessions", "accounts", "verifications", "two_factors", "rate_limits", "login_throttles"];
-const APPEND_ONLY_OR_HISTORY = ["audit_logs", "user_roles", "employment_assignments", "manager_relationships"];
+const APPEND_ONLY_OR_HISTORY = ["audit_logs", "user_roles", "employment_assignments", "manager_relationships", "survey_identified_responses", "survey_audience_units"];
 
 describe("segurança do schema", () => {
   beforeAll(async () => {

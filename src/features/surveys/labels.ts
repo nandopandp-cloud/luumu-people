@@ -37,6 +37,27 @@ export const ANONYMITY_COPY = {
   suppressed: "Ainda não temos respostas suficientes para mostrar este resultado preservando o anonimato.",
 } as const;
 
+/**
+ * Avisos de privacidade das pesquisas livres e identificadas (docs/anonymous-surveys.md).
+ * Só o time de Gente e Gestão vê respostas e resultados.
+ */
+export const PRIVACY_COPY = {
+  free: {
+    title: "Pesquisa anônima livre",
+    builder:
+      "As respostas não ficam ligadas a ninguém, mas não há mínimo: os resultados aparecem desde a 1ª resposta e sem recortes por grupo. Em públicos pequenos, dá para deduzir quem respondeu o quê. Só o time de Gente e Gestão vê os resultados.",
+    form: "Sua resposta é anônima: não fica ligada ao seu nome. Esta pesquisa não exige um número mínimo de respostas; se poucas pessoas responderem, ela pode ser deduzida. Os resultados são vistos só pelo time de Gente e Gestão.",
+    badge: "Anônima · livre",
+  },
+  identified: {
+    title: "Esta pesquisa é identificada",
+    builder:
+      "Cada resposta fica ligada ao nome de quem respondeu e é vista só pelo time de Gente e Gestão. Quem responde é avisado antes de começar. Não há mínimo de pessoas nem de respostas.",
+    form: "Suas respostas ficam registradas com o seu nome e são vistas só pelo time de Gente e Gestão.",
+    badge: "Identificada",
+  },
+} as const;
+
 /** Data (dd/mm/aaaa) no fuso de Brasília. */
 export const formatDay = (date: Date | string) =>
   new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Sao_Paulo" }).format(new Date(date));

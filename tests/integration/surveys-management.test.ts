@@ -69,11 +69,11 @@ describe("pesquisas: gestão (lista, indicadores, agendamento e público)", () =
     expect((await listSurveyDirectory(actor, query({ kind: "enps" }))).items.every((r) => r.kind === "enps")).toBe(true);
 
     const byArea = await listSurveyDirectory(actor, query({ audience: "empresa" }));
-    expect(byArea.items.every((r) => r.audienceOrgUnitId === null)).toBe(true);
-    const area = all.items.find((r) => r.audienceOrgUnitId !== null)!;
+    expect(byArea.items.every((r) => r.audienceOrgUnitIds.length === 0)).toBe(true);
+    const area = all.items.find((r) => r.audienceOrgUnitIds.length > 0)!;
     expect(area.audienceName).toBeTruthy();
     expect(area.audienceSize).toBe(area.invited);
-    expect((await listSurveyDirectory(actor, query({ audience: area.audienceOrgUnitId! }))).items.map((r) => r.id)).toEqual([area.id]);
+    expect((await listSurveyDirectory(actor, query({ audience: area.audienceOrgUnitIds[0]! }))).items.map((r) => r.id)).toEqual([area.id]);
 
     const page = await listSurveyDirectory(actor, query({ perPage: 2, page: 2 }));
     expect(page.items.length).toBeLessThanOrEqual(2);
@@ -123,13 +123,13 @@ describe("pesquisas: gestão (lista, indicadores, agendamento e público)", () =
   it("lança agendada para uma área: só a área é convidada e o público congela", async () => {
     const { big } = await areas();
     const { id, admin } = await draft("Pulso de teste: área agendada");
-    const size = await call(audienceRoute.GET, { path: `/api/v1/surveys/audience?orgUnitId=${big.id}`, cookie: admin.cookie });
+    const size = await call(audienceRoute.GET, { path: `/api/v1/surveys/audience?orgUnitIds=${big.id}`, cookie: admin.cookie });
     expect(size.json.size).toBe(big.n);
 
     // Encerramento antes do início → 400.
-    expect((await call(launchRoute.POST, { path: "/x", method: "POST", cookie: admin.cookie, params: { id }, body: { opensAt: iso(10), closesAt: iso(5), audienceOrgUnitId: big.id } })).status).toBe(400);
+    expect((await call(launchRoute.POST, { path: "/x", method: "POST", cookie: admin.cookie, params: { id }, body: { opensAt: iso(10), closesAt: iso(5), audienceOrgUnitIds: [big.id] } })).status).toBe(400);
 
-    const launched = await call(launchRoute.POST, { path: "/x", method: "POST", cookie: admin.cookie, params: { id }, body: { opensAt: iso(10), closesAt: iso(20), audienceOrgUnitId: big.id } });
+    const launched = await call(launchRoute.POST, { path: "/x", method: "POST", cookie: admin.cookie, params: { id }, body: { opensAt: iso(10), closesAt: iso(20), audienceOrgUnitIds: [big.id] } });
     expect(launched.status).toBe(200);
     expect(launched.json).toMatchObject({ invited: big.n, scheduled: true });
     const [{ invited }] = await rowsOf<{ invited: number }>(sql`select count(*)::int as invited from survey_invitations where survey_id = ${id}`);
@@ -137,14 +137,14 @@ describe("pesquisas: gestão (lista, indicadores, agendamento e público)", () =
 
     const { actor } = await session("paula");
     const row = (await listSurveyDirectory(actor, query({ search: "área agendada" }))).items[0]!;
-    expect(row).toMatchObject({ displayStatus: "scheduled", audienceOrgUnitId: big.id, audienceSize: big.n });
+    expect(row).toMatchObject({ displayStatus: "scheduled", audienceOrgUnitIds: [big.id], audienceSize: big.n });
 
     // Público congelado depois do lançamento (garantido no banco).
     const tenant = await tenantOf("aurora");
     await expectDbError(
       asRole("luumu_app", async (db) => {
         await db.execute(sql`select set_config('app.tenant_id', ${tenant.tenantId}, true)`);
-        await db.execute(sql`update surveys set audience_org_unit_id = null where id = ${id}`);
+        await db.execute(sql`insert into survey_audience_units (tenant_id, survey_id, org_unit_id) select tenant_id, ${id}, id from org_units where tenant_id = ${tenant.tenantId} and id <> ${big.id} limit 1`);
       }),
       /público congela/,
     );
@@ -154,7 +154,7 @@ describe("pesquisas: gestão (lista, indicadores, agendamento e público)", () =
     const { small } = await areas();
     const { id, admin } = await draft("Pulso de teste: área pequena");
     if (small.n < 5) {
-      expect((await call(launchRoute.POST, { path: "/x", method: "POST", cookie: admin.cookie, params: { id }, body: { closesAt: iso(7), audienceOrgUnitId: small.id } })).status).toBe(409);
+      expect((await call(launchRoute.POST, { path: "/x", method: "POST", cookie: admin.cookie, params: { id }, body: { closesAt: iso(7), audienceOrgUnitIds: [small.id] } })).status).toBe(409);
     }
     const carla = await session("carla");
     expect((await call(audienceRoute.GET, { path: "/api/v1/surveys/audience", cookie: carla.cookie })).status).toBe(403);

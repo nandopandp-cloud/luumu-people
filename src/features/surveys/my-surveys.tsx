@@ -149,7 +149,7 @@ export function OpenSurveyCard({ survey: s }: { survey: MySurvey }) {
           </div>
           <ul className="mt-5 space-y-3 border-t border-line pt-5 text-body-sm text-neutral-800 @min-[640px]:mt-0 @min-[640px]:flex @min-[640px]:flex-wrap @min-[640px]:gap-x-6 @min-[640px]:gap-y-2 @min-[640px]:space-y-0 @min-[640px]:border-t-0 @min-[640px]:pt-0 @min-[1080px]:mt-5 @min-[1080px]:block @min-[1080px]:space-y-3 @min-[1080px]:border-t @min-[1080px]:pt-5">
             {[
-              s.anonymous ? { icon: Lock, label: "100% anônima" } : { icon: UsersRound, label: "Esta pesquisa é identificada" },
+              s.anonymous ? { icon: Lock, label: s.noMinimum ? "Anônima, sem mínimo de respostas" : "100% anônima" } : { icon: UsersRound, label: "Esta pesquisa é identificada" },
               { icon: UsersRound, label: "Para todas as pessoas" },
               { icon: ShieldCheck, label: "Seus dados são protegidos" },
             ].map(({ icon: Icon, label }) => (

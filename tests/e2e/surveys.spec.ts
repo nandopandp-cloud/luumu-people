@@ -176,7 +176,7 @@ test.describe("Pesquisas", () => {
     await page.getByLabel("Título", { exact: true }).fill("Pulso agendado E2E");
     await page.getByRole("button", { name: "Lançar pesquisa" }).click();
     const launch = page.getByRole("dialog", { name: "Lançar pesquisa" });
-    await launch.getByLabel("Público").selectOption({ label: "Toda a empresa" });
+    await launch.getByRole("radio", { name: "Toda a empresa" }).click();
     await launch.getByRole("radio", { name: "Agendar o início" }).click();
     await launch.getByLabel("Abre em").click();
     await page.getByRole("button", { name: "Próximo mês" }).click();
@@ -189,5 +189,62 @@ test.describe("Pesquisas", () => {
     await expect(page.getByText("Pesquisa agendada").first()).toBeVisible();
     await gotoHydrated(page, "/gestao/pesquisas?status=agendadas");
     await expect(page.getByRole("row").filter({ hasText: "Pulso agendado E2E" }).getByText("Agendada")).toBeVisible();
+  });
+
+  test("G&G cria pesquisa identificada e livre para uma área; a pessoa é avisada; G&G vê respostas por pessoa", async ({ page }) => {
+    test.setTimeout(180_000);
+    await signIn(page, "paula.ribeiro@aurora.example");
+    await gotoHydrated(page, "/gestao/pesquisas/nova");
+    await page.getByLabel("Título", { exact: true }).fill("Feedback identificado E2E");
+    await page.getByRole("radio", { name: /Identificadas/ }).click();
+    await expect(page.getByText("Esta pesquisa é identificada").first()).toBeVisible();
+    await expect(page.getByLabel("Mínimo de respostas por grupo (k)")).toHaveCount(0);
+    await expectAccessible(page);
+
+    await page.getByRole("button", { name: "Lançar pesquisa" }).click();
+    const launch = page.getByRole("dialog", { name: "Lançar pesquisa" });
+    await launch.getByRole("radio", { name: "Áreas específicas" }).click();
+    await launch.getByRole("combobox", { name: "Áreas" }).click();
+    await page.getByRole("option", { name: /^Jurídico/ }).click();
+    await page.keyboard.press("Escape");
+    await expect(launch.getByText("1 pessoa será convidada em Jurídico.")).toBeVisible();
+    await launch.getByLabel("Recebe respostas até").click();
+    await page.getByRole("button", { name: "Próximo mês" }).click();
+    await page.getByRole("grid").getByRole("button").filter({ hasText: /^20$/ }).first().click();
+    // Com a data escolhida o botão habilita e transita do cinza para o roxo:
+    // o axe mediria a cor no meio da transição.
+    await expect(page.getByRole("grid")).toHaveCount(0);
+    const launchNow = launch.getByRole("button", { name: "Lançar agora" });
+    await expect(launchNow).toBeEnabled();
+    await launchNow.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+    await expectAccessible(page);
+    await launchNow.click();
+    await expect(page.getByText("Pesquisa lançada").first()).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Feedback identificado E2E" })).toBeVisible();
+    await expect(page.getByText("Público: Jurídico")).toBeVisible();
+
+    // A pessoa da área responde, avisada de que a pesquisa é identificada.
+    await page.context().clearCookies();
+    await signIn(page, "luiza.campos@aurora.example");
+    await gotoHydrated(page, "/pesquisas");
+    await page.getByRole("article", { name: "Feedback identificado E2E" }).getByRole("link", { name: /Responder pesquisa/ }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Feedback identificado E2E" })).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByText("Suas respostas ficam registradas com o seu nome e são vistas só pelo time de Gente e Gestão.").first()).toBeVisible();
+    await expectAccessible(page);
+  });
+
+  test("resultados de pesquisa identificada: agregados e respostas por pessoa", async ({ page }) => {
+    test.setTimeout(120_000);
+    await signIn(page, "paula.ribeiro@aurora.example");
+    await gotoHydrated(page, "/gestao/pesquisas?status=encerradas");
+    await page.getByRole("link", { name: "Confraternização de fim de ano" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Confraternização de fim de ano" })).toBeVisible();
+    await expect(page.getByText("Identificada").first()).toBeVisible();
+    const individual = page.getByRole("region", { name: /Respostas por pessoa/ });
+    await expect(individual).toBeVisible();
+    await individual.getByText("Ver respostas").first().click();
+    await expect(individual.getByText("Qual formato você prefere?").first()).toBeVisible();
+    await expectAccessible(page);
   });
 });

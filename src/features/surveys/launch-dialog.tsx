@@ -4,14 +4,14 @@ import { CalendarClock, Rocket, UsersRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/design-system/components/button";
 import { RadioGroup } from "@/design-system/components/choice";
+import { Combobox } from "@/design-system/components/combobox";
 import { DatePicker } from "@/design-system/components/date-picker";
 import { Modal } from "@/design-system/components/dialog";
 import { Alert } from "@/design-system/components/feedback";
 import { Field } from "@/design-system/components/field";
-import { Select } from "@/design-system/components/select";
 import { api } from "@/lib/api-client";
 
-export type LaunchBody = { closesAt: string; opensAt?: string; audienceOrgUnitId?: string | null };
+export type LaunchBody = { closesAt: string; opensAt?: string; audienceOrgUnitIds: string[] };
 type OrgUnit = { id: string; name: string; type: string };
 
 const num = new Intl.NumberFormat("pt-BR");
@@ -21,25 +21,32 @@ const dayFromToday = (days: number) => new Intl.DateTimeFormat("en-CA", { timeZo
 const addDays = (iso: string, days: number) => new Date(Date.parse(`${iso}T12:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 
 /**
- * Lançamento: público (empresa toda ou uma área com subáreas), início (agora ou
- * agendado) e prazo. O público precisa de ao menos k pessoas (anonimato).
+ * Lançamento: público (empresa toda ou áreas específicas, com subáreas), início
+ * (agora ou agendado) e prazo. Anônima com mínimo: o público precisa de ao
+ * menos k pessoas. Livre ou identificada: basta 1 pessoa.
  */
 export function LaunchDialog({
   open,
   onOpenChange,
   k,
+  identified,
   orgUnits,
   pending,
   onConfirm,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  k: number;
+  /** k da pesquisa; nulo = livre (sem mínimo). */
+  k: number | null;
+  identified: boolean;
   orgUnits: OrgUnit[];
   pending: boolean;
   onConfirm: (body: LaunchBody) => void;
 }) {
-  const [audience, setAudience] = useState("");
+  const [audienceMode, setAudienceMode] = useState<"company" | "areas">("company");
+  const [areas, setAreas] = useState<string[]>([]);
+  const selectedAreas = audienceMode === "areas" ? areas : [];
+  const audience = selectedAreas.join(",");
   const [size, setSize] = useState<{ key: string; size: number; k: number } | null>(null);
   const [startMode, setStartMode] = useState<"now" | "scheduled">("now");
   const [opensOn, setOpensOn] = useState<string | null>(null);
@@ -49,7 +56,7 @@ export function LaunchDialog({
   useEffect(() => {
     if (!open) return;
     let alive = true;
-    api<{ size: number; k: number }>(`/api/v1/surveys/audience${audience ? `?orgUnitId=${audience}` : ""}`)
+    api<{ size: number; k: number }>(`/api/v1/surveys/audience${audience ? `?orgUnitIds=${audience}` : ""}`)
       .then((r) => alive && setSize({ key: audience, ...r }))
       .catch(() => alive && setSize(null));
     return () => {
@@ -61,11 +68,13 @@ export function LaunchDialog({
   const minOpen = dayFromToday(1);
   const minClose = scheduled && opensOn ? addDays(opensOn, 1) : dayFromToday(1);
   const current = size && size.key === audience ? size : null;
-  const required = Math.max(k, current?.k ?? 0);
+  const required = k === null ? 1 : Math.max(k, current?.k ?? 0);
   const tooSmall = current !== null && current.size < required;
   const closeInvalid = Boolean(closesOn && closesOn < minClose);
-  const ready = Boolean(closesOn) && !closeInvalid && (!scheduled || Boolean(opensOn)) && current !== null && !tooSmall;
-  const unitName = orgUnits.find((u) => u.id === audience)?.name;
+  const areasMissing = audienceMode === "areas" && areas.length === 0;
+  const ready = Boolean(closesOn) && !closeInvalid && (!scheduled || Boolean(opensOn)) && !areasMissing && current !== null && !tooSmall;
+  const unitNames = orgUnits.filter((u) => selectedAreas.includes(u.id)).map((u) => u.name);
+  const unitName = unitNames.length === 1 ? unitNames[0] : unitNames.length > 1 ? `${unitNames.length} áreas` : undefined;
 
   return (
     <Modal
@@ -87,7 +96,7 @@ export function LaunchDialog({
                 // Encerra às 23h59 e abre à 0h (horário de Brasília).
                 closesAt: `${closesOn}T23:59:00-03:00`,
                 ...(scheduled && opensOn ? { opensAt: `${opensOn}T00:00:00-03:00` } : {}),
-                audienceOrgUnitId: audience || null,
+                audienceOrgUnitIds: selectedAreas,
               })
             }
           >
@@ -97,26 +106,48 @@ export function LaunchDialog({
       }
     >
       <div className="space-y-5">
-        <Field label="Público" hint="Pessoas ativas da área escolhida, incluindo as subáreas.">
-          {({ id, describedBy }) => (
-            <Select id={id} aria-describedby={describedBy} value={audience} onChange={(e) => setAudience(e.target.value)}>
-              <option value="">Toda a empresa</option>
-              {orgUnits.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.type === "directorate" ? u.name : `— ${u.name}`}
-                </option>
-              ))}
-            </Select>
-          )}
-        </Field>
+        <fieldset className="space-y-3">
+          <legend className="mb-2 text-body-sm font-semibold text-neutral-800">Público</legend>
+          <RadioGroup
+            aria-label="Público"
+            value={audienceMode}
+            onValueChange={(v) => setAudienceMode(v as "company" | "areas")}
+            options={[
+              { value: "company", label: "Toda a empresa" },
+              { value: "areas", label: "Áreas específicas" },
+            ]}
+          />
+          {audienceMode === "areas" ? (
+            <Field label="Áreas" hint="Pessoas ativas das áreas escolhidas, incluindo as subáreas.">
+              {({ id, describedBy }) => (
+                <Combobox
+                  id={id}
+                  aria-describedby={describedBy}
+                  multiple
+                  placeholder="Selecione as áreas"
+                  searchPlaceholder="Buscar área…"
+                  options={orgUnits.map((u) => ({ value: u.id, label: u.name, description: u.type === "directorate" ? "Diretoria" : undefined }))}
+                  value={areas}
+                  onChange={setAreas}
+                />
+              )}
+            </Field>
+          ) : null}
+        </fieldset>
         <p className="flex items-center gap-2 rounded-lg bg-purple-50 px-4 py-2.5 text-body-sm text-purple-700" aria-live="polite">
           <UsersRound aria-hidden className="size-4 shrink-0" />
-          {current === null ? "Calculando o público…" : `${num.format(current.size)} ${current.size === 1 ? "pessoa será convidada" : "pessoas serão convidadas"}${unitName ? ` em ${unitName}` : ""}.`}
+          {areasMissing ? "Escolha as áreas que vão responder." : current === null ? "Calculando o público…" : `${num.format(current.size)} ${current.size === 1 ? "pessoa será convidada" : "pessoas serão convidadas"}${unitName ? ` em ${unitName}` : ""}.`}
         </p>
-        {tooSmall ? (
-          <Alert tone="warning" title={`O público precisa ter ao menos ${required} pessoas`}>
-            Com menos gente, as respostas poderiam identificar quem respondeu. Escolha uma área maior ou a empresa toda.
-          </Alert>
+        {tooSmall && !areasMissing ? (
+          k === null ? (
+            <Alert tone="warning" title="Não há pessoas ativas neste público">
+              Escolha outras áreas ou a empresa toda.
+            </Alert>
+          ) : (
+            <Alert tone="warning" title={`O público precisa ter ao menos ${required} pessoas`}>
+              Com menos gente, as respostas poderiam identificar quem respondeu. Escolha áreas maiores, a empresa toda ou crie uma pesquisa livre.
+            </Alert>
+          )
         ) : null}
 
         <fieldset className="space-y-3">
@@ -148,7 +179,11 @@ export function LaunchDialog({
         ) : null}
 
         <Alert tone="warning" title="Depois do lançamento, nada disso muda">
-          Público, perguntas, k ({k}) e os grupos de segmentação ficam congelados para proteger o anonimato. Os resultados aparecem em lotes de pelo menos {k} respostas.
+          {identified
+            ? "Público, perguntas e a privacidade (identificada) ficam congelados. As respostas aparecem com o nome de quem respondeu, só para o time de Gente e Gestão."
+            : k === null
+              ? "Público, perguntas e a privacidade (anônima e livre) ficam congelados. Os resultados aparecem desde a 1ª resposta, sem recortes por grupo: em públicos pequenos, dá para deduzir respostas."
+              : `Público, perguntas, k (${k}) e os grupos de segmentação ficam congelados para proteger o anonimato. Os resultados aparecem em lotes de pelo menos ${k} respostas.`}
         </Alert>
       </div>
     </Modal>

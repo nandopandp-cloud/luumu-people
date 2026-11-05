@@ -268,14 +268,16 @@ describe("pesquisas anônimas", () => {
       /não pode ser excluída/,
     );
     await expectDbError(db.execute(sql`update surveys set status = 'draft' where id = ${id}`), /transição/);
-    // O runtime nem tem privilégio para alterar o modo de anonimato.
-    await expectDbError(
-      asRole("luumu_app", async (tx) => {
-        await tx.execute(sql`select set_config('app.tenant_id', ${(await tenantOf("aurora")).tenantId}, true)`);
-        await tx.execute(sql`update surveys set anonymity_mode = 'anonymous' where id = ${id}`);
-      }),
-      /permission denied/,
-    );
+    // O runtime edita privacidade só no rascunho: lançada, modo e "livre" congelam.
+    for (const change of [sql`anonymity_mode = 'identified'`, sql`no_minimum = true`]) {
+      await expectDbError(
+        asRole("luumu_app", async (tx) => {
+          await tx.execute(sql`select set_config('app.tenant_id', ${(await tenantOf("aurora")).tenantId}, true)`);
+          await tx.execute(sql`update surveys set ${change} where id = ${id}`);
+        }),
+        /imutável/,
+      );
+    }
   });
 
   it("gestão: pausar bloqueia respostas, retomar, editar só o permitido, duplicar e excluir apagando o cofre", async () => {

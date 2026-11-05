@@ -8,12 +8,13 @@ import type { SurveyKind } from "@/server/db/schema";
 import { withTenant, type Tx } from "@/server/db/tenant";
 import { forbidden } from "@/server/http/errors";
 import { csvCell } from "@/server/modules/reports/development";
-import { canReadAllResults, closeExpired, type VaultResults } from "./service";
+import { aggregateIdentified, canReadAllResults, closeExpired, type VaultResults } from "./service";
 
 /**
  * Visão de gestão das pesquisas: lista com abas, filtros e paginação, e os
- * indicadores do topo. Só PARTICIPAÇÃO (convites) e resultados AGREGADOS do
- * cofre (já com supressão por k) — nunca respostas individuais.
+ * indicadores do topo. Só PARTICIPAÇÃO (convites) e resultados AGREGADOS (do
+ * cofre, já com supressão por k, ou de pesquisas identificadas) — nunca
+ * respostas individuais.
  */
 
 type Rows<T> = { rows: T[] };
@@ -46,8 +47,12 @@ export type SurveyRow = {
   opensAt: Date | null;
   closesAt: Date | null;
   createdAt: Date;
+  anonymityMode: "anonymous" | "identified";
+  noMinimum: boolean;
   anonymityK: number;
-  audienceOrgUnitId: string | null;
+  /** Áreas do público (vazio = empresa toda). */
+  audienceOrgUnitIds: string[];
+  /** Nomes das áreas, separados por vírgula (nulo = empresa toda). */
   audienceName: string | null;
   audienceSize: number;
   invited: number;
@@ -58,7 +63,7 @@ export type SurveyRow = {
 export type SurveyListQuery = {
   search?: string;
   kind?: SurveyKind;
-  /** "empresa" = público da empresa toda; uuid = público daquela área. */
+  /** "empresa" = público da empresa toda; uuid = público que inclui aquela área. */
   audience?: string;
   tab?: SurveyTab;
   opensFrom?: string;
@@ -81,10 +86,12 @@ async function loadRows(tx: Tx, actor: AuthenticatedActor): Promise<SurveyRow[]>
   const data = rows<Omit<SurveyRow, "displayStatus" | "audienceSize" | "rate"> & { opensAt: string | null; closesAt: string | null; createdAt: string }>(
     await tx.execute(sql`
       select s.id, s.title, s.description, s.kind, s.status, s.launched_at as "opensAt", s.closes_at as "closesAt", s.created_at as "createdAt",
-             s.anonymity_k as "anonymityK", s.audience_org_unit_id as "audienceOrgUnitId", ou.name as "audienceName",
+             s.anonymity_mode as "anonymityMode", s.no_minimum as "noMinimum", s.anonymity_k as "anonymityK",
+             (select coalesce(json_agg(a.org_unit_id), '[]'::json) from survey_audience_units a where a.survey_id = s.id) as "audienceOrgUnitIds",
+             (select string_agg(ou.name, ', ' order by ou.name) from survey_audience_units a join org_units ou on ou.id = a.org_unit_id where a.survey_id = s.id) as "audienceName",
              (select count(*)::int from survey_invitations i where i.survey_id = s.id) as invited,
              (select count(*)::int from survey_invitations i where i.survey_id = s.id and i.status = 'completed') as completed
-      from surveys s left join org_units ou on ou.id = s.audience_org_unit_id
+      from surveys s
       ${seesDrafts(actor) ? sql`` : sql`where s.status <> 'draft'`}`),
   );
   const now = Date.now();
@@ -130,7 +137,7 @@ function applyFilters(all: SurveyRow[], query: Omit<SurveyListQuery, "tab" | "so
     (r) =>
       (!term || normalize(`${r.title} ${r.description ?? ""}`).includes(term)) &&
       (!query.kind || r.kind === query.kind) &&
-      (!query.audience || (query.audience === "empresa" ? r.audienceOrgUnitId === null : r.audienceOrgUnitId === query.audience)) &&
+      (!query.audience || (query.audience === "empresa" ? r.audienceOrgUnitIds.length === 0 : r.audienceOrgUnitIds.includes(query.audience))) &&
       (!query.opensFrom || (r.opensAt !== null && day(r.opensAt) >= query.opensFrom)) &&
       (!query.opensTo || (r.opensAt !== null && day(r.opensAt) <= query.opensTo)),
   );
@@ -165,7 +172,7 @@ export async function listAudienceAreas(actor: AuthenticatedActor) {
   assertCanManage(actor);
   return withTenant(actor, async (tx) =>
     rows<{ id: string; name: string }>(
-      await tx.execute(sql`select distinct ou.id, ou.name from surveys s join org_units ou on ou.id = s.audience_org_unit_id order by ou.name`),
+      await tx.execute(sql`select distinct ou.id, ou.name from survey_audience_units a join org_units ou on ou.id = a.org_unit_id order by ou.name`),
     ),
   );
 }
@@ -225,7 +232,8 @@ export async function getSurveyKpis(actor: AuthenticatedActor) {
 
 /**
  * eNPS médio das últimas 3 pesquisas com pergunta de recomendação e resultado
- * liberado (≥ k respostas), comparado às 3 anteriores. Usa só survey_vault.results.
+ * liberado (anônima: pelo cofre, com k; identificada: agregado), comparado às 3
+ * anteriores.
  */
 async function enpsTrend(tx: Tx, all: SurveyRow[]) {
   const candidates = all
@@ -241,9 +249,15 @@ async function enpsTrend(tx: Tx, all: SurveyRow[]) {
     if (scores.length >= 6) break;
     const questionId = enpsQuestions.get(survey.id);
     if (!questionId) continue;
-    const [result] = rows<{ r: VaultResults }>(await tx.execute(sql`select survey_vault.results(${survey.id}::uuid, null::text, null::text) as r`));
-    if (!result || result.r.suppressed) continue;
-    const question = result.r.questions.find((q) => q.questionId === questionId);
+    const result =
+      survey.anonymityMode === "identified"
+        ? aggregateIdentified(
+            [{ id: questionId, type: "enps" }],
+            rows<{ answers: Record<string, number | string> }>(await tx.execute(sql`select answers from survey_identified_responses where survey_id = ${survey.id}`)),
+          )
+        : rows<{ r: VaultResults }>(await tx.execute(sql`select survey_vault.results(${survey.id}::uuid, null::text, null::text) as r`))[0]?.r;
+    if (!result || result.suppressed || result.responses === 0) continue;
+    const question = result.questions.find((q) => q.questionId === questionId);
     const score = question && !question.suppressed && question.distribution ? enpsFromDistribution(question.distribution) : null;
     if (score !== null) scores.push(score);
   }
@@ -255,6 +269,12 @@ async function enpsTrend(tx: Tx, all: SurveyRow[]) {
 /* -------------------------------------------------------------- exportação */
 
 const KIND_LABEL: Record<string, string> = { climate: "Clima", enps: "eNPS", pulse: "Pulso", custom: "Personalizada" };
+/** Privacidade em texto (lista e CSV). */
+export function privacyLabel(r: Pick<SurveyRow, "anonymityMode" | "noMinimum" | "anonymityK">) {
+  if (r.anonymityMode === "identified") return "Identificada";
+  return r.noMinimum ? "Anônima · livre" : `Anônima · k = ${r.anonymityK}`;
+}
+
 const STATUS_LABEL: Record<SurveyDisplayStatus, string> = { draft: "Rascunho", scheduled: "Agendada", active: "Em andamento", paused: "Pausada", closed: "Encerrada" };
 
 /** CSV de PARTICIPAÇÃO (nunca respostas) das pesquisas selecionadas ou filtradas; auditado. */
@@ -266,10 +286,10 @@ export async function exportSurveysCsv(actor: AuthenticatedActor, query: Omit<Su
     if (query.tab) list = list.filter((r) => TAB_STATUSES[query.tab!].includes(r.displayStatus));
     if (query.ids?.length) list = list.filter((r) => query.ids!.includes(r.id));
     const date = (d: Date | null) => (d ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: "America/Sao_Paulo" }).format(d) : null);
-    const lines = [["Pesquisa", "Tipo", "Público", "Pessoas no público", "Início", "Encerramento", "Situação", "Respostas", "Participação (%)", "k"].map(csvCell).join(";")];
+    const lines = [["Pesquisa", "Tipo", "Público", "Pessoas no público", "Início", "Encerramento", "Situação", "Respostas", "Participação (%)", "Privacidade"].map(csvCell).join(";")];
     for (const r of list) {
       lines.push(
-        [r.title, KIND_LABEL[r.kind] ?? r.kind, r.audienceName ?? "Toda a empresa", r.audienceSize, date(r.opensAt), date(r.closesAt), STATUS_LABEL[r.displayStatus], r.status === "draft" ? null : r.completed, r.rate, r.anonymityK]
+        [r.title, KIND_LABEL[r.kind] ?? r.kind, r.audienceName ?? "Toda a empresa", r.audienceSize, date(r.opensAt), date(r.closesAt), STATUS_LABEL[r.displayStatus], r.status === "draft" ? null : r.completed, r.rate, privacyLabel(r)]
           .map(csvCell)
           .join(";"),
       );

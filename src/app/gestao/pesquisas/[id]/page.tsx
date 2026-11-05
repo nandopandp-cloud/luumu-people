@@ -50,7 +50,7 @@ async function Survey({ params, searchParams }: Pick<Props, "params" | "searchPa
         <div className="mb-5">{crumbs}</div>
         <h1 className="mb-6 text-h1 font-extrabold tracking-[-0.02em] text-neutral-900">Editar pesquisa</h1>
         <SurveyBuilder
-          survey={{ id: survey.id, title: survey.title, description: survey.description, kind: survey.kind, anonymityK: survey.anonymityK, questions: questions.map((q) => ({ type: q.type, text: q.text, options: q.options ?? undefined, required: q.required })) }}
+          survey={{ id: survey.id, title: survey.title, description: survey.description, kind: survey.kind, anonymityMode: survey.anonymityMode, noMinimum: survey.noMinimum, anonymityK: survey.anonymityK, questions: questions.map((q) => ({ type: q.type, text: q.text, options: q.options ?? undefined, required: q.required })) }}
           organizationK={organizationK}
           orgUnits={await listOrgUnits(actor)}
           canDesign={hasTenantWide(actor, "survey.design")}

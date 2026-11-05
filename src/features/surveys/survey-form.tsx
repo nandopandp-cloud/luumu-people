@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleCheck, Lock } from "lucide-react";
+import { CircleCheck, Lock, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useState, useTransition } from "react";
 import { Button } from "@/design-system/components/button";
@@ -8,18 +8,28 @@ import { Alert } from "@/design-system/components/feedback";
 import { Textarea } from "@/design-system/components/field";
 import { cn } from "@/design-system/cn";
 import { api, ApiError } from "@/lib/api-client";
-import { ANONYMITY_COPY, SCALE_LABELS } from "./labels";
+import { ANONYMITY_COPY, PRIVACY_COPY, SCALE_LABELS } from "./labels";
 
 type Question = { id: string; type: "scale" | "enps" | "choice" | "text"; text: string; options: string[] | null; required: boolean };
 type Answers = Record<string, number | string>;
+export type FormPrivacy = { anonymityMode: "anonymous" | "identified"; noMinimum: boolean };
+
+/** Aviso exibido antes das perguntas (e no rodapé dos campos de texto). */
+function privacyNotice(privacy: FormPrivacy) {
+  if (privacy.anonymityMode === "identified") return { title: PRIVACY_COPY.identified.title, text: PRIVACY_COPY.identified.form, tone: "warning" as const, done: "Sua resposta foi registrada com o seu nome. Só o time de Gente e Gestão tem acesso a ela." };
+  if (privacy.noMinimum) return { title: "Pesquisa anônima, sem mínimo de respostas", text: PRIVACY_COPY.free.form, tone: "warning" as const, done: "Sua resposta foi registrada de forma anônima." };
+  return { title: "Pesquisa anônima", text: ANONYMITY_COPY.form, tone: "info" as const, done: "Sua resposta foi registrada de forma anônima. Os resultados aparecem só de forma agrupada." };
+}
 
 const MAX_COMMENT = 2000;
 
 /**
- * Formulário de pesquisa anônima. Rascunho SOMENTE no sessionStorage deste
- * navegador (nunca no servidor), apagado ao enviar.
+ * Formulário de pesquisa (anônima ou identificada, com o aviso correspondente).
+ * Rascunho SOMENTE no sessionStorage deste navegador (nunca no servidor),
+ * apagado ao enviar.
  */
-export function SurveyForm({ surveyId, questions }: { surveyId: string; questions: Question[] }) {
+export function SurveyForm({ surveyId, questions, privacy }: { surveyId: string; questions: Question[]; privacy: FormPrivacy }) {
+  const notice = privacyNotice(privacy);
   const storageKey = `luumu:pesquisa:${surveyId}`;
   const [answers, setAnswers] = useState<Answers>({});
   const [missing, setMissing] = useState<string[]>([]);
@@ -84,7 +94,7 @@ export function SurveyForm({ surveyId, questions }: { surveyId: string; question
           <CircleCheck aria-hidden className="size-8" />
         </span>
         <h2 className="mt-4 text-h2 font-bold text-neutral-900">Obrigado por participar!</h2>
-        <p className="mt-2 max-w-md text-body text-neutral-600">Sua resposta foi registrada de forma anônima. Os resultados aparecem só de forma agrupada.</p>
+        <p className="mt-2 max-w-md text-body text-neutral-600">{notice.done}</p>
         <Button asChild variant="soft" className="mt-6">
           <Link href="/pesquisas">Voltar para pesquisas</Link>
         </Button>
@@ -96,17 +106,17 @@ export function SurveyForm({ surveyId, questions }: { surveyId: string; question
 
   return (
     <form onSubmit={submit} noValidate className="space-y-5">
-      <Alert tone="info" title="Pesquisa anônima">
+      <Alert tone={notice.tone} title={notice.title}>
         <span className="flex items-start gap-1.5">
-          <Lock aria-hidden className="mt-0.5 size-4 shrink-0" />
-          {ANONYMITY_COPY.form}
+          {privacy.anonymityMode === "identified" ? <UserRound aria-hidden className="mt-0.5 size-4 shrink-0" /> : <Lock aria-hidden className="mt-0.5 size-4 shrink-0" />}
+          {notice.text}
         </span>
       </Alert>
 
       <ol className="space-y-4">
         {questions.map((q, i) => (
           <li key={q.id} id={`q-${q.id}`} className={cn("card scroll-mt-24 p-5 sm:p-6", missing.includes(q.id) && "ring-2 ring-red-500")}>
-            <QuestionField index={i + 1} question={q} value={answers[q.id]} onChange={(v) => set(q.id, v)} invalid={missing.includes(q.id)} />
+            <QuestionField index={i + 1} question={q} value={answers[q.id]} onChange={(v) => set(q.id, v)} invalid={missing.includes(q.id)} hint={privacy.anonymityMode === "identified" ? PRIVACY_COPY.identified.form : ANONYMITY_COPY.form} />
           </li>
         ))}
       </ol>
@@ -124,7 +134,7 @@ export function SurveyForm({ surveyId, questions }: { surveyId: string; question
   );
 }
 
-function QuestionField({ index, question: q, value, onChange, invalid }: { index: number; question: Question; value: number | string | undefined; onChange: (v: number | string) => void; invalid: boolean }) {
+function QuestionField({ index, question: q, value, onChange, invalid, hint }: { index: number; question: Question; value: number | string | undefined; onChange: (v: number | string) => void; invalid: boolean; hint: string }) {
   const id = useId();
   const legend = (
     <legend className="mb-4 text-body font-semibold text-neutral-900">
@@ -144,7 +154,7 @@ function QuestionField({ index, question: q, value, onChange, invalid }: { index
         </label>
         <Textarea id={id} value={typeof value === "string" ? value : ""} onChange={(e) => onChange(e.target.value)} maxLength={MAX_COMMENT} invalid={invalid} aria-describedby={`${id}-hint`} rows={4} />
         <p id={`${id}-hint`} className="mt-1.5 text-caption text-neutral-500">
-          {ANONYMITY_COPY.form} ({String(value ?? "").length}/{MAX_COMMENT})
+          {hint} ({String(value ?? "").length}/{MAX_COMMENT})
         </p>
       </div>
     );

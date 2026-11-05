@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { QUESTION_TYPES, SURVEY_DIMENSIONS, SURVEY_KINDS } from "@/server/db/schema/surveys";
+import { ANONYMITY_MODES, QUESTION_TYPES, SURVEY_DIMENSIONS, SURVEY_KINDS } from "@/server/db/schema/surveys";
 
 const text = (max: number) => z.string().trim().min(1, "Campo obrigatório.").max(max, `Use no máximo ${max} caracteres.`);
 
@@ -16,13 +16,16 @@ export const questionInputSchema = z
   .refine((q) => (q.type === "choice") === Boolean(q.options?.length), { message: "Somente perguntas de múltipla escolha têm opções.", path: ["options"] });
 
 /**
- * Rascunho de pesquisa. Nesta versão toda pesquisa é ANÔNIMA: pesquisas
- * identificadas (tabelas próprias + aviso na interface) são a próxima etapa.
+ * Rascunho de pesquisa. Quem cria escolhe a privacidade: ANÔNIMA (cofre) ou
+ * IDENTIFICADA (com nome, só para G&G), e se é LIVRE (sem mínimo de público nem
+ * de respostas por grupo). Identificada é sempre livre.
  */
 export const surveyInputSchema = z.strictObject({
   title: text(120),
   description: z.string().trim().max(600, "Use no máximo 600 caracteres.").nullish(),
   kind: z.enum(SURVEY_KINDS),
+  anonymityMode: z.enum(ANONYMITY_MODES).default("anonymous"),
+  noMinimum: z.boolean().default(false),
   anonymityK: z.union([z.literal(5), z.literal(7), z.literal(10)]).default(5),
   questions: z.array(questionInputSchema).min(1, "Inclua ao menos uma pergunta.").max(MAX_QUESTIONS, `Use no máximo ${MAX_QUESTIONS} perguntas.`),
 });
@@ -36,15 +39,26 @@ export type SurveyDetailsInput = z.infer<typeof surveyDetailsSchema>;
 
 export const resumeInputSchema = z.strictObject({ closesAt: z.iso.datetime({ offset: true }).optional() });
 
-/** Lançamento: prazo, início (agora ou agendado) e público (empresa toda ou uma área com subáreas). */
+export const MAX_AUDIENCE_UNITS = 50;
+
+/** Lançamento: prazo, início (agora ou agendado) e público (empresa toda ou áreas específicas, com subáreas). */
 export const launchInputSchema = z.strictObject({
   closesAt: z.iso.datetime({ offset: true }),
   opensAt: z.iso.datetime({ offset: true }).optional(),
-  audienceOrgUnitId: z.uuid().nullish(),
+  /** Vazio ou ausente = empresa toda. */
+  audienceOrgUnitIds: z.array(z.uuid()).max(MAX_AUDIENCE_UNITS, `Escolha no máximo ${MAX_AUDIENCE_UNITS} áreas.`).optional(),
 });
 export type LaunchInput = z.infer<typeof launchInputSchema>;
 
-export const audienceQuerySchema = z.strictObject({ orgUnitId: z.uuid().optional() });
+/** Áreas separadas por vírgula; ausente = empresa toda. */
+export const audienceQuerySchema = z.strictObject({
+  orgUnitIds: z
+    .string()
+    .max(MAX_AUDIENCE_UNITS * 37)
+    .transform((v) => v.split(",").filter(Boolean))
+    .pipe(z.array(z.uuid()).max(MAX_AUDIENCE_UNITS))
+    .optional(),
+});
 
 export const surveyParamsSchema = z.strictObject({ id: z.uuid() });
 

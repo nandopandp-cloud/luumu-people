@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { JOB_LEVEL_NAMES, POSITION_NAMES } from "@/lib/job-catalog";
+import { CONTRACT_TYPES, EMPLOYMENT_STATUSES } from "@/server/db/schema/organization";
 
 const USER_STATUS_VALUES = ["invited", "active", "inactive"] as const;
 
@@ -63,6 +64,55 @@ export const personCreateSchema = z.strictObject({
   sendInvite: z.boolean().default(true),
 });
 export type PersonCreate = z.infer<typeof personCreateSchema>;
+
+const phoneSchema = z
+  .string()
+  .trim()
+  .regex(/^[+()\d\s-]{8,20}$/, "Telefone em formato inválido");
+
+/**
+ * Edição dos dados de um colaborador pela gestão (people.manage, empresa toda).
+ * Todos os campos são opcionais (só o que mudou). Cargo e nível: um já
+ * cadastrado na empresa (id) ou um da lista fixa (nome). Localização: uma
+ * unidade existente, uma cidade/UF nova ou nenhuma (null). Mudanças de área,
+ * cargo, nível, localização e gestor(a) geram histórico (nunca sobrescrevem).
+ */
+export const personUpdateSchema = z
+  .strictObject({
+    name: z.string().trim().min(3, "Informe o nome completo.").max(120).optional(),
+    preferredName: z.string().trim().min(1).max(80).nullable().optional(),
+    email: z.email("Informe um e-mail válido.").trim().toLowerCase().max(254).optional(),
+    hireDate: isoDate.optional(),
+    orgUnitId: z.uuid().optional(),
+    positionId: z.uuid().optional(),
+    position: z.enum(POSITION_NAMES).optional(),
+    jobLevelId: z.uuid().optional(),
+    jobLevel: z.enum(JOB_LEVEL_NAMES).optional(),
+    /** null = sem gestor(a). */
+    managerId: z.uuid().nullable().optional(),
+    location: z
+      .union([
+        z.strictObject({ businessUnitId: z.uuid() }),
+        z.strictObject({
+          city: z.string().trim().min(2, "Informe a cidade.").max(80),
+          state: z
+            .string()
+            .trim()
+            .toUpperCase()
+            .regex(/^[A-Z]{2}$/, "Use a sigla do estado (ex.: SP)."),
+        }),
+      ])
+      .nullable()
+      .optional(),
+    employeeCode: z.string().trim().min(1).max(40).nullable().optional(),
+    contractType: z.enum(CONTRACT_TYPES).optional(),
+    employmentStatus: z.enum(EMPLOYMENT_STATUSES).optional(),
+    phone: phoneSchema.nullable().optional(),
+  })
+  .refine((v) => Object.values(v).some((x) => x !== undefined), "Informe ao menos um campo.")
+  .refine((v) => !(v.positionId && v.position), { message: "Escolha um único cargo.", path: ["position"] })
+  .refine((v) => !(v.jobLevelId && v.jobLevel), { message: "Escolha um único nível.", path: ["jobLevel"] });
+export type PersonUpdate = z.infer<typeof personUpdateSchema>;
 
 /** Desativar ou reativar o acesso. */
 export const personStatusSchema = z.strictObject({ status: z.enum(["active", "inactive"]) });

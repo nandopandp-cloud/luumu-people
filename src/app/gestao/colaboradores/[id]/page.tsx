@@ -1,4 +1,4 @@
-import { Briefcase, CalendarDays, FileBadge, Hash, Mail, MapPin, Network, Phone, UsersRound, type LucideIcon } from "lucide-react";
+import { BadgeCheck, Briefcase, CalendarDays, FileBadge, Hash, Mail, MapPin, Network, Phone, UsersRound, type LucideIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -9,15 +9,19 @@ import { Card, CardHeader } from "@/design-system/components/card";
 import { Skeleton } from "@/design-system/components/feedback";
 import { Breadcrumb } from "@/design-system/components/navigation";
 import { RoleManager } from "@/features/access/role-manager";
+import { EditPersonButton } from "@/features/directory/edit-person";
 import { CONTRACT_LABELS, formatDate, formatLocation } from "@/lib/format";
 import { hasTenantWide } from "@/server/authz/policy";
 import { requirePermission } from "@/server/dal";
 import { HttpError } from "@/server/http/errors";
 import { listRoles, listUserRoles } from "@/server/modules/access/service";
 import { listOrgUnits } from "@/server/modules/organization/service";
+import { getPersonEditOptions, getPersonForEdit } from "@/server/modules/people/admin";
 import { getPerson } from "@/server/modules/people/service";
 
 export const metadata: Metadata = { title: "Pessoa" };
+
+const EMPLOYMENT_LABELS: Record<string, string> = { active: "Em atividade", on_leave: "Afastado(a)", terminated: "Desligado(a)" };
 
 export default function PersonPage({ params }: PageProps<"/gestao/colaboradores/[id]">) {
   return (
@@ -55,7 +59,11 @@ async function Person({ params }: { params: PageProps<"/gestao/colaboradores/[id
   }
 
   const canAssign = hasTenantWide(actor, "access.roles.assign");
-  const [assignments, roles, orgUnits] = canAssign ? await Promise.all([listUserRoles(actor, id), listRoles(actor), listOrgUnits(actor)]) : [[], [], []];
+  const canEdit = hasTenantWide(actor, "people.manage");
+  const [[assignments, roles, orgUnits], edit] = await Promise.all([
+    canAssign ? Promise.all([listUserRoles(actor, id), listRoles(actor), listOrgUnits(actor)]) : Promise.resolve([[], [], []] as [[], [], []]),
+    canEdit ? Promise.all([getPersonForEdit(actor, id), getPersonEditOptions(actor)]) : Promise.resolve(null),
+  ]);
 
   return (
     <>
@@ -72,6 +80,15 @@ async function Person({ params }: { params: PageProps<"/gestao/colaboradores/[id
           <p className="mt-1 text-body text-neutral-600">{[person.position, person.level].filter(Boolean).join(" · ")}</p>
           {person.headline ? <p className="mt-3 text-body-sm italic text-neutral-600">“{person.headline}”</p> : null}
         </div>
+        {edit ? (
+          <div className="sm:self-start">
+            <EditPersonButton
+              person={edit[0]}
+              options={{ ...edit[1], managers: edit[1].managers.map((m) => ({ ...m, name: m.name ?? "" })) }}
+              isSelf={id === actor.userId}
+            />
+          </div>
+        ) : null}
       </section>
 
       <div className="grid gap-6 xl:grid-cols-2">
@@ -93,6 +110,7 @@ async function Person({ params }: { params: PageProps<"/gestao/colaboradores/[id
               <dl className="divide-y divide-line/60">
                 <Row icon={Hash} label="Matrícula" value={person.personal.employeeCode ?? "—"} />
                 <Row icon={FileBadge} label="Contrato" value={CONTRACT_LABELS[person.personal.contractType] ?? person.personal.contractType} />
+                <Row icon={BadgeCheck} label="Situação do vínculo" value={EMPLOYMENT_LABELS[person.personal.employmentStatus] ?? person.personal.employmentStatus} />
                 <Row icon={Phone} label="Telefone" value={person.personal.phone ?? "—"} />
               </dl>
             </Card>
